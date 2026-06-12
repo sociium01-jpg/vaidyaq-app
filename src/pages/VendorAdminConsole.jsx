@@ -6,7 +6,8 @@ import {
   ArrowLeft, Folder, FolderOpen, FileText, Download, Trash, 
   Plus, ShieldAlert, Sparkles, Send, Coins, FileCheck, HelpCircle,
   TrendingUp, HardDrive, Calendar, CreditCard, ChevronRight, ChevronDown, LogOut,
-  Sliders, Printer, Mail, MessageSquare, Briefcase, Eye, EyeOff
+  Sliders, Printer, Mail, MessageSquare, Briefcase, Eye, EyeOff,
+  TrendingDown, Trash2, Filter
 } from 'lucide-react';
 
 export default function VendorAdminConsole() {
@@ -69,6 +70,46 @@ export default function VendorAdminConsole() {
   const [ticketResolutionNotes, setTicketResolutionNotes] = useState('');
   const [ticketSaveSuccess, setTicketSaveSuccess] = useState(false);
 
+  // --- FINANCE MODULE EXTENDED STATES ---
+  const [financeTimeScale, setFinanceTimeScale] = useState('monthly'); // 'monthly', 'quarterly', 'yearly'
+  const [statusFilters, setStatusFilters] = useState({
+    Paid: true,
+    Pending: true,
+    'Awaiting Payment': true,
+    Expired: true,
+    Cancelled: true,
+    'Under Trial': true
+  });
+
+  const [googleMailConnected, setGoogleMailConnected] = useState(() => {
+    return localStorage.getItem('qn_finance_google_connected') === 'true';
+  });
+  const [googleMailAccount, setGoogleMailAccount] = useState(() => {
+    return localStorage.getItem('qn_finance_google_account') || 'finance@vaidyaq.com';
+  });
+  const [showGoogleOAuthModal, setShowGoogleOAuthModal] = useState(false);
+  const [focusedClientId, setFocusedClientId] = useState('all');
+
+  const [expenses, setExpenses] = useState(() => {
+    const saved = localStorage.getItem('qn_vendor_expenses_logs');
+    return saved ? JSON.parse(saved) : [
+      { id: 'exp-1', clientId: 'demo-hosp', clientName: 'City Central Metro Hospital', category: 'API Credits', amount: 8500, date: '2026-06-01', description: 'AI SOP generation API tokens usage.' },
+      { id: 'exp-2', clientId: 'demo-hosp', clientName: 'City Central Metro Hospital', category: 'Server/Cloud', amount: 12000, date: '2026-06-05', description: 'AWS secure storage allocation.' }
+    ];
+  });
+
+  // Expense logging form states
+  const [expenseClientId, setExpenseClientId] = useState('');
+  const [expenseCategory, setExpenseCategory] = useState('API Credits');
+  const [expenseAmount, setExpenseAmount] = useState('');
+  const [expenseDate, setExpenseDate] = useState(new Date().toISOString().slice(0, 10));
+  const [expenseDescription, setExpenseDescription] = useState('');
+  const [expenseSuccess, setExpenseSuccess] = useState(false);
+
+  // Invoice mailing simulation overlay
+  const [invoiceMailedSuccess, setInvoiceMailedSuccess] = useState(false);
+  const [mailFeedbackMessage, setMailFeedbackMessage] = useState('');
+
   // Finance Customizer States
   const [financeSelectedClient, setFinanceSelectedClient] = useState('');
   const [invoiceLogo, setInvoiceLogo] = useState('VaidyaQ');
@@ -110,12 +151,27 @@ export default function VendorAdminConsole() {
   const [newPassword, setNewPassword] = useState(vendorAdminCredentials.password);
   const [credSuccess, setCredSuccess] = useState(false);
 
-  // Prepopulate first client for Finance Invoice builder on load
+  // Sync expenses and Google connection to localstorage
   useEffect(() => {
-    if (clientsList.length > 0 && !financeSelectedClient) {
-      setFinanceSelectedClient(clientsList[0].hospitalId);
+    localStorage.setItem('qn_vendor_expenses_logs', JSON.stringify(expenses));
+  }, [expenses]);
+
+  useEffect(() => {
+    localStorage.setItem('qn_finance_google_connected', googleMailConnected ? 'true' : 'false');
+    localStorage.setItem('qn_finance_google_account', googleMailAccount);
+  }, [googleMailConnected, googleMailAccount]);
+
+  // Prepopulate first client for Finance Invoice builder & expense on load
+  useEffect(() => {
+    if (clientsList.length > 0) {
+      if (!financeSelectedClient) {
+        setFinanceSelectedClient(clientsList[0].hospitalId);
+      }
+      if (!expenseClientId) {
+        setExpenseClientId(clientsList[0].hospitalId);
+      }
     }
-  }, [clientsList, financeSelectedClient]);
+  }, [clientsList, financeSelectedClient, expenseClientId]);
 
   // Sync internal gemini key input state if parent changes
   useEffect(() => {
@@ -340,6 +396,209 @@ export default function VendorAdminConsole() {
       </html>
     `);
     printWindow.document.close();
+  };
+
+  // Resolve client billing status string mapping
+  const resolveClientBillingStatus = (client) => {
+    return client.billingStatus || (client.status === 'Paid' ? 'Paid' : client.status === 'Expired' ? 'Expired' : client.status === 'Restricted' ? 'Cancelled' : 'Under Trial');
+  };
+
+  // Update billing status and sync transactional entry
+  const handleUpdateBillingStatus = (hospId, newBillingStatus) => {
+    setClientsList(prev => prev.map(c => {
+      if (c.hospitalId === hospId) {
+        let updatedStatus = c.status;
+        if (newBillingStatus === 'Paid') {
+          updatedStatus = 'Paid';
+          
+          // Inject a successful payment transaction log dynamically if missing
+          const transactionExists = transactions.some(
+            t => (t.clientId === c.email || t.hospitalName === c.hospitalName) && t.status === 'Successful'
+          );
+
+          if (!transactionExists) {
+            const priceAmount = c.beds <= 20 ? 55999 : c.beds <= 150 ? 129999 : 249999;
+            const gstVal = Math.round(priceAmount * 0.18 * 100) / 100;
+            const newTrans = {
+              id: `trans-${Date.now()}`,
+              clientId: c.email,
+              hospitalName: c.hospitalName,
+              amount: priceAmount,
+              gst: gstVal,
+              date: new Date().toISOString().slice(0, 10),
+              status: "Successful",
+              billingCycle: "H1 2026"
+            };
+            setTransactions(prevT => [newTrans, ...prevT]);
+            
+            // Log outgoing transactional invoice email duplicate
+            sendSimulatedEmail(
+              c.email,
+              `VaidyaQ Payment Receipt - Subscription Active`,
+              `Hello! Your subscription plan for ${c.hospitalName} has been marked as PAID. Base amount: ₹${priceAmount.toLocaleString()} + ₹${gstVal.toLocaleString()} GST. Subscription term is active.`,
+              "Payment"
+            );
+          }
+        } else if (newBillingStatus === 'Expired') {
+          updatedStatus = 'Expired';
+        } else if (newBillingStatus === 'Cancelled') {
+          updatedStatus = 'Restricted';
+        } else if (newBillingStatus === 'Under Trial') {
+          updatedStatus = 'Active Trial';
+        }
+
+        return { ...c, billingStatus: newBillingStatus, status: updatedStatus };
+      }
+      return c;
+    }));
+  };
+
+  // Toggle dynamic status filters
+  const handleToggleStatusFilter = (statusKey) => {
+    setStatusFilters(prev => ({
+      ...prev,
+      [statusKey]: !prev[statusKey]
+    }));
+  };
+
+  // Add Vaidya Expense per Client Form Submission
+  const handleAddExpenseSubmit = (e) => {
+    e.preventDefault();
+    if (!expenseAmount || Number(expenseAmount) <= 0) return;
+
+    const matchedClient = clientsList.find(c => c.hospitalId === expenseClientId);
+    const newExpense = {
+      id: `exp-${Date.now()}`,
+      clientId: expenseClientId,
+      clientName: matchedClient?.hospitalName || 'Unknown Hospital',
+      category: expenseCategory,
+      amount: Number(expenseAmount),
+      date: expenseDate,
+      description: expenseDescription
+    };
+
+    setExpenses(prev => [newExpense, ...prev]);
+    setExpenseAmount('');
+    setExpenseDescription('');
+    setExpenseSuccess(true);
+    setTimeout(() => setExpenseSuccess(false), 3000);
+  };
+
+  // Delete expense log entry
+  const handleDeleteExpense = (expId) => {
+    setExpenses(prev => prev.filter(exp => exp.id !== expId));
+  };
+
+  // Send Custom Invoice via connected Google Account Simulator
+  const handleSendEmailInvoice = (client) => {
+    if (!client) return;
+
+    if (!googleMailConnected) {
+      setMailFeedbackMessage(`Error: Google Workspace connection required. Please connect your Google Account in the billing panel first.`);
+      setInvoiceMailedSuccess(true);
+      setTimeout(() => setInvoiceMailedSuccess(false), 4000);
+      return;
+    }
+
+    const beds = client.beds || 0;
+    const baseFee = beds <= 20 ? 55999 : beds <= 150 ? 129999 : 249999;
+    const gstTotal = Math.round(baseFee * 0.18 * 100) / 100;
+    const invoiceTotal = baseFee + gstTotal;
+
+    // Simulate sending email through VaidyaQ Gmail Workspace integration
+    sendSimulatedEmail(
+      client.email,
+      `VQ-2026-0041: VaidyaQ Tax Invoice for ${client.hospitalName}`,
+      `Hello Admin,\n\nPlease find attached the tax invoice for your digital accreditation subscription.\n\nSUMMARY:\n- Client: ${client.hospitalName}\n- Beds: ${beds} Beds\n- Base Annual Plan: ₹${baseFee.toLocaleString()}\n- GST Compliance (18%): ₹${gstTotal.toLocaleString()}\n- Total Amount Due: ₹${invoiceTotal.toLocaleString()}\n\nPayment terms: ${invoiceTerms}.\n\nBest Regards,\nBilling Operations Team\n${invoiceCompanyName}\n\n[Authorized via Google Mail API: ${googleMailAccount}]`,
+      "Payment"
+    );
+
+    // Set flag in clients list that the bill has been sent
+    setClientsList(prev => prev.map(c => {
+      if (c.hospitalId === client.hospitalId) {
+        return { ...c, billSent: true, billingStatus: c.billingStatus === 'Under Trial' ? 'Pending' : c.billingStatus };
+      }
+      return c;
+    }));
+
+    setMailFeedbackMessage(`Invoice successfully compiled and sent via Google mail servers (${googleMailAccount}) to: ${client.email}`);
+    setInvoiceMailedSuccess(true);
+    setTimeout(() => setInvoiceMailedSuccess(false), 5000);
+  };
+
+  // Download Invoice HTML template
+  const handleDownloadInvoiceTemplate = (client) => {
+    if (!client) return;
+    const beds = client.beds || 0;
+    const baseFee = beds <= 20 ? 55999 : beds <= 150 ? 129999 : 249999;
+    const cgst = Math.round(baseFee * 0.09 * 100) / 100;
+    const sgst = Math.round(baseFee * 0.09 * 100) / 100;
+    const total = baseFee + cgst + sgst;
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>VQ-2026-0041 - Tax Invoice</title>
+          <style>
+            body { font-family: sans-serif; color: #333; line-height: 1.4; padding: 20px; }
+            .box { border: 1px solid #ccc; padding: 30px; border-radius: 8px; max-width: 600px; margin: auto; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; }
+            th { background-color: #f7f7f7; }
+            .text-right { text-align: right; }
+          </style>
+        </head>
+        <body>
+          <div class="box">
+            <h2>${invoiceCompanyName}</h2>
+            <p>Address: ${invoiceAddress}</p>
+            <p>GSTIN: ${invoiceGst}</p>
+            <hr />
+            <h3>TAX INVOICE</h3>
+            <p><strong>Billed To:</strong> ${client.hospitalName}</p>
+            <p><strong>Email:</strong> ${client.email}</p>
+            <p><strong>Accreditation Beds:</strong> ${beds} Beds</p>
+            <table>
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th class="text-right">Base Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>VaidyaQ Digital SaaS Subscription (1 Year)</td>
+                  <td class="text-right">₹${baseFee.toLocaleString()}</td>
+                </tr>
+                <tr>
+                  <td>CGST (9%)</td>
+                  <td class="text-right">₹${cgst.toLocaleString()}</td>
+                </tr>
+                <tr>
+                  <td>SGST (9%)</td>
+                  <td class="text-right">₹${sgst.toLocaleString()}</td>
+                </tr>
+                <tr style="font-weight: bold;">
+                  <td>Total (INR)</td>
+                  <td class="text-right">₹${total.toLocaleString()}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `VQ_Invoice_${client.hospitalName.replace(/\s+/g, '_')}.html`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Support Tickets - Expand & Save Action station
@@ -656,6 +915,365 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
 
   // Target Ticket details
   const targetTicketDetails = supportTickets.find(t => t.id === selectedTicket);
+
+  // --- DYNAMIC FINANCIAL CALCULATIONS AND CHART AGGREGATION ---
+  const activeFilters = Object.keys(statusFilters).filter(k => statusFilters[k]);
+
+  // Aggregate dynamic Revenue based on selected status filters
+  const getDynamicFinancials = () => {
+    let revenueSum = 0;
+    let baseGstSum = 0;
+
+    // Aggregate paid transaction records
+    transactions.forEach(t => {
+      const client = clientsList.find(c => c.hospitalName === t.hospitalName || c.email === t.clientId);
+      const bStatus = client ? resolveClientBillingStatus(client) : 'Paid';
+      if (activeFilters.includes(bStatus)) {
+        if (focusedClientId === 'all' || (client && client.hospitalId === focusedClientId)) {
+          revenueSum += t.amount;
+          baseGstSum += t.gst;
+        }
+      }
+    });
+
+    // Also factor in Pending/Awaiting payment client contract projections if selected
+    clientsList.forEach(c => {
+      const bStatus = resolveClientBillingStatus(c);
+      if (bStatus !== 'Paid' && bStatus !== 'Under Trial' && activeFilters.includes(bStatus)) {
+        if (focusedClientId === 'all' || c.hospitalId === focusedClientId) {
+          // Compute base fee projection
+          const amount = c.beds <= 20 ? 55999 : c.beds <= 150 ? 129999 : 249999;
+          revenueSum += amount;
+          baseGstSum += Math.round(amount * 0.18 * 100) / 100;
+        }
+      }
+    });
+
+    // Aggregate expenses matching selected client billing status filters
+    let expenseSum = 0;
+    expenses.forEach(e => {
+      const client = clientsList.find(c => c.hospitalId === e.clientId);
+      const bStatus = client ? resolveClientBillingStatus(client) : 'Under Trial';
+      if (activeFilters.includes(bStatus)) {
+        if (focusedClientId === 'all' || e.clientId === focusedClientId) {
+          expenseSum += e.amount;
+        }
+      }
+    });
+
+    const profit = revenueSum - expenseSum;
+    const profitMargin = revenueSum > 0 ? Math.round((profit / revenueSum) * 100) : 0;
+
+    return {
+      revenueSum,
+      expenseSum,
+      profit,
+      profitMargin,
+      baseGstSum
+    };
+  };
+
+  const currentFinancials = getDynamicFinancials();
+
+  // Aggregate monthly/quarterly/yearly values for visual SVG rendering
+  const getChartCoordinates = () => {
+    // Months indexes
+    const monthlyRevArr = Array(12).fill(0);
+    const monthlyExpArr = Array(12).fill(0);
+
+    // Sum transactions
+    transactions.forEach(t => {
+      const client = clientsList.find(c => c.hospitalName === t.hospitalName || c.email === t.clientId);
+      const bStatus = client ? resolveClientBillingStatus(client) : 'Paid';
+      if (activeFilters.includes(bStatus)) {
+        if (focusedClientId === 'all' || (client && client.hospitalId === focusedClientId)) {
+          const month = new Date(t.date).getMonth();
+          if (month >= 0 && month < 12) {
+            monthlyRevArr[month] += t.amount;
+          }
+        }
+      }
+    });
+
+    // Sum pending contracts (projections for June)
+    clientsList.forEach(c => {
+      const bStatus = resolveClientBillingStatus(c);
+      if (bStatus !== 'Paid' && bStatus !== 'Under Trial' && activeFilters.includes(bStatus)) {
+        if (focusedClientId === 'all' || c.hospitalId === focusedClientId) {
+          monthlyRevArr[5] += c.beds <= 20 ? 55999 : c.beds <= 150 ? 129999 : 249999; // Project in June
+        }
+      }
+    });
+
+    // Sum expenses
+    expenses.forEach(e => {
+      const client = clientsList.find(c => c.hospitalId === e.clientId);
+      const bStatus = client ? resolveClientBillingStatus(client) : 'Under Trial';
+      if (activeFilters.includes(bStatus)) {
+        if (focusedClientId === 'all' || e.clientId === focusedClientId) {
+          const month = new Date(e.date).getMonth();
+          if (month >= 0 && month < 12) {
+            monthlyExpArr[month] += e.amount;
+          }
+        }
+      }
+    });
+
+    if (financeTimeScale === 'monthly') {
+      const rawMax = Math.max(...monthlyRevArr, ...monthlyExpArr, 10000);
+      const maxVal = Math.ceil((rawMax * 1.25) / 10000) * 10000;
+      return {
+        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+        revValues: monthlyRevArr,
+        expValues: monthlyExpArr,
+        maxVal: maxVal
+      };
+    } else if (financeTimeScale === 'quarterly') {
+      // Group by quarters
+      const qRev = [
+        monthlyRevArr[0] + monthlyRevArr[1] + monthlyRevArr[2], // Q1
+        monthlyRevArr[3] + monthlyRevArr[4] + monthlyRevArr[5], // Q2
+        monthlyRevArr[6] + monthlyRevArr[7] + monthlyRevArr[8], // Q3
+        monthlyRevArr[9] + monthlyRevArr[10] + monthlyRevArr[11] // Q4
+      ];
+      const qExp = [
+        monthlyExpArr[0] + monthlyExpArr[1] + monthlyExpArr[2],
+        monthlyExpArr[3] + monthlyExpArr[4] + monthlyExpArr[5],
+        monthlyExpArr[6] + monthlyExpArr[7] + monthlyExpArr[8],
+        monthlyExpArr[9] + monthlyExpArr[10] + monthlyExpArr[11]
+      ];
+      const rawMax = Math.max(...qRev, ...qExp, 30000);
+      const maxVal = Math.ceil((rawMax * 1.25) / 20000) * 20000;
+      return {
+        labels: ['Q1', 'Q2', 'Q3', 'Q4'],
+        revValues: qRev,
+        expValues: qExp,
+        maxVal: maxVal
+      };
+    } else {
+      // Yearly comparison FY 2025 vs FY 2026
+      const currentFYRev = monthlyRevArr.reduce((a, b) => a + b, 0);
+      const currentFYExp = monthlyExpArr.reduce((a, b) => a + b, 0);
+      const prevFYRev = focusedClientId === 'all' ? 3030000 : 129999;
+      const prevFYExp = focusedClientId === 'all' ? 1240000 : 45000;
+      const rawMax = Math.max(currentFYRev, currentFYExp, prevFYRev, prevFYExp, 50000);
+      const maxVal = Math.ceil((rawMax * 1.25) / 100000) * 100000;
+      return {
+        labels: ['FY 2025 (Prev)', 'FY 2026 (Curr)'],
+        revValues: [prevFYRev, currentFYRev],
+        expValues: [prevFYExp, currentFYExp],
+        maxVal: maxVal
+      };
+    }
+  };
+
+  const chartData = getChartCoordinates();
+
+  const getRenewalStatusLabel = (client) => {
+    if (!client.planExpiryDate) return <span style={{ color: 'var(--text-tertiary)' }}>No date set</span>;
+    const expiry = new Date(client.planExpiryDate);
+    const today = new Date();
+    const diffTime = expiry - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays < 0) return <span className="badge badge-danger" style={{ fontSize: '0.7rem' }}>Expired (Renew!)</span>;
+    if (diffDays <= 30) return <span className="badge badge-warning" style={{ fontSize: '0.7rem' }}>Up for Renewal ({diffDays}d)</span>;
+    return <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Active (Expires: {client.planExpiryDate})</span>;
+  };
+
+  const renderFinancialChart = () => {
+    const { labels, revValues, expValues, maxVal } = chartData;
+    const paddingLeft = 70;
+    const paddingRight = 30;
+    const paddingTop = 20;
+    const paddingBottom = 40;
+    const width = 800;
+    const height = 250;
+    const chartWidth = width - paddingLeft - paddingRight;
+    const chartHeight = height - paddingTop - paddingBottom;
+
+    const getX = (index) => {
+      if (labels.length <= 1) return paddingLeft + chartWidth / 2;
+      return paddingLeft + index * (chartWidth / (labels.length - 1));
+    };
+
+    const getY = (val) => {
+      const denom = maxVal || 10000;
+      return (height - paddingBottom) - (val / denom) * chartHeight;
+    };
+
+    let revPath = "";
+    let expPath = "";
+    let revAreaPath = "";
+    let expAreaPath = "";
+
+    if (labels.length > 0) {
+      revPath = `M ${getX(0)} ${getY(revValues[0])}`;
+      revAreaPath = `M ${getX(0)} ${height - paddingBottom} L ${getX(0)} ${getY(revValues[0])}`;
+      for (let i = 1; i < labels.length; i++) {
+        revPath += ` L ${getX(i)} ${getY(revValues[i])}`;
+        revAreaPath += ` L ${getX(i)} ${getY(revValues[i])}`;
+      }
+      revAreaPath += ` L ${getX(labels.length - 1)} ${height - paddingBottom} Z`;
+
+      expPath = `M ${getX(0)} ${getY(expValues[0])}`;
+      expAreaPath = `M ${getX(0)} ${height - paddingBottom} L ${getX(0)} ${getY(expValues[0])}`;
+      for (let i = 1; i < labels.length; i++) {
+        expPath += ` L ${getX(i)} ${getY(expValues[i])}`;
+        expAreaPath += ` L ${getX(i)} ${getY(expValues[i])}`;
+      }
+      expAreaPath += ` L ${getX(labels.length - 1)} ${height - paddingBottom} Z`;
+    }
+
+    const gridTicks = [0, 0.25, 0.5, 0.75, 1];
+
+    return (
+      <div style={{ backgroundColor: 'var(--bg-tertiary)', padding: '1.25rem', borderRadius: '12px', border: '1px solid var(--border-color)', position: 'relative' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <div>
+            <h4 style={{ fontSize: '0.9rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.3rem', margin: 0 }}>
+              <TrendingUp size={16} color="var(--primary)" />
+              <span>Revenue vs Expenses Visualizer</span>
+            </h4>
+            <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+              Comparing contract revenue projections against client-specific VaidyaQ operational costs
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '1rem', fontSize: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <span style={{ display: 'inline-block', width: '12px', height: '12px', backgroundColor: 'rgba(34, 197, 94, 0.2)', border: '2px solid rgb(34, 197, 94)', borderRadius: '3px' }}></span>
+              <span>Revenue (INR)</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <span style={{ display: 'inline-block', width: '12px', height: '12px', backgroundColor: 'rgba(239, 68, 68, 0.2)', border: '2px dashed rgb(239, 68, 68)', borderRadius: '3px' }}></span>
+              <span>Expenses (INR)</span>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ overflowX: 'auto' }}>
+          <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', minWidth: '600px', height: 'auto', display: 'block' }}>
+            <defs>
+              <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="rgb(34, 197, 94)" stopOpacity="0.25" />
+                <stop offset="100%" stopColor="rgb(34, 197, 94)" stopOpacity="0.0" />
+              </linearGradient>
+              <linearGradient id="expGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="rgb(239, 68, 68)" stopOpacity="0.15" />
+                <stop offset="100%" stopColor="rgb(239, 68, 68)" stopOpacity="0.0" />
+              </linearGradient>
+            </defs>
+
+            {gridTicks.map((tick, i) => {
+              const y = getY(maxVal * tick);
+              return (
+                <g key={i}>
+                  <line 
+                    x1={paddingLeft} 
+                    y1={y} 
+                    x2={width - paddingRight} 
+                    y2={y} 
+                    stroke="var(--border-color)" 
+                    strokeWidth="1" 
+                    strokeDasharray={tick === 0 ? "none" : "4,4"} 
+                  />
+                  <text 
+                    x={paddingLeft - 10} 
+                    y={y + 4} 
+                    textAnchor="end" 
+                    fontSize="10" 
+                    fill="var(--text-secondary)"
+                    fontWeight="500"
+                  >
+                    ₹{Math.round(maxVal * tick).toLocaleString()}
+                  </text>
+                </g>
+              );
+            })}
+
+            {labels.length > 0 && (
+              <>
+                <path d={revAreaPath} fill="url(#revGrad)" />
+                <path d={expAreaPath} fill="url(#expGrad)" />
+              </>
+            )}
+
+            {labels.length > 0 && (
+              <>
+                <path 
+                  d={revPath} 
+                  fill="none" 
+                  stroke="rgb(34, 197, 94)" 
+                  strokeWidth="3" 
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path 
+                  d={expPath} 
+                  fill="none" 
+                  stroke="rgb(239, 68, 68)" 
+                  strokeWidth="2.5" 
+                  strokeDasharray="4,4" 
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </>
+            )}
+
+            {labels.map((label, i) => {
+              const rx = getX(i);
+              const ry = getY(revValues[i]);
+              const ex = getX(i);
+              const ey = getY(expValues[i]);
+
+              return (
+                <g key={i}>
+                  <line 
+                    x1={rx} 
+                    y1={paddingTop} 
+                    x2={rx} 
+                    y2={height - paddingBottom} 
+                    stroke="var(--border-color)" 
+                    strokeWidth="1.5" 
+                    opacity="0"
+                    style={{ transition: 'opacity 0.2s' }}
+                    className="hover-line"
+                  />
+                  
+                  <circle 
+                    cx={rx} 
+                    cy={ry} 
+                    r="4.5" 
+                    fill="var(--bg-secondary)" 
+                    stroke="rgb(34, 197, 94)" 
+                    strokeWidth="3" 
+                  />
+                  <circle 
+                    cx={ex} 
+                    cy={ey} 
+                    r="4" 
+                    fill="var(--bg-secondary)" 
+                    stroke="rgb(239, 68, 68)" 
+                    strokeWidth="2.5" 
+                  />
+
+                  <text 
+                    x={rx} 
+                    y={height - paddingBottom + 18} 
+                    textAnchor="middle" 
+                    fontSize="11" 
+                    fill="var(--text-secondary)"
+                    fontWeight="600"
+                  >
+                    {label}
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div style={{ maxWidth: '1440px', margin: '0 auto', padding: '1.5rem', textAlign: 'left', minHeight: '100vh', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -1668,234 +2286,750 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
 
           {/* TAB 3: FINANCE & INVOICES */}
           {activeTab === 'finance' && renderPermissionGuard('manage_finance', (
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.3fr', gap: '1.5rem' }}>
+            <div className="flex flex-col gap-4">
               
-              {/* Left Column: Finance Configurator */}
-              <div className="flex flex-col gap-3">
-                
-                {/* Billing Summary metrics */}
-                <div className="card" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>
-                    <Coins size={16} /> <span>Dynamic Billing Collections</span>
-                  </h3>
-                  <div className="flex justify-between align-center" style={{ fontSize: '0.85rem', padding: '0.35rem 0' }}>
-                    <span>Total Subscriptions base:</span>
-                    <strong style={{ fontSize: '1rem' }}>₹{transactions.reduce((sum, t) => sum + t.amount, 0).toLocaleString()}</strong>
-                  </div>
-                  <div className="flex justify-between align-center" style={{ fontSize: '0.85rem', padding: '0.35rem 0', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-                    <span>Dynamic GST (18%) Collected:</span>
-                    <strong>₹{transactions.reduce((sum, t) => sum + t.gst, 0).toLocaleString()}</strong>
-                  </div>
-                  <div className="flex justify-between align-center" style={{ fontSize: '0.85rem', paddingTop: '0.5rem', fontWeight: 'bold' }}>
-                    <span>Total Cash Flow (INR):</span>
-                    <span style={{ color: 'var(--color-success)', fontSize: '1.1rem' }}>₹{transactions.reduce((sum, t) => sum + (t.amount + t.gst), 0).toLocaleString()}</span>
-                  </div>
-                </div>
-
-                {/* Customizer Checklist Forms */}
-                <div className="card flex flex-col gap-3" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <Sliders size={16} /> <span>GST Invoice Customizer</span>
-                  </h3>
+              {/* Top controls and selectors */}
+              <div className="card" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.5fr 1fr', gap: '1.5rem', alignItems: 'center' }}>
                   
-                  <div className="form-group">
-                    <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Billed Client Hospital</label>
+                  {/* Focus Client */}
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <Filter size={12} /> <span>Focus Client Account</span>
+                    </label>
                     <select 
                       className="form-control"
-                      value={financeSelectedClient}
-                      onChange={(e) => setFinanceSelectedClient(e.target.value)}
-                      style={{ width: '100%', padding: '0.5rem', backgroundColor: 'var(--bg-secondary)' }}
+                      value={focusedClientId}
+                      onChange={(e) => setFocusedClientId(e.target.value)}
+                      style={{ width: '100%', padding: '0.5rem', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '6px' }}
                     >
+                      <option value="all">📊 All Client Accounts</option>
                       {clientsList.map(c => (
-                        <option key={c.hospitalId} value={c.hospitalId}>{c.hospitalName} ({c.beds} beds)</option>
+                        <option key={c.hospitalId} value={c.hospitalId}>🏥 {c.hospitalName}</option>
                       ))}
                     </select>
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Our Corporate Name</label>
-                    <input type="text" className="form-control" value={invoiceCompanyName} onChange={(e) => setInvoiceCompanyName(e.target.value)} style={{ padding: '0.45rem' }} />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Our GSTIN Registry</label>
-                    <input type="text" className="form-control" value={invoiceGst} onChange={(e) => setInvoiceGst(e.target.value)} style={{ padding: '0.45rem' }} />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Our Address</label>
-                    <input type="text" className="form-control" value={invoiceAddress} onChange={(e) => setInvoiceAddress(e.target.value)} style={{ padding: '0.45rem' }} />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Payment Terms</label>
-                    <input type="text" className="form-control" value={invoiceTerms} onChange={(e) => setInvoiceTerms(e.target.value)} style={{ padding: '0.45rem' }} />
-                  </div>
-
-                  {/* Checklist toggles */}
+                  {/* Status Filters */}
                   <div>
-                    <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem', display: 'block', marginBottom: '0.4rem' }}>Invoice Layout Configurator</label>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.8rem' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                        <input type="checkbox" checked={layoutShowLogo} onChange={(e) => setLayoutShowLogo(e.target.checked)} />
-                        <span>Show VQ Logo</span>
-                      </label>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                        <input type="checkbox" checked={layoutShowGstSplit} onChange={(e) => setLayoutShowGstSplit(e.target.checked)} />
-                        <span>Show CGST/SGST Split</span>
-                      </label>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                        <input type="checkbox" checked={layoutIncludeBank} onChange={(e) => setLayoutIncludeBank(e.target.checked)} />
-                        <span>Include Bank Details</span>
-                      </label>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                        <input type="checkbox" checked={layoutIncludeTerms} onChange={(e) => setLayoutIncludeTerms(e.target.checked)} />
-                        <span>Include Terms Notice</span>
-                      </label>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                        <input type="checkbox" checked={layoutIncludeFooter} onChange={(e) => setLayoutIncludeFooter(e.target.checked)} />
-                        <span>Include Footer Notice</span>
-                      </label>
+                    <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem', display: 'block', marginBottom: '0.35rem' }}>
+                      Filter Client Billing Status
+                    </label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                      {Object.keys(statusFilters).map(statusKey => (
+                        <label 
+                          key={statusKey} 
+                          style={{ 
+                            display: 'inline-flex', 
+                            alignItems: 'center', 
+                            gap: '0.25rem', 
+                            cursor: 'pointer', 
+                            fontSize: '0.7rem',
+                            padding: '0.25rem 0.5rem',
+                            borderRadius: '6px',
+                            border: `1px solid ${statusFilters[statusKey] ? 'var(--primary)' : 'var(--border-color)'}`,
+                            backgroundColor: statusFilters[statusKey] ? 'var(--primary-light)' : 'var(--bg-tertiary)',
+                            color: statusFilters[statusKey] ? 'var(--primary)' : 'var(--text-secondary)',
+                            fontWeight: 600,
+                            userSelect: 'none'
+                          }}
+                        >
+                          <input 
+                            type="checkbox" 
+                            checked={statusFilters[statusKey]} 
+                            onChange={() => handleToggleStatusFilter(statusKey)} 
+                            style={{ display: 'none' }}
+                          />
+                          <span>{statusKey}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Time scale selectors */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
+                    <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem', marginBottom: '0.35rem' }}>
+                      Time Scale Trend
+                    </label>
+                    <div style={{ display: 'inline-flex', backgroundColor: 'var(--bg-tertiary)', padding: '2px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                      {['monthly', 'quarterly', 'yearly'].map(scale => (
+                        <button
+                          key={scale}
+                          onClick={() => setFinanceTimeScale(scale)}
+                          style={{
+                            padding: '0.35rem 0.75rem',
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            borderRadius: '6px',
+                            border: 'none',
+                            backgroundColor: financeTimeScale === scale ? 'var(--bg-secondary)' : 'transparent',
+                            color: financeTimeScale === scale ? 'var(--text-primary)' : 'var(--text-secondary)',
+                            boxShadow: financeTimeScale === scale ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                            cursor: 'pointer',
+                            textTransform: 'capitalize'
+                          }}
+                        >
+                          {scale}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Visual SVG chart */}
+              {renderFinancialChart()}
+
+              {/* Profitability summary widgets */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                
+                {/* Revenue */}
+                <div className="card" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                  <div className="flex justify-between align-center" style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600 }}>
+                    <span>TOTAL REVENUE</span>
+                    <TrendingUp size={16} color="rgb(34, 197, 94)" />
+                  </div>
+                  <h3 style={{ fontSize: '1.5rem', fontWeight: 800, margin: '0.5rem 0 0.25rem 0' }}>
+                    ₹{currentFinancials.revenueSum.toLocaleString()}
+                  </h3>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)' }}>
+                    Sum of matching contracts + base projections
+                  </div>
+                </div>
+
+                {/* Expenses */}
+                <div className="card" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                  <div className="flex justify-between align-center" style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600 }}>
+                    <span>TOTAL EXPENSES</span>
+                    <TrendingDown size={16} color="rgb(239, 68, 68)" />
+                  </div>
+                  <h3 style={{ fontSize: '1.5rem', fontWeight: 800, margin: '0.5rem 0 0.25rem 0' }}>
+                    ₹{currentFinancials.expenseSum.toLocaleString()}
+                  </h3>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)' }}>
+                    Total logged client-specific operations cost
+                  </div>
+                </div>
+
+                {/* Net Profit */}
+                <div className="card" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                  <div className="flex justify-between align-center" style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600 }}>
+                    <span>NET PROFIT</span>
+                    <span className="badge" style={{ 
+                      backgroundColor: currentFinancials.profit >= 0 ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                      color: currentFinancials.profit >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)',
+                      fontSize: '0.65rem', padding: '0.1rem 0.35rem', borderRadius: '4px'
+                    }}>
+                      {currentFinancials.profit >= 0 ? 'SURPLUS' : 'DEFICIT'}
+                    </span>
+                  </div>
+                  <h3 style={{ fontSize: '1.5rem', fontWeight: 800, margin: '0.5rem 0 0.25rem 0', color: currentFinancials.profit >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)' }}>
+                    ₹{currentFinancials.profit.toLocaleString()}
+                  </h3>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)' }}>
+                    Revenue minus logged expenses
+                  </div>
+                </div>
+
+                {/* Profit Margin Ratio */}
+                <div className="card" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                  <div className="flex justify-between align-center" style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600 }}>
+                    <span>NET PROFIT MARGIN</span>
+                    <span>{currentFinancials.profitMargin}%</span>
+                  </div>
+                  <div style={{ height: '8px', backgroundColor: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden', marginTop: '0.75rem', marginBottom: '0.5rem' }}>
+                    <div style={{ 
+                      width: `${Math.max(0, Math.min(100, currentFinancials.profitMargin))}%`, 
+                      height: '100%', 
+                      backgroundColor: currentFinancials.profitMargin >= 40 ? 'rgb(34, 197, 94)' : currentFinancials.profitMargin >= 15 ? 'rgb(251, 191, 36)' : 'rgb(239, 68, 68)' 
+                    }}></div>
+                  </div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)' }}>
+                    Margin ratio of operational surplus
+                  </div>
+                </div>
+
+                {/* GST Compliance */}
+                <div className="card" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                  <div className="flex justify-between align-center" style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600 }}>
+                    <span>GST COMPLIANCE (18%)</span>
+                    <FileCheck size={16} color="var(--primary)" />
+                  </div>
+                  <h3 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '0.5rem 0 0.25rem 0' }}>
+                    ₹{currentFinancials.baseGstSum.toLocaleString()}
+                  </h3>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>CGST (9%): ₹{Math.round(currentFinancials.baseGstSum / 2).toLocaleString()}</span>
+                    <span>SGST (9%): ₹{Math.round(currentFinancials.baseGstSum / 2).toLocaleString()}</span>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Google Mail Connector Header Panel */}
+              <div className="card" style={{ 
+                padding: '1.25rem', 
+                backgroundColor: googleMailConnected ? 'rgba(52, 168, 83, 0.08)' : 'rgba(251, 188, 5, 0.08)',
+                border: `1px solid ${googleMailConnected ? 'rgba(52, 168, 83, 0.2)' : 'rgba(251, 188, 5, 0.2)'}`,
+                borderRadius: '12px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div style={{ 
+                    width: '36px', 
+                    height: '36px', 
+                    borderRadius: '50%', 
+                    backgroundColor: googleMailConnected ? 'rgb(52, 168, 83)' : 'rgb(251, 188, 5)',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    color: '#fff'
+                  }}>
+                    <Mail size={18} />
+                  </div>
+                  <div>
+                    <h4 style={{ fontSize: '0.85rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <span>Google Workspace OAuth Mail Connector</span>
+                      {googleMailConnected && <span style={{ fontSize: '0.65rem', backgroundColor: 'rgb(52, 168, 83)', color: '#fff', padding: '0.1rem 0.4rem', borderRadius: '10px' }}>ACTIVE</span>}
+                    </h4>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+                      {googleMailConnected 
+                        ? `Connected to Google Mail API as: ${googleMailAccount}. Financial billing alerts will route via linked account.`
+                        : `Not connected. Connecting your workspace Gmail account is required to dispatch formal billing PDFs to client contacts.`
+                      }
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  {googleMailConnected ? (
+                    <button 
+                      onClick={() => {
+                        setGoogleMailConnected(false);
+                      }}
+                      className="btn btn-secondary"
+                      style={{ padding: '0.45rem 1rem', fontSize: '0.75rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      Disconnect Gmail
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={() => setShowGoogleOAuthModal(true)}
+                      className="btn btn-primary flex align-center gap-1"
+                      style={{ padding: '0.45rem 1rem', fontSize: '0.75rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}
+                    >
+                      <Lock size={12} /> <span>Connect Google Mail</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Main Workspace Split Section */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.3fr', gap: '1.5rem' }}>
+                
+                {/* Left Column: Configurator & Expenses */}
+                <div className="flex flex-col gap-4">
+                  
+                  {/* GST Invoice Layout Customizer */}
+                  <div className="card flex flex-col gap-3" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.25rem' }}>
+                      <Sliders size={16} color="var(--primary)" /> <span>GST Invoice Customizer</span>
+                    </h3>
+                    
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Billed Client Hospital</label>
+                      <select 
+                        className="form-control"
+                        value={financeSelectedClient}
+                        onChange={(e) => setFinanceSelectedClient(e.target.value)}
+                        style={{ width: '100%', padding: '0.5rem', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '6px' }}
+                      >
+                        {clientsList.map(c => (
+                          <option key={c.hospitalId} value={c.hospitalId}>{c.hospitalName} ({c.beds} beds)</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                      <div className="form-group">
+                        <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Company Header Logo</label>
+                        <input type="text" className="form-control" value={invoiceLogo} onChange={(e) => setInvoiceLogo(e.target.value)} style={{ padding: '0.45rem' }} />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Company Name</label>
+                        <input type="text" className="form-control" value={invoiceCompanyName} onChange={(e) => setInvoiceCompanyName(e.target.value)} style={{ padding: '0.45rem' }} />
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                      <div className="form-group">
+                        <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Our GSTIN Registry</label>
+                        <input type="text" className="form-control" value={invoiceGst} onChange={(e) => setInvoiceGst(e.target.value)} style={{ padding: '0.45rem' }} />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Payment Terms</label>
+                        <input type="text" className="form-control" value={invoiceTerms} onChange={(e) => setInvoiceTerms(e.target.value)} style={{ padding: '0.45rem' }} />
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Our Address</label>
+                      <input type="text" className="form-control" value={invoiceAddress} onChange={(e) => setInvoiceAddress(e.target.value)} style={{ padding: '0.45rem' }} />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Footer Inquiry Info</label>
+                      <input type="text" className="form-control" value={invoiceFooterNotice} onChange={(e) => setInvoiceFooterNotice(e.target.value)} style={{ padding: '0.45rem' }} />
+                    </div>
+
+                    {/* Checklist toggles */}
+                    <div>
+                      <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem', display: 'block', marginBottom: '0.4rem' }}>Invoice Layout Configurator</label>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.8rem' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={layoutShowLogo} onChange={(e) => setLayoutShowLogo(e.target.checked)} />
+                          <span>Show Header Logo</span>
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={layoutShowGstSplit} onChange={(e) => setLayoutShowGstSplit(e.target.checked)} />
+                          <span>Show CGST/SGST Split</span>
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={layoutIncludeBank} onChange={(e) => setLayoutIncludeBank(e.target.checked)} />
+                          <span>Include Bank Details</span>
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={layoutIncludeTerms} onChange={(e) => setLayoutIncludeTerms(e.target.checked)} />
+                          <span>Include Terms Notice</span>
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={layoutIncludeFooter} onChange={(e) => setLayoutIncludeFooter(e.target.checked)} />
+                          <span>Include Footer Notice</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Client Expense Tracker Form & History Ledger */}
+                  <div className="card flex flex-col gap-3" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.25rem' }}>
+                      <TrendingDown size={16} color="rgb(239, 68, 68)" /> <span>Client Expense Tracker</span>
+                    </h3>
+                    
+                    {expenseSuccess && (
+                      <div style={{ backgroundColor: 'var(--bg-success)', color: 'var(--color-success)', padding: '0.5rem', borderRadius: '8px', fontSize: '0.75rem' }}>
+                        Expense transaction logged successfully. Profit metrics updated.
+                      </div>
+                    )}
+
+                    <form onSubmit={handleAddExpenseSubmit} className="flex flex-col gap-3">
+                      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '0.75rem' }}>
+                        <div className="form-group">
+                          <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Target Client</label>
+                          <select 
+                            className="form-control"
+                            value={expenseClientId}
+                            onChange={(e) => setExpenseClientId(e.target.value)}
+                            style={{ width: '100%', padding: '0.45rem', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '6px' }}
+                          >
+                            {clientsList.map(c => (
+                              <option key={c.hospitalId} value={c.hospitalId}>{c.hospitalName}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Category</label>
+                          <select 
+                            className="form-control"
+                            value={expenseCategory}
+                            onChange={(e) => setExpenseCategory(e.target.value)}
+                            style={{ width: '100%', padding: '0.45rem', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '6px' }}
+                          >
+                            <option value="API Credits">🤖 API Credits (Gemini)</option>
+                            <option value="Server/Cloud">☁️ Server/Cloud Hosting</option>
+                            <option value="Support Staff">🎧 Support & Operator Staff</option>
+                            <option value="Administrative">📁 Administrative/Govt</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                        <div className="form-group">
+                          <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Cost (INR)</label>
+                          <input 
+                            type="number" 
+                            required 
+                            min="1"
+                            className="form-control" 
+                            value={expenseAmount} 
+                            onChange={(e) => setExpenseAmount(e.target.value)} 
+                            placeholder="₹ Amount in INR" 
+                            style={{ padding: '0.45rem' }} 
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Date</label>
+                          <input 
+                            type="date" 
+                            required
+                            className="form-control" 
+                            value={expenseDate} 
+                            onChange={(e) => setExpenseDate(e.target.value)} 
+                            style={{ padding: '0.45rem' }} 
+                          />
+                        </div>
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Description / Notes</label>
+                        <input 
+                          type="text" 
+                          className="form-control" 
+                          value={expenseDescription} 
+                          onChange={(e) => setExpenseDescription(e.target.value)} 
+                          placeholder="e.g. AWS secure vault database backup logs" 
+                          style={{ padding: '0.45rem' }} 
+                        />
+                      </div>
+
+                      <button type="submit" className="btn btn-primary flex align-center justify-center gap-1" style={{ padding: '0.5rem', cursor: 'pointer', borderRadius: '8px', fontWeight: 700 }}>
+                        <Plus size={14} /> <span>Log Operational Expense</span>
+                      </button>
+                    </form>
+
+                    {/* Expense History Ledger */}
+                    <div style={{ marginTop: '0.5rem' }}>
+                      <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem', display: 'block', marginBottom: '0.35rem' }}>Ledger History Logs</label>
+                      <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '8px', backgroundColor: 'var(--bg-tertiary)' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                          <thead>
+                            <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)', position: 'sticky', top: 0 }}>
+                              <th style={{ padding: '0.4rem', textAlign: 'left' }}>Hospital / Cat</th>
+                              <th style={{ padding: '0.4rem', textAlign: 'left' }}>Date</th>
+                              <th style={{ padding: '0.4rem', textAlign: 'right' }}>Amount</th>
+                              <th style={{ padding: '0.4rem', textAlign: 'center' }}>Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {expenses.length === 0 ? (
+                              <tr>
+                                <td colSpan="4" style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-tertiary)' }}>No expenses logged yet.</td>
+                              </tr>
+                            ) : (
+                              expenses.map(exp => (
+                                <tr key={exp.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                  <td style={{ padding: '0.4rem' }}>
+                                    <div style={{ fontWeight: 600 }}>{exp.clientName.length > 20 ? exp.clientName.substring(0, 20) + '...' : exp.clientName}</div>
+                                    <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{exp.category} - <span style={{ fontStyle: 'italic' }}>{exp.description || 'N/A'}</span></div>
+                                  </td>
+                                  <td style={{ padding: '0.4rem', whiteSpace: 'nowrap' }}>{exp.date}</td>
+                                  <td style={{ padding: '0.4rem', textAlign: 'right', fontWeight: 'bold' }}>₹{exp.amount.toLocaleString()}</td>
+                                  <td style={{ padding: '0.4rem', textAlign: 'center' }}>
+                                    <button 
+                                      onClick={() => handleDeleteExpense(exp.id)} 
+                                      style={{ border: 'none', backgroundColor: 'transparent', color: 'rgb(239, 68, 68)', cursor: 'pointer', padding: '0.2rem' }}
+                                      title="Delete Log"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                  </div>
+
+                </div>
+
+                {/* Right Column: Invoice Preview box */}
+                <div className="flex flex-col gap-3">
+                  <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                    <div className="flex justify-between align-center" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
+                      <h3 style={{ fontSize: '1rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <Printer size={16} color="var(--primary)" /> <span>Live Invoice Draft Layout</span>
+                      </h3>
+                      
+                      <div className="flex align-center gap-1">
+                        {/* Download Invoice (HTML) */}
+                        <button 
+                          onClick={() => {
+                            const matched = clientsList.find(c => c.hospitalId === financeSelectedClient);
+                            if (matched) handleDownloadInvoiceTemplate(matched);
+                          }} 
+                          className="btn btn-secondary flex align-center gap-1" 
+                          style={{ padding: '0.35rem 0.6rem', fontSize: '0.7rem', borderRadius: '6px', cursor: 'pointer' }}
+                          title="Download Invoice File"
+                        >
+                          <Download size={12} /> <span>Download</span>
+                        </button>
+                        
+                        {/* Send via Google Workspace / default */}
+                        <button 
+                          onClick={() => {
+                            const matched = clientsList.find(c => c.hospitalId === financeSelectedClient);
+                            if (matched) handleSendEmailInvoice(matched);
+                          }} 
+                          className="btn btn-primary flex align-center gap-1" 
+                          style={{ padding: '0.35rem 0.75rem', fontSize: '0.7rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 700 }}
+                        >
+                          <Mail size={12} /> <span>Send Invoice</span>
+                        </button>
+
+                        {/* Print Invoice PDF */}
+                        <button onClick={handlePrintInvoice} className="btn btn-secondary flex align-center gap-1" style={{ padding: '0.35rem 0.6rem', fontSize: '0.7rem', borderRadius: '6px', cursor: 'pointer' }}>
+                          <Printer size={12} /> <span>Print</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {invoiceMailedSuccess && (
+                      <div style={{ 
+                        backgroundColor: mailFeedbackMessage.includes('Error') ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-success)', 
+                        color: mailFeedbackMessage.includes('Error') ? 'rgb(239, 68, 68)' : 'var(--color-success)', 
+                        padding: '0.75rem', 
+                        borderRadius: '8px', 
+                        fontSize: '0.75rem', 
+                        marginBottom: '1rem',
+                        border: `1px solid ${mailFeedbackMessage.includes('Error') ? 'rgba(239, 68, 68, 0.3)' : 'var(--bg-success)'}`
+                      }}>
+                        {mailFeedbackMessage}
+                      </div>
+                    )}
+
+                    {/* Invoice Printable Preview Container */}
+                    <div id="invoice-preview-container" style={{ border: '1px solid var(--border-color)', padding: '1.5rem', borderRadius: '8px', backgroundColor: 'var(--bg-tertiary)', fontSize: '0.8rem', color: 'var(--text-primary)' }}>
+                      
+                      {/* Header */}
+                      <div className="flex justify-between align-center" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
+                        <div>
+                          {layoutShowLogo && (
+                            <h2 style={{ color: 'var(--primary)', fontWeight: 900, fontSize: '1.4rem', margin: 0 }}>
+                              {invoiceLogo}
+                            </h2>
+                          )}
+                          <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-secondary)' }}>
+                            GST TAX INVOICE
+                          </span>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontWeight: 'bold' }}>Invoice #: VQ-2026-0041</div>
+                          <div>Date: {new Date().toLocaleDateString('en-IN')}</div>
+                        </div>
+                      </div>
+
+                      {/* Company info */}
+                      <div className="flex justify-between" style={{ marginBottom: '1rem', fontSize: '0.75rem', lineHeight: '1.4' }}>
+                        <div>
+                          <strong>From:</strong>
+                          <div>{invoiceCompanyName}</div>
+                          <div>{invoiceAddress}</div>
+                          <div>GSTIN: <code>{invoiceGst}</code></div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <strong>To:</strong>
+                          <div>{selectedClient?.hospitalName}</div>
+                          <div>{selectedClient?.address || 'India'}</div>
+                          <div>Contact: {selectedClient?.email}</div>
+                          {selectedClient?.govId && <div>GSTIN: <code>{selectedClient?.govId}</code></div>}
+                        </div>
+                      </div>
+
+                      {/* Line Items Table */}
+                      <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '1rem' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '2px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)', fontWeight: 'bold' }}>
+                            <th style={{ padding: '0.5rem', textAlign: 'left' }}>Item Description</th>
+                            <th style={{ padding: '0.5rem', textAlign: 'right' }}>Unit Base</th>
+                            <th style={{ padding: '0.5rem', textAlign: 'right' }}>Tax Class</th>
+                            <th style={{ padding: '0.5rem', textAlign: 'right' }}>Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
+                            <td style={{ padding: '0.5rem' }}>
+                              <strong>VaidyaQ AI Accreditation Annual Subscription</strong>
+                              <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>
+                                SaaS license access mapped to {billingBeds} beds. Mapped standard models.
+                              </div>
+                            </td>
+                            <td style={{ padding: '0.5rem', textAlign: 'right' }}>1 Year</td>
+                            <td style={{ padding: '0.5rem', textAlign: 'right' }}>18% GST</td>
+                            <td style={{ padding: '0.5rem', textAlign: 'right' }}>₹{billingBaseAmount.toLocaleString()}</td>
+                          </tr>
+
+                          {/* Calculations */}
+                          <tr>
+                            <td colSpan="2" style={{ border: 'none' }}></td>
+                            <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right', fontWeight: 'bold' }}>Subtotal:</td>
+                            <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>₹{billingBaseAmount.toLocaleString()}</td>
+                          </tr>
+
+                          {layoutShowGstSplit ? (
+                            <>
+                              <tr>
+                                <td colSpan="2" style={{ border: 'none' }}></td>
+                                <td style={{ padding: '0.3rem 0.5rem', textAlign: 'right', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>CGST (9.0%):</td>
+                                <td style={{ padding: '0.3rem 0.5rem', textAlign: 'right', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>₹{calculatedCgst.toLocaleString()}</td>
+                              </tr>
+                              <tr>
+                                <td colSpan="2" style={{ border: 'none' }}></td>
+                                <td style={{ padding: '0.3rem 0.5rem', textAlign: 'right', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>SGST (9.0%):</td>
+                                <td style={{ padding: '0.3rem 0.5rem', textAlign: 'right', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>₹{calculatedSgst.toLocaleString()}</td>
+                              </tr>
+                            </>
+                          ) : (
+                            <tr>
+                              <td colSpan="2" style={{ border: 'none' }}></td>
+                              <td style={{ padding: '0.3rem 0.5rem', textAlign: 'right', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>GST Total (18.0%):</td>
+                              <td style={{ padding: '0.3rem 0.5rem', textAlign: 'right', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>₹{calculatedGstTotal.toLocaleString()}</td>
+                            </tr>
+                          )}
+
+                          <tr style={{ borderTop: '2px solid var(--border-color)', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                            <td colSpan="2" style={{ border: 'none' }}></td>
+                            <td style={{ padding: '0.5rem', textAlign: 'right' }}>Total Due:</td>
+                            <td style={{ padding: '0.5rem', textAlign: 'right', color: 'var(--primary)' }}>₹{calculatedInvoiceTotal.toLocaleString()}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+
+                      {/* Bank credentials */}
+                      {layoutIncludeBank && (
+                        <div style={{ marginTop: '1.25rem', padding: '0.75rem', border: '1px dashed var(--border-color)', borderRadius: '6px', fontSize: '0.7rem', lineHeight: '1.4', backgroundColor: 'var(--bg-secondary)' }}>
+                          <strong>🏦 Bank Payment Information:</strong>
+                          <div>Beneficiary Name: <strong>VaidyaQ Technologies Private Limited</strong></div>
+                          <div>Bank: <strong>ICICI Bank Limited</strong> • A/C No: <code>109205002931</code></div>
+                          <div>IFSC Code: <code>ICIC0001092</code> • Branch: Dwarka Sector 5, New Delhi</div>
+                        </div>
+                      )}
+
+                      {/* Terms */}
+                      {layoutIncludeTerms && (
+                        <div style={{ marginTop: '1rem', fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                          <strong>Terms & Conditions:</strong> {invoiceTerms}
+                        </div>
+                      )}
+
+                      {/* Footer Notice */}
+                      {layoutIncludeFooter && (
+                        <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '1rem', paddingTop: '0.75rem', fontSize: '0.65rem', color: 'var(--text-tertiary)', textAlign: 'center' }}>
+                          {invoiceFooterNotice}
+                        </div>
+                      )}
+
                     </div>
                   </div>
                 </div>
 
               </div>
 
-              {/* Right Column: Invoice Preview box */}
-              <div className="flex flex-col gap-3">
-                <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
-                  <div className="flex justify-between align-center" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
-                    <h3 style={{ fontSize: '1rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <Printer size={16} /> <span>Live Invoice Draft Layout</span>
+              {/* Client Financial Matrix Directory Table */}
+              <div className="card flex flex-col gap-3" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                <div className="flex justify-between align-center" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+                  <div>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem', margin: 0 }}>
+                      <Database size={18} color="var(--primary)" /> <span>Client Accounts Billing Registry Matrix</span>
                     </h3>
-                    <button onClick={handlePrintInvoice} className="btn btn-primary flex align-center gap-1" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', borderRadius: '8px', cursor: 'pointer' }}>
-                      <Printer size={12} /> <span>Print / Save PDF</span>
-                    </button>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+                      Update customer subscriptions, track invoice dispatches, and check renewal timelines.
+                    </p>
                   </div>
+                </div>
 
-                  {/* Invoice Printable Preview Container */}
-                  <div id="invoice-preview-container" style={{ border: '1px solid var(--border-color)', padding: '1.5rem', borderRadius: '8px', backgroundColor: 'var(--bg-tertiary)', fontSize: '0.8rem', color: 'var(--text-primary)' }}>
-                    
-                    {/* Header */}
-                    <div className="flex justify-between align-center" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
-                      <div>
-                        {layoutShowLogo && (
-                          <h2 style={{ color: 'var(--primary)', fontWeight: 900, fontSize: '1.5rem', margin: 0 }}>
-                            {invoiceLogo}
-                          </h2>
-                        )}
-                        <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-secondary)' }}>
-                          GST TAX INVOICE
-                        </span>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontWeight: 'bold' }}>Invoice #: VQ-2026-0041</div>
-                        <div>Date: {new Date().toLocaleDateString('en-IN')}</div>
-                      </div>
-                    </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', textAlign: 'left' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-secondary)', fontWeight: 'bold' }}>
+                        <th style={{ padding: '0.75rem 0.5rem' }}>Hospital Name</th>
+                        <th style={{ padding: '0.75rem 0.5rem' }}>Beds</th>
+                        <th style={{ padding: '0.75rem 0.5rem' }}>Expiry / Renewal Status</th>
+                        <th style={{ padding: '0.75rem 0.5rem' }}>Billing Status</th>
+                        <th style={{ padding: '0.75rem 0.5rem' }}>Invoice Sent Status</th>
+                        <th style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {clientsList.map(client => {
+                        const clientBillingStatus = resolveClientBillingStatus(client);
 
-                    {/* Company info */}
-                    <div className="flex justify-between" style={{ marginBottom: '1rem', fontSize: '0.75rem', lineHeight: '1.4' }}>
-                      <div>
-                        <strong>From:</strong>
-                        <div>{invoiceCompanyName}</div>
-                        <div>{invoiceAddress}</div>
-                        <div>GSTIN: <code>{invoiceGst}</code></div>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <strong>To:</strong>
-                        <div>{selectedClient?.hospitalName}</div>
-                        <div>{selectedClient?.address || 'India'}</div>
-                        <div>Contact: {selectedClient?.email}</div>
-                        {selectedClient?.govId && <div>GSTIN: <code>{selectedClient?.govId}</code></div>}
-                      </div>
-                    </div>
-
-                    {/* Line Items Table */}
-                    <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '1rem' }}>
-                      <thead>
-                        <tr style={{ borderBottom: '2px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)', fontWeight: 'bold' }}>
-                          <th style={{ padding: '0.5rem', textAlign: 'left' }}>Item Description</th>
-                          <th style={{ padding: '0.5rem', textAlign: 'right' }}>Unit Base</th>
-                          <th style={{ padding: '0.5rem', textAlign: 'right' }}>Tax Class</th>
-                          <th style={{ padding: '0.5rem', textAlign: 'right' }}>Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
-                          <td style={{ padding: '0.5rem' }}>
-                            <strong>VaidyaQ AI Accreditation Annual Subscription</strong>
-                            <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>
-                              SaaS license access mapped to {billingBeds} beds. Mapped standard models.
-                            </div>
-                          </td>
-                          <td style={{ padding: '0.5rem', textAlign: 'right' }}>1 Year</td>
-                          <td style={{ padding: '0.5rem', textAlign: 'right' }}>18% GST</td>
-                          <td style={{ padding: '0.5rem', textAlign: 'right' }}>₹{billingBaseAmount.toLocaleString()}</td>
-                        </tr>
-
-                        {/* Calculations */}
-                        <tr>
-                          <td colSpan="2" style={{ border: 'none' }}></td>
-                          <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right', fontWeight: 'bold' }}>Subtotal:</td>
-                          <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>₹{billingBaseAmount.toLocaleString()}</td>
-                        </tr>
-
-                        {layoutShowGstSplit ? (
-                          <>
-                            <tr>
-                              <td colSpan="2" style={{ border: 'none' }}></td>
-                              <td style={{ padding: '0.3rem 0.5rem', textAlign: 'right', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>CGST (9.0%):</td>
-                              <td style={{ padding: '0.3rem 0.5rem', textAlign: 'right', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>₹{calculatedCgst.toLocaleString()}</td>
-                            </tr>
-                            <tr>
-                              <td colSpan="2" style={{ border: 'none' }}></td>
-                              <td style={{ padding: '0.3rem 0.5rem', textAlign: 'right', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>SGST (9.0%):</td>
-                              <td style={{ padding: '0.3rem 0.5rem', textAlign: 'right', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>₹{calculatedSgst.toLocaleString()}</td>
-                            </tr>
-                          </>
-                        ) : (
-                          <tr>
-                            <td colSpan="2" style={{ border: 'none' }}></td>
-                            <td style={{ padding: '0.3rem 0.5rem', textAlign: 'right', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>GST Total (18.0%):</td>
-                            <td style={{ padding: '0.3rem 0.5rem', textAlign: 'right', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>₹{calculatedGstTotal.toLocaleString()}</td>
+                        return (
+                          <tr key={client.hospitalId} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                            <td style={{ padding: '0.75rem 0.5rem' }}>
+                              <div style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>{client.hospitalName}</div>
+                              <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>Owner: {client.email}</div>
+                            </td>
+                            <td style={{ padding: '0.75rem 0.5rem' }}>
+                              <span className="badge badge-neutral">{client.beds} Beds</span>
+                            </td>
+                            <td style={{ padding: '0.75rem 0.5rem' }}>
+                              {getRenewalStatusLabel(client)}
+                            </td>
+                            <td style={{ padding: '0.75rem 0.5rem' }}>
+                              <select
+                                className="form-control"
+                                value={clientBillingStatus}
+                                onChange={(e) => handleUpdateBillingStatus(client.hospitalId, e.target.value)}
+                                style={{ 
+                                  padding: '0.25rem 0.5rem', 
+                                  fontSize: '0.75rem', 
+                                  fontWeight: 600,
+                                  borderRadius: '6px', 
+                                  backgroundColor: 'var(--bg-tertiary)',
+                                  color: 'var(--text-primary)',
+                                  width: '145px',
+                                  border: '1px solid var(--border-color)'
+                                }}
+                              >
+                                <option value="Paid">🟢 Paid</option>
+                                <option value="Pending">🟡 Pending</option>
+                                <option value="Awaiting Payment">🟠 Awaiting Payment</option>
+                                <option value="Expired">🔴 Expired</option>
+                                <option value="Cancelled">❌ Cancelled</option>
+                                <option value="Under Trial">⏳ Under Trial</option>
+                              </select>
+                            </td>
+                            <td style={{ padding: '0.75rem 0.5rem' }}>
+                              {client.billSent ? (
+                                <span style={{ color: 'var(--color-success)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                                  <CheckCircle size={14} /> Sent & Awaiting Confirmation
+                                </span>
+                              ) : (
+                                <span style={{ color: 'var(--text-tertiary)', fontWeight: 500 }}>
+                                  Not Sent (Awaiting dispatch)
+                                </span>
+                              )}
+                            </td>
+                            <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>
+                              <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                                <button
+                                  onClick={() => handleSendEmailInvoice(client)}
+                                  className="btn btn-secondary flex align-center gap-1"
+                                  style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', borderRadius: '6px', cursor: 'pointer' }}
+                                  title="Send tax invoice via email logs"
+                                >
+                                  <Mail size={12} />
+                                </button>
+                                <button
+                                  onClick={() => handleDownloadInvoiceTemplate(client)}
+                                  className="btn btn-secondary flex align-center gap-1"
+                                  style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', borderRadius: '6px', cursor: 'pointer' }}
+                                  title="Download HTML receipt"
+                                >
+                                  <Download size={12} />
+                                </button>
+                              </div>
+                            </td>
                           </tr>
-                        )}
-
-                        <tr style={{ borderTop: '2px solid var(--border-color)', fontWeight: 'bold', fontSize: '0.9rem' }}>
-                          <td colSpan="2" style={{ border: 'none' }}></td>
-                          <td style={{ padding: '0.5rem', textAlign: 'right' }}>Total Due:</td>
-                          <td style={{ padding: '0.5rem', textAlign: 'right', color: 'var(--primary)' }}>₹{calculatedInvoiceTotal.toLocaleString()}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-
-                    {/* Bank credentials */}
-                    {layoutIncludeBank && (
-                      <div style={{ marginTop: '1.25rem', padding: '0.75rem', border: '1px dashed var(--border-color)', borderRadius: '6px', fontSize: '0.7rem', lineHeight: '1.4', backgroundColor: 'var(--bg-secondary)' }}>
-                        <strong>🏦 Bank Payment Information:</strong>
-                        <div>Beneficiary Name: <strong>VaidyaQ Technologies Private Limited</strong></div>
-                        <div>Bank: <strong>ICICI Bank Limited</strong> • A/C No: <code>109205002931</code></div>
-                        <div>IFSC Code: <code>ICIC0001092</code> • Branch: Dwarka Sector 5, New Delhi</div>
-                      </div>
-                    )}
-
-                    {/* Terms */}
-                    {layoutIncludeTerms && (
-                      <div style={{ marginTop: '1rem', fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
-                        <strong>Terms & Conditions:</strong> {invoiceTerms}
-                      </div>
-                    )}
-
-                    {/* Footer Notice */}
-                    {layoutIncludeFooter && (
-                      <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '1rem', paddingTop: '0.75rem', fontSize: '0.65rem', color: 'var(--text-tertiary)', textAlign: 'center' }}>
-                        {invoiceFooterNotice}
-                      </div>
-                    )}
-
-                  </div>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
 
@@ -2507,6 +3641,127 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
         </div>
 
       </div>
+
+      {showGoogleOAuthModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.65)',
+          backdropFilter: 'blur(5px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999,
+          padding: '1rem'
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            color: '#1f2937',
+            width: '100%',
+            maxWidth: '440px',
+            borderRadius: '16px',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            overflow: 'hidden',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+          }}>
+            {/* Google Logo Header */}
+            <div style={{ padding: '2.25rem 2rem 1.25rem 2rem', textAlign: 'center', borderBottom: '1px solid #e5e7eb' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '3px', marginBottom: '1.25rem' }}>
+                <span style={{ color: '#4285F4', fontSize: '2.1rem', fontWeight: 'bold' }}>G</span>
+                <span style={{ color: '#EA4335', fontSize: '2.1rem', fontWeight: 'bold' }}>o</span>
+                <span style={{ color: '#FBBC05', fontSize: '2.1rem', fontWeight: 'bold' }}>o</span>
+                <span style={{ color: '#4285F4', fontSize: '2.1rem', fontWeight: 'bold' }}>g</span>
+                <span style={{ color: '#34A853', fontSize: '2.1rem', fontWeight: 'bold' }}>l</span>
+                <span style={{ color: '#EA4335', fontSize: '2.1rem', fontWeight: 'bold' }}>e</span>
+              </div>
+              <h3 style={{ fontSize: '1.3rem', fontWeight: 600, color: '#202124', margin: 0 }}>Sign in with Google</h3>
+              <p style={{ fontSize: '0.85rem', color: '#5f6368', marginTop: '0.35rem' }}>to continue to VaidyaQ Finance Hub</p>
+            </div>
+            
+            {/* Body content */}
+            <div style={{ padding: '1.75rem 2rem' }}>
+              <p style={{ fontSize: '0.85rem', color: '#3c4043', lineHeight: '1.5', marginBottom: '1.5rem' }}>
+                VaidyaQ requires authorization to connect to your corporate Google account to dispatch invoice PDFs directly via Google Workspace APIs.
+              </p>
+              
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#5f6368', marginBottom: '0.4rem', textTransform: 'uppercase' }}>Google Account Email Address</label>
+                <input 
+                  type="email" 
+                  value={googleMailAccount}
+                  onChange={(e) => setGoogleMailAccount(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.7rem 0.9rem',
+                    border: '1px solid #dadce0',
+                    borderRadius: '8px',
+                    fontSize: '0.9rem',
+                    backgroundColor: '#ffffff',
+                    color: '#202124',
+                    outline: 'none'
+                  }}
+                  placeholder="finance@vaidyaq.com"
+                />
+              </div>
+
+              <div style={{
+                backgroundColor: '#f8f9fa',
+                padding: '0.85rem',
+                borderRadius: '8px',
+                fontSize: '0.75rem',
+                color: '#5f6368',
+                marginBottom: '1.75rem',
+                border: '1px solid #e8eaed',
+                lineHeight: '1.4'
+              }}>
+                🔒 <strong>Workspace Sandbox Security Notice:</strong> Authentication tokens are stored inside local browser memory. VaidyaQ Super Admin operators do not log passwords.
+              </div>
+
+              {/* Actions */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                <button 
+                  onClick={() => setShowGoogleOAuthModal(false)}
+                  style={{
+                    padding: '0.55rem 1.15rem',
+                    border: '1px solid #dadce0',
+                    borderRadius: '8px',
+                    fontSize: '0.85rem',
+                    color: '#1a73e8',
+                    backgroundColor: '#ffffff',
+                    cursor: 'pointer',
+                    fontWeight: 500,
+                    transition: 'background-color 0.2s'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => {
+                    setGoogleMailConnected(true);
+                    setShowGoogleOAuthModal(false);
+                  }}
+                  style={{
+                    padding: '0.55rem 1.35rem',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '0.85rem',
+                    color: '#ffffff',
+                    backgroundColor: '#1a73e8',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    boxShadow: '0 1px 2px rgba(66, 133, 244, 0.3)'
+                  }}
+                >
+                  Authorize Link
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
