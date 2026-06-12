@@ -6,7 +6,7 @@ import {
   ArrowLeft, Folder, FolderOpen, FileText, Download, Trash, 
   Plus, ShieldAlert, Sparkles, Send, Coins, FileCheck, HelpCircle,
   TrendingUp, HardDrive, Calendar, CreditCard, ChevronRight, ChevronDown, LogOut,
-  Sliders, Printer, Mail, MessageSquare
+  Sliders, Printer, Mail, MessageSquare, Briefcase, Eye, EyeOff
 } from 'lucide-react';
 
 export default function VendorAdminConsole() {
@@ -27,7 +27,9 @@ export default function VendorAdminConsole() {
     saveVendorGeminiKey,
     sendSimulatedEmail,
     logSimulatedDownload,
-    setCurrentRoute
+    setCurrentRoute,
+    onboardingSteps,
+    hospitalName
   } = useContext(QualiNABHContext);
 
   // Authentication State
@@ -37,16 +39,16 @@ export default function VendorAdminConsole() {
   const [loginError, setLoginError] = useState(false);
   const [currentOperator, setCurrentOperator] = useState(null);
 
-  // Active Workspace Tab
-  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard', 'crm', 'finance', 'tickets', 'staff', 'emails', 'copilot', 'settings'
+  // Active Workspace Tab: 'dashboard', 'crm', 'finance', 'tickets', 'staff', 'emails', 'copilot', 'settings'
+  const [activeTab, setActiveTab] = useState('dashboard');
 
   // Chart Type State
   const [chartType, setChartType] = useState('line');
 
   // Client Explorer State
   const [clientSearch, setClientSearch] = useState('');
-  const [expandedFolders, setExpandedFolders] = useState({});
   const [selectedCrmClient, setSelectedCrmClient] = useState(null);
+  const [dossierSubTab, setDossierSubTab] = useState('metadata'); // 'metadata', 'vault', 'tickets', 'payments', 'logs'
   
   // Client Form Details Override States
   const [crmAddress, setCrmAddress] = useState('');
@@ -164,12 +166,32 @@ export default function VendorAdminConsole() {
     return currentOperator.permissions.includes(perm);
   };
 
-  // 1. CRM - Expand Client Folder
-  const toggleFolder = (hospId) => {
-    setExpandedFolders(prev => ({
-      ...prev,
-      [hospId]: !prev[hospId]
-    }));
+  // Onboarding Progress Mock/Calculation Helper
+  const getClientOnboardingProgress = (client) => {
+    if (client.hospitalName === hospitalName) {
+      return onboardingSteps;
+    }
+    if (client.bounced) {
+      return { identity: false, departments: false, importTemplates: false, firstSop: false };
+    }
+    if (client.status === 'Paid') {
+      return { identity: true, departments: true, importTemplates: true, firstSop: true };
+    }
+    // Else mock partially completed trial state
+    return { identity: true, departments: true, importTemplates: false, firstSop: false };
+  };
+
+  const getCompletedStepsCount = (steps) => {
+    return Object.values(steps).filter(Boolean).length;
+  };
+
+  // Navigation from Dashboard summary row to specific CRM folder
+  const handleViewFolder = (hospId) => {
+    const client = clientsList.find(c => c.hospitalId === hospId);
+    if (client) {
+      loadCrmClient(client);
+      setActiveTab('crm');
+    }
   };
 
   // CRM - Load client into editable form
@@ -182,6 +204,7 @@ export default function VendorAdminConsole() {
     setCrmGovIdType(client.govIdType || 'GSTIN');
     setCrmGovIdStatus(client.govIdStatus || 'Pending');
     setCrmSaveSuccess(false);
+    setDossierSubTab('metadata');
   };
 
   // CRM - Save updated client metadata details
@@ -558,7 +581,7 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
   // Aggregate Storage size (convert to MB)
   const totalStorageSize = clientsList.reduce((sum, c) => sum + (c.storageUsed || 0), 0);
   const totalStorageSizeMB = (totalStorageSize / (1024 * 1024)).toFixed(2);
-  const storageQuotaMB = 50.0; // Vendor standard server quota cap
+  const storageQuotaMB = 50.0;
   const storagePercentage = Math.min(100, Math.round((parseFloat(totalStorageSizeMB) / storageQuotaMB) * 100));
 
   // Finance Selected Client Detail Calculations
@@ -592,6 +615,9 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
     const matchesCategory = emailCategoryFilter === 'All' || m.category === emailCategoryFilter;
     return matchesSearch && matchesCategory;
   });
+
+  // Target Client for Dossier detail card view
+  const targetCrmClientDetails = clientsList.find(c => c.hospitalId === selectedCrmClient);
 
   return (
     <div style={{ maxWidth: '1440px', margin: '0 auto', padding: '1.5rem', textAlign: 'left', minHeight: '100vh', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -644,7 +670,7 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
               fontWeight: activeTab === 'dashboard' ? 700 : 500
             }}
           >
-            <Activity size={16} /> <span>HubSpot Dashboard</span>
+            <Activity size={16} /> <span>Dashboard</span>
           </button>
 
           <button 
@@ -754,7 +780,7 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
         {/* Right Main Panel Container */}
         <div style={{ flex: 1, minWidth: 0 }}>
           
-          {/* TAB 1: HUBSPOT DASHBOARD */}
+          {/* TAB 1: OPERATIONS DASHBOARD */}
           {activeTab === 'dashboard' && (
             <div className="flex flex-col gap-3">
               {/* Marketing Metrics Row */}
@@ -789,6 +815,82 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
                   </div>
                 </div>
 
+              </div>
+
+              {/* CLIENT SUMMARY TABLE SECTION */}
+              <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', marginTop: '0.5rem' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>SaaS Customer Registry Summary</h3>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '1.25rem' }}>
+                  Live overview of client tenants onboarding, subscription expiry logs, and access pathways.
+                </p>
+
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="table" style={{ width: '100%' }}>
+                    <thead>
+                      <tr>
+                        <th>Hospital Name</th>
+                        <th>Owner Email</th>
+                        <th>Dynamic Beds</th>
+                        <th>Onboarding Steps</th>
+                        <th>Subscription Status</th>
+                        <th>Expiry Date</th>
+                        <th style={{ textAlign: 'right' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {clientsList.map(client => {
+                        const steps = getClientOnboardingProgress(client);
+                        const completedCount = getCompletedStepsCount(steps);
+                        const progressPercent = completedCount * 25;
+
+                        return (
+                          <tr key={client.hospitalId}>
+                            <td>
+                              <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{client.hospitalName}</div>
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontFamily: 'monospace' }}>{client.hospitalId}</span>
+                            </td>
+                            <td>{client.email}</td>
+                            <td>
+                              <span className="badge badge-neutral" style={{ fontSize: '0.75rem', fontWeight: 600 }}>{client.beds} Beds</span>
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', width: '120px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                                  <span>{completedCount}/4 steps</span>
+                                  <span>{progressPercent}%</span>
+                                </div>
+                                <div style={{ width: '100%', height: '5px', backgroundColor: 'var(--border-color)', borderRadius: '2px', overflow: 'hidden' }}>
+                                  <div style={{ width: `${progressPercent}%`, height: '100%', backgroundColor: completedCount === 4 ? 'var(--color-success)' : 'var(--primary)' }}></div>
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <span className="badge" style={{ 
+                                backgroundColor: client.status === 'Paid' ? 'var(--bg-success)' : client.status === 'Expired' ? 'var(--bg-danger)' : 'var(--primary-light)', 
+                                color: client.status === 'Paid' ? 'var(--color-success)' : client.status === 'Expired' ? 'var(--color-danger)' : 'var(--primary)',
+                                fontSize: '0.75rem', fontWeight: 700
+                              }}>
+                                {client.status}
+                              </span>
+                            </td>
+                            <td style={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                              {client.planExpiryDate ? new Date(client.planExpiryDate).toLocaleDateString('en-IN') : 'N/A'}
+                            </td>
+                            <td style={{ textAlign: 'right' }}>
+                              <button 
+                                onClick={() => handleViewFolder(client.hospitalId)}
+                                className="btn btn-secondary flex align-center gap-1"
+                                style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', borderRadius: '6px' }}
+                              >
+                                <FolderOpen size={12} /> <span>View Folder</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               {/* Comparative Charts Workspace */}
@@ -976,309 +1078,543 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
             </div>
           )}
 
-          {/* TAB 2: CLIENT CRM FOLDERS */}
+          {/* TAB 2: CLIENT CRM FOLDERS (HIGH-END UX REDESIGN) */}
           {activeTab === 'crm' && renderPermissionGuard('view_crm', (
-            <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: '1.5rem' }}>
+            <div className="flex flex-col gap-3">
               
-              {/* Left Column: Explorer Directory Tree */}
-              <div className="card flex flex-col gap-3" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
-                <div className="flex justify-between align-center" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', marginBottom: '0.5rem' }}>
-                  <div>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <Database size={18} /> <span>Client Controls CRM Folder Tree</span>
-                    </h3>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>HubSpot CRM folder explorer. Click hospital root node directories to expand vaults.</p>
+              {/* Dossier Detail Card View if Selected */}
+              {selectedCrmClient && targetCrmClientDetails ? (
+                <div className="flex flex-col gap-4">
+                  {/* Dossier Header and navigation */}
+                  <div className="flex justify-between align-center" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', padding: '1rem 1.5rem', borderRadius: '12px' }}>
+                    <div className="flex align-center gap-2">
+                      <button 
+                        onClick={() => setSelectedCrmClient(null)}
+                        className="btn btn-secondary flex align-center gap-1"
+                        style={{ padding: '0.45rem 0.8rem', cursor: 'pointer', borderRadius: '8px', fontSize: '0.8rem' }}
+                      >
+                        <ArrowLeft size={14} /> <span>Directory</span>
+                      </button>
+                      <div style={{ height: '20px', width: '1px', backgroundColor: 'var(--border-color)', margin: '0 0.5rem' }}></div>
+                      <div>
+                        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>
+                          🏢 {targetCrmClientDetails.hospitalName} Dossier
+                        </h2>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
+                          Accreditation ID: <code>{targetCrmClientDetails.regId || 'PENDING'}</code>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 align-center">
+                      <span className="badge" style={{ 
+                        backgroundColor: targetCrmClientDetails.status === 'Paid' ? 'var(--bg-success)' : targetCrmClientDetails.status === 'Expired' ? 'var(--bg-danger)' : 'var(--primary-light)', 
+                        color: targetCrmClientDetails.status === 'Paid' ? 'var(--color-success)' : targetCrmClientDetails.status === 'Expired' ? 'var(--color-danger)' : 'var(--primary)',
+                        fontWeight: 'bold', fontSize: '0.8rem'
+                      }}>
+                        {targetCrmClientDetails.status}
+                      </span>
+                    </div>
                   </div>
-                  <button onClick={handleExportCsv} className="btn btn-secondary flex align-center gap-1" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', borderRadius: '8px', cursor: 'pointer' }}>
-                    <Download size={14} /> <span>Export CRM Database (CSV)</span>
-                  </button>
-                </div>
 
-                {/* Filter and Search */}
-                <input 
-                  type="text" 
-                  className="form-control" 
-                  placeholder="Search hospitals by owner email, city names..." 
-                  value={clientSearch}
-                  onChange={(e) => setClientSearch(e.target.value)}
-                  style={{ width: '100%', padding: '0.55rem' }}
-                />
-
-                {/* Folders List Tree */}
-                <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {filteredCrmClients.map(client => {
-                    const isExpanded = expandedFolders[client.hospitalId];
-                    return (
-                      <div key={client.hospitalId} style={{ border: '1px solid var(--border-color)', borderRadius: '10px', overflow: 'hidden', backgroundColor: 'var(--bg-tertiary)' }}>
-                        
-                        {/* Folder Header Accordion */}
-                        <div 
-                          onClick={() => toggleFolder(client.hospitalId)} 
-                          style={{ 
-                            display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
-                            padding: '0.85rem 1rem', cursor: 'pointer', backgroundColor: 'var(--bg-secondary)',
-                            transition: 'background 0.2s', borderBottom: isExpanded ? '1px solid var(--border-color)' : 'none'
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            {isExpanded ? <FolderOpen size={18} color="var(--primary)" /> : <Folder size={18} color="var(--text-tertiary)" />}
-                            <span style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{client.hospitalName}</span>
-                          </div>
-
-                          <div className="flex align-center gap-2">
-                            <span className="badge" style={{ 
-                              backgroundColor: client.status === 'Paid' ? 'var(--bg-success)' : client.status === 'Expired' ? 'var(--bg-danger)' : 'var(--primary-light)', 
-                              color: client.status === 'Paid' ? 'var(--color-success)' : client.status === 'Expired' ? 'var(--color-danger)' : 'var(--primary)',
-                              fontSize: '0.7rem' 
-                            }}>
-                              {client.status}
-                            </span>
-                            {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                          </div>
-                        </div>
-
-                        {/* Expanded folder contents (Subdirectories) */}
-                        {isExpanded && (
-                          <div style={{ padding: '0.5rem 1rem 1rem 2rem', display: 'flex', flexDirection: 'column', gap: '0.4rem', borderTop: 'none', backgroundColor: 'var(--bg-secondary)', opacity: 0.95 }}>
-                            
-                            {/* Directory Item 1: Profile metadata form trigger */}
-                            <div 
-                              onClick={() => loadCrmClient(client)}
-                              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}
-                              className="crm-tree-item"
-                            >
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                📂 <span>Client Metadata & Verification</span>
-                              </span>
-                              <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>Click to Edit</span>
-                            </div>
-
-                            {/* Directory Item 2: Secure document vault manager */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', padding: '0.4rem 0.5rem', borderRadius: '6px', fontSize: '0.8rem' }} className="crm-tree-folder">
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                                📂 <span>Documents Vault & Evidence Storage</span>
-                              </span>
-                              
-                              <div style={{ padding: '0.25rem 0.25rem 0.25rem 1.2rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                <div className="flex justify-between align-center" style={{ fontSize: '0.75rem', padding: '0.2rem 0' }}>
-                                  <span>📄 accreditation_assessment.pdf</span>
-                                  <button onClick={() => handleDownloadMockFile(client.hospitalName, 'accreditation_assessment.pdf')} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.1rem', fontSize: '0.7rem' }}>
-                                    <Download size={10} /> Download
-                                  </button>
-                                </div>
-                                <div className="flex justify-between align-center" style={{ fontSize: '0.75rem', padding: '0.2rem 0' }}>
-                                  <span>📄 fire_drill_noc_audit.jpg</span>
-                                  <button onClick={() => handleDownloadMockFile(client.hospitalName, 'fire_drill_noc_audit.jpg')} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.1rem', fontSize: '0.7rem' }}>
-                                    <Download size={10} /> Download
-                                  </button>
-                                </div>
-                                <div className="flex justify-between align-center" style={{ fontSize: '0.75rem', padding: '0.2rem 0' }}>
-                                  <span>📄 bio_waste_regulatory_noc.pdf</span>
-                                  <button onClick={() => handleDownloadMockFile(client.hospitalName, 'bio_waste_regulatory_noc.pdf')} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.1rem', fontSize: '0.7rem' }}>
-                                    <Download size={10} /> Download
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Directory Item 3: Support issues ticket query list */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', padding: '0.4rem 0.5rem', borderRadius: '6px', fontSize: '0.8rem' }} className="crm-tree-folder">
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                                📂 <span>Client Support Queries</span>
-                              </span>
-                              <div style={{ padding: '0.25rem 0.25rem 0.25rem 1.2rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.75rem' }}>
-                                {supportTickets.filter(t => t.clientName === client.hospitalName).map(tick => (
-                                  <div key={tick.id} className="flex justify-between align-center" style={{ padding: '0.2rem 0' }}>
-                                    <span>🎟️ {tick.sequenceCode} - {tick.title.substring(0, 30)}...</span>
-                                    <span style={{ fontStyle: 'italic', color: tick.status === 'Resolved' ? 'var(--color-success)' : 'var(--primary)' }}>
-                                      {tick.status}
-                                    </span>
+                  {/* Graphical Core Widgets Row */}
+                  <div className="grid" style={{ gridTemplateColumns: '1.5fr 1fr 1fr', gap: '1rem' }}>
+                    
+                    {/* Stepper Card */}
+                    <div className="card" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                      <h4 style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem' }}>
+                        Onboarding Steps Completion
+                      </h4>
+                      {(() => {
+                        const progress = getClientOnboardingProgress(targetCrmClientDetails);
+                        const steps = [
+                          { label: 'Identity Configured', key: 'identity' },
+                          { label: 'Departments Setup', key: 'departments' },
+                          { label: 'Templates Loaded', key: 'importTemplates' },
+                          { label: 'First SOP Approved', key: 'firstSop' }
+                        ];
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            {steps.map((step, idx) => {
+                              const done = progress[step.key];
+                              return (
+                                <div key={step.key} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem' }}>
+                                  <div style={{ 
+                                    width: '18px', height: '18px', borderRadius: '50%', 
+                                    backgroundColor: done ? 'var(--bg-success)' : 'var(--border-color)',
+                                    color: done ? 'var(--color-success)' : 'var(--text-tertiary)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: 'bold'
+                                  }}>
+                                    {done ? '✓' : idx + 1}
                                   </div>
-                                ))}
-                                {supportTickets.filter(t => t.clientName === client.hospitalName).length === 0 && (
-                                  <span style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>No tickets reported by this client.</span>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Directory Item 4: Payment transactions */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', padding: '0.4rem 0.5rem', borderRadius: '6px', fontSize: '0.8rem' }} className="crm-tree-folder">
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                                📂 <span>Payment Receipts & Invoices</span>
-                              </span>
-                              <div style={{ padding: '0.25rem 0.25rem 0.25rem 1.2rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.75rem' }}>
-                                {transactions.filter(t => t.hospitalName === client.hospitalName).map(tx => (
-                                  <div key={tx.id} className="flex justify-between align-center" style={{ padding: '0.2rem 0' }}>
-                                    <span>₹{tx.amount.toLocaleString()} ({tx.date})</span>
-                                    <span className="badge badge-success" style={{ fontSize: '0.6rem' }}>{tx.status}</span>
-                                  </div>
-                                ))}
-                                {transactions.filter(t => t.hospitalName === client.hospitalName).length === 0 && (
-                                  <span style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>No transaction history found.</span>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Subscription Force Override Buttons */}
-                            <div style={{ marginTop: '0.75rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem' }}>
-                              <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', display: 'block', marginBottom: '0.3rem', fontWeight: 700 }}>SUBSCRIPTION DIRECT OVERRIDES:</span>
-                              <div className="flex gap-1">
-                                <button 
-                                  onClick={() => setClientStatusOverride(client.hospitalId, 'Paid')} 
-                                  className="btn btn-secondary" 
-                                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.65rem', color: 'var(--color-success)', borderColor: 'var(--color-success)', cursor: 'pointer' }}
-                                >
-                                  Upgrade Paid
-                                </button>
-                                <button 
-                                  onClick={() => setClientStatusOverride(client.hospitalId, 'Expired')} 
-                                  className="btn btn-secondary" 
-                                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.65rem', color: 'var(--color-danger)', borderColor: 'var(--color-danger)', cursor: 'pointer' }}
-                                >
-                                  Force Expire
-                                </button>
-                                <button 
-                                  onClick={() => setClientStatusOverride(client.hospitalId, 'Restricted')} 
-                                  className="btn btn-secondary" 
-                                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.65rem', color: 'var(--text-tertiary)', cursor: 'pointer' }}
-                                >
-                                  Suspend
-                                </button>
-                                <button 
-                                  onClick={() => setClientStatusOverride(client.hospitalId, 'Active Trial')} 
-                                  className="btn btn-secondary" 
-                                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.65rem', color: 'var(--primary)', cursor: 'pointer' }}
-                                >
-                                  Reset Trial
-                                </button>
-                              </div>
-                            </div>
-
+                                  <span style={{ color: done ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: done ? 600 : 400 }}>
+                                    {step.label}
+                                  </span>
+                                </div>
+                              );
+                            })}
                           </div>
-                        )}
+                        );
+                      })()}
+                    </div>
 
+                    {/* Circular Storage Gauge */}
+                    <div className="card flex flex-col align-center justify-center" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', textAlign: 'center' }}>
+                      <h4 style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem', width: '100%', textAlign: 'left' }}>
+                        Vault Storage
+                      </h4>
+                      {(() => {
+                        const usedMB = (targetCrmClientDetails.storageUsed / (1024 * 1024)).toFixed(2);
+                        const pct = Math.min(100, Math.round((parseFloat(usedMB) / storageQuotaMB) * 100));
+                        const radius = 35;
+                        const circumference = 2 * Math.PI * radius;
+                        const offset = circumference - (pct / 100) * circumference;
+                        return (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', width: '100%', marginTop: '0.25rem' }}>
+                            <svg width="80" height="80" style={{ transform: 'rotate(-90deg)' }}>
+                              <circle cx="40" cy="40" r={radius} fill="transparent" stroke="var(--border-color)" strokeWidth="6" />
+                              <circle 
+                                cx="40" cy="40" r={radius} fill="transparent" 
+                                stroke="var(--primary)" strokeWidth="6"
+                                strokeDasharray={circumference}
+                                strokeDashoffset={offset}
+                                strokeLinecap="round"
+                              />
+                            </svg>
+                            <div style={{ textAlign: 'left' }}>
+                              <div style={{ fontSize: '1.1rem', fontWeight: 800 }}>{usedMB} MB</div>
+                              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>of 50.0 MB used ({pct}%)</div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Expiry / Sub Info */}
+                    <div className="card" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                      <h4 style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
+                        Direct override controls
+                      </h4>
+                      <div style={{ fontSize: '0.8rem', marginBottom: '0.5rem' }}>
+                        <strong>Term Expiry:</strong> {targetCrmClientDetails.planExpiryDate ? new Date(targetCrmClientDetails.planExpiryDate).toLocaleDateString() : 'Active Trial'}
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Right Column: Dynamic CRUD Editor Form */}
-              <div className="flex flex-col gap-3">
-                <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
-                    <Sliders size={18} color="var(--primary)" /> <span>Client Profiles CRM Editor</span>
-                  </h3>
-
-                  {selectedCrmClient ? (
-                    <form onSubmit={handleSaveCrmClientDetails} className="flex flex-col gap-3">
-                      {crmSaveSuccess && (
-                        <div style={{ backgroundColor: 'var(--bg-success)', color: 'var(--color-success)', padding: '0.6rem', borderRadius: '8px', fontSize: '0.75rem' }}>
-                          Client profile metadata updated successfully in registry vault.
-                        </div>
-                      )}
-
-                      <div className="form-group">
-                        <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.8rem' }}>Hospital Corporate Address</label>
-                        <input 
-                          type="text" 
-                          required 
-                          className="form-control"
-                          value={crmAddress}
-                          onChange={(e) => setCrmAddress(e.target.value)}
-                        />
-                      </div>
-
-                      <div className="grid" style={{ gridTemplateColumns: '1.2fr 1fr', gap: '1rem' }}>
-                        <div className="form-group">
-                          <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.8rem' }}>Corporate Registration ID</label>
-                          <input 
-                            type="text" 
-                            required 
-                            className="form-control"
-                            value={crmRegId}
-                            onChange={(e) => setCrmRegId(e.target.value)}
-                          />
-                        </div>
-
-                        <div className="form-group">
-                          <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.8rem' }}>Bed Count</label>
-                          <input 
-                            type="number" 
-                            required 
-                            className="form-control"
-                            value={crmBeds}
-                            onChange={(e) => setCrmBeds(e.target.value)}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Government ID auto verifications */}
-                      <div className="form-group-split" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                        <div className="form-group">
-                          <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.8rem' }}>Government ID Type</label>
-                          <select 
-                            className="form-control"
-                            value={crmGovIdType}
-                            onChange={(e) => setCrmGovIdType(e.target.value)}
-                            style={{ width: '100%', padding: '0.5rem', backgroundColor: 'var(--bg-secondary)' }}
-                          >
-                            <option value="GSTIN">GSTIN (Indian Corporate Tax)</option>
-                            <option value="PAN">PAN (Income Tax Department)</option>
-                            <option value="NABH ID">NABH Reference Certification ID</option>
-                          </select>
-                        </div>
-
-                        <div className="form-group">
-                          <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.8rem' }}>Government ID Value</label>
-                          <input 
-                            type="text" 
-                            required 
-                            className="form-control"
-                            value={crmGovId}
-                            onChange={(e) => setCrmGovId(e.target.value)}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="form-group">
-                        <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.8rem' }}>Government ID Approval Status</label>
-                        <div className="flex gap-2 align-center" style={{ marginTop: '0.25rem' }}>
-                          <select 
-                            className="form-control"
-                            value={crmGovIdStatus}
-                            onChange={(e) => setCrmGovIdStatus(e.target.value)}
-                            style={{ padding: '0.5rem', backgroundColor: 'var(--bg-secondary)', flex: 1 }}
-                          >
-                            <option value="Pending">Pending Audit Check</option>
-                            <option value="Approved">Approved (Automatic Bypass)</option>
-                            <option value="Rejected">Rejected</option>
-                          </select>
-                          
+                      
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        <div className="flex gap-1">
                           <button 
-                            type="button" 
-                            onClick={() => setCrmGovIdStatus('Approved')}
-                            className="btn btn-secondary"
-                            style={{ padding: '0.5rem', fontSize: '0.75rem', cursor: 'pointer', color: 'var(--color-success)', borderColor: 'var(--color-success)' }}
+                            onClick={() => setClientStatusOverride(targetCrmClientDetails.hospitalId, 'Paid')} 
+                            className="btn btn-secondary" 
+                            style={{ flex: 1, padding: '0.3rem', fontSize: '0.65rem', color: 'var(--color-success)', borderColor: 'var(--color-success)', cursor: 'pointer' }}
                           >
-                            Auto Approve
+                            Set Paid
+                          </button>
+                          <button 
+                            onClick={() => setClientStatusOverride(targetCrmClientDetails.hospitalId, 'Expired')} 
+                            className="btn btn-secondary" 
+                            style={{ flex: 1, padding: '0.3rem', fontSize: '0.65rem', color: 'var(--color-danger)', borderColor: 'var(--color-danger)', cursor: 'pointer' }}
+                          >
+                            Set Expired
+                          </button>
+                        </div>
+                        <div className="flex gap-1">
+                          <button 
+                            onClick={() => setClientStatusOverride(targetCrmClientDetails.hospitalId, 'Restricted')} 
+                            className="btn btn-secondary" 
+                            style={{ flex: 1, padding: '0.3rem', fontSize: '0.65rem', color: 'var(--text-tertiary)', cursor: 'pointer' }}
+                          >
+                            Suspend
+                          </button>
+                          <button 
+                            onClick={() => setClientStatusOverride(targetCrmClientDetails.hospitalId, 'Active Trial')} 
+                            className="btn btn-secondary" 
+                            style={{ flex: 1, padding: '0.3rem', fontSize: '0.65rem', color: 'var(--primary)', cursor: 'pointer' }}
+                          >
+                            Reset Trial
                           </button>
                         </div>
                       </div>
-
-                      <button type="submit" className="btn btn-primary glow-premium" style={{ padding: '0.65rem', marginTop: '0.75rem', cursor: 'pointer', fontWeight: 700 }}>
-                        Save CRM Client Profile
-                      </button>
-                    </form>
-                  ) : (
-                    <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-tertiary)' }}>
-                      <HelpCircle size={32} style={{ marginBottom: '0.5rem', color: 'var(--text-tertiary)' }} />
-                      <p style={{ fontWeight: 600, fontSize: '0.9rem' }}>No client selected for editing</p>
-                      <p style={{ fontSize: '0.75rem' }}>Expand a hospital directory on the left and select "Client Metadata" to configure verification parameters.</p>
                     </div>
-                  )}
+
+                  </div>
+
+                  {/* Dossier Dossier Sub Tab Selector */}
+                  <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                    {[
+                      { id: 'metadata', label: 'Client Metadata', icon: Sliders },
+                      { id: 'vault', label: 'Vault Files', icon: Briefcase },
+                      { id: 'tickets', label: 'Support Cases', icon: ShieldAlert },
+                      { id: 'payments', label: 'Bill History', icon: Coins },
+                      { id: 'logs', label: 'Security Audits', icon: Database }
+                    ].map(tab => {
+                      const IconComp = tab.icon;
+                      const active = dossierSubTab === tab.id;
+                      return (
+                        <button
+                          key={tab.id}
+                          onClick={() => setDossierSubTab(tab.id)}
+                          className="btn"
+                          style={{
+                            padding: '0.4rem 0.85rem', fontSize: '0.75rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
+                            backgroundColor: active ? 'var(--primary-light)' : 'transparent',
+                            color: active ? 'var(--primary)' : 'var(--text-secondary)',
+                            fontWeight: active ? 700 : 500,
+                            display: 'flex', alignItems: 'center', gap: '0.3rem'
+                          }}
+                        >
+                          <IconComp size={14} />
+                          <span>{tab.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Dossier Sub-tab Content Workspace */}
+                  <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                    
+                    {/* Sub Tab: Client Metadata Form */}
+                    {dossierSubTab === 'metadata' && (
+                      <div>
+                        <h4 style={{ fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                          Update Hospital Registration parameters
+                        </h4>
+                        
+                        <form onSubmit={handleSaveCrmClientDetails} className="flex flex-col gap-3">
+                          {crmSaveSuccess && (
+                            <div style={{ backgroundColor: 'var(--bg-success)', color: 'var(--color-success)', padding: '0.6rem', borderRadius: '8px', fontSize: '0.75rem' }}>
+                              Metadata configurations committed successfully to database registries.
+                            </div>
+                          )}
+
+                          <div className="form-group">
+                            <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.8rem' }}>Corporate Address</label>
+                            <input 
+                              type="text" required className="form-control"
+                              value={crmAddress} onChange={(e) => setCrmAddress(e.target.value)}
+                            />
+                          </div>
+
+                          <div className="grid" style={{ gridTemplateColumns: '1.2fr 1fr', gap: '1rem' }}>
+                            <div className="form-group">
+                              <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.8rem' }}>Registration ID</label>
+                              <input 
+                                type="text" required className="form-control"
+                                value={crmRegId} onChange={(e) => setCrmRegId(e.target.value)}
+                              />
+                            </div>
+                            <div className="form-group">
+                              <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.8rem' }}>Bed Capacity</label>
+                              <input 
+                                type="number" required className="form-control"
+                                value={crmBeds} onChange={(e) => setCrmBeds(e.target.value)}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                            <div className="form-group">
+                              <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.8rem' }}>Gov ID Type</label>
+                              <select 
+                                className="form-control" value={crmGovIdType} onChange={(e) => setCrmGovIdType(e.target.value)}
+                                style={{ width: '100%', padding: '0.5rem', backgroundColor: 'var(--bg-secondary)' }}
+                              >
+                                <option value="GSTIN">GSTIN (Corporate Tax ID)</option>
+                                <option value="PAN">PAN (Income Tax Registration)</option>
+                                <option value="NABH ID">NABH Official Application Number</option>
+                              </select>
+                            </div>
+                            <div className="form-group">
+                              <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.8rem' }}>Gov ID Number</label>
+                              <input 
+                                type="text" required className="form-control"
+                                value={crmGovId} onChange={(e) => setCrmGovId(e.target.value)}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="form-group">
+                            <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.8rem' }}>Verification Audit Status</label>
+                            <div className="flex gap-2">
+                              <select 
+                                className="form-control" value={crmGovIdStatus} onChange={(e) => setCrmGovIdStatus(e.target.value)}
+                                style={{ padding: '0.5rem', backgroundColor: 'var(--bg-secondary)', flex: 1 }}
+                              >
+                                <option value="Pending">Pending Office Review</option>
+                                <option value="Approved">Approved (Verified & Unlocked)</option>
+                                <option value="Rejected">Rejected</option>
+                              </select>
+                              <button 
+                                type="button" onClick={() => setCrmGovIdStatus('Approved')}
+                                className="btn btn-secondary" style={{ color: 'var(--color-success)', borderColor: 'var(--color-success)', cursor: 'pointer' }}
+                              >
+                                Auto Approve
+                              </button>
+                            </div>
+                          </div>
+
+                          <button type="submit" className="btn btn-primary glow-premium" style={{ padding: '0.6rem', fontWeight: 'bold', cursor: 'pointer', marginTop: '0.5rem' }}>
+                            Apply Configurations
+                          </button>
+                        </form>
+                      </div>
+                    )}
+
+                    {/* Sub Tab: Secure Documents Vault */}
+                    {dossierSubTab === 'vault' && (
+                      <div>
+                        <h4 style={{ fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                          📂 Client Encryption Vault Documents
+                        </h4>
+                        
+                        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                          {[
+                            { name: 'accreditation_assessment.pdf', size: '1.24 MB', type: 'PDF Document' },
+                            { name: 'fire_drill_noc_audit.jpg', size: '2.84 MB', type: 'JPEG Image' },
+                            { name: 'bio_waste_regulatory_noc.pdf', size: '920 KB', type: 'PDF Document' }
+                          ].map(file => (
+                            <div key={file.name} className="card" style={{ padding: '1rem', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '10px', display: 'flex', flexDirection: 'column', justifyBetween: 'space-between', gap: '0.75rem' }}>
+                              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                <FileText size={24} color="var(--primary)" />
+                                <div>
+                                  <div style={{ fontWeight: 'bold', fontSize: '0.8rem', wordBreak: 'break-all' }}>{file.name}</div>
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>{file.type} • {file.size}</div>
+                                </div>
+                              </div>
+                              
+                              <button 
+                                onClick={() => handleDownloadMockFile(targetCrmClientDetails.hospitalName, file.name)}
+                                className="btn btn-secondary flex align-center gap-1"
+                                style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', width: '100%', justifyContent: 'center', cursor: 'pointer' }}
+                              >
+                                <Download size={12} /> <span>Download & Audit</span>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Sub Tab: Support Tickets */}
+                    {dossierSubTab === 'tickets' && (
+                      <div>
+                        <h4 style={{ fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                          🎟️ Logged Troubleshoot Queries
+                        </h4>
+
+                        <div className="flex flex-col gap-2">
+                          {supportTickets.filter(t => t.clientName === targetCrmClientDetails.hospitalName).map(ticket => (
+                            <div key={ticket.id} className="card" style={{ padding: '1rem', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
+                              <div className="flex justify-between" style={{ marginBottom: '0.4rem' }}>
+                                <strong style={{ color: 'var(--primary)', fontFamily: 'monospace' }}>{ticket.sequenceCode}</strong>
+                                <span className="badge" style={{ backgroundColor: 'var(--primary-light)', fontSize: '0.65rem' }}>{ticket.priority} Priority</span>
+                              </div>
+                              <div style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>{ticket.title}</div>
+                              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>{ticket.description}</p>
+                              <div style={{ display: 'flex', justifyBetween: 'space-between', borderTop: '1px solid var(--border-color)', marginTop: '0.5rem', paddingTop: '0.5rem', fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>
+                                <span>Assigned: {ticket.assignedOperator}</span>
+                                <span>Status: <strong>{ticket.status}</strong></span>
+                              </div>
+                            </div>
+                          ))}
+
+                          {supportTickets.filter(t => t.clientName === targetCrmClientDetails.hospitalName).length === 0 && (
+                            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+                              No troubleshoot tickets logged by this hospital.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Sub Tab: Payment Records */}
+                    {dossierSubTab === 'payments' && (
+                      <div>
+                        <h4 style={{ fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                          💳 Client Subscriptions Transaction Ledger
+                        </h4>
+
+                        <table className="table">
+                          <thead>
+                            <tr>
+                              <th>Date</th>
+                              <th>Base Fee</th>
+                              <th>GST (18%)</th>
+                              <th>Total Amount</th>
+                              <th>Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {transactions.filter(t => t.hospitalName === targetCrmClientDetails.hospitalName).map(tx => (
+                              <tr key={tx.id}>
+                                <td>{tx.date}</td>
+                                <td>₹{tx.amount.toLocaleString()}</td>
+                                <td>₹{tx.gst.toLocaleString()}</td>
+                                <td><strong>₹{(tx.amount + tx.gst).toLocaleString()}</strong></td>
+                                <td><span className="badge badge-success" style={{ fontSize: '0.65rem' }}>{tx.status}</span></td>
+                              </tr>
+                            ))}
+                            {transactions.filter(t => t.hospitalName === targetCrmClientDetails.hospitalName).length === 0 && (
+                              <tr>
+                                <td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-tertiary)', padding: '1.5rem' }}>
+                                  No invoice transaction records found for this account.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {/* Sub Tab: Audit Logs */}
+                    {dossierSubTab === 'logs' && (
+                      <div>
+                        <h4 style={{ fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                          🛡️ Client Activity & Audit Trails
+                        </h4>
+                        
+                        <div style={{ maxHeight: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                          {auditLogs.filter(log => log.user === targetCrmClientDetails.email || log.action.includes(targetCrmClientDetails.hospitalName)).map(log => (
+                            <div key={log.id} style={{ display: 'flex', justifyBetween: 'space-between', fontSize: '0.75rem', padding: '0.35rem 0.5rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                              <div>
+                                <strong style={{ color: 'var(--text-primary)' }}>{log.action}</strong>
+                                <div style={{ color: 'var(--text-tertiary)', fontSize: '0.7rem' }}>Filer: {log.user} ({log.role})</div>
+                              </div>
+                              <div style={{ color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>{log.timestamp}</div>
+                            </div>
+                          ))}
+                          {auditLogs.filter(log => log.user === targetCrmClientDetails.email || log.action.includes(targetCrmClientDetails.hospitalName)).length === 0 && (
+                            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+                              No security logs archived for this account.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                  </div>
+
                 </div>
-              </div>
+              ) : (
+                // Folder cards grid view (Directory Root)
+                <div className="flex flex-col gap-3">
+                  <div className="flex justify-between align-center" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+                    <div>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 800 }}>📂 CRM Client Directory Vaults</h3>
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Explore client hospitals graphically. Click a dossier card to audit security vaults and configurations.</p>
+                    </div>
+                    
+                    <button 
+                      onClick={handleExportCsv} 
+                      className="btn btn-secondary flex align-center gap-1"
+                      style={{ padding: '0.45rem 0.85rem', cursor: 'pointer', borderRadius: '8px', fontSize: '0.8rem' }}
+                    >
+                      <Download size={14} /> <span>Export Database CSV</span>
+                    </button>
+                  </div>
+
+                  {/* Filter and Search */}
+                  <input 
+                    type="text" 
+                    className="form-control" 
+                    placeholder="Search hospitals by owner email, title..." 
+                    value={clientSearch}
+                    onChange={(e) => setClientSearch(e.target.value)}
+                    style={{ width: '100%', padding: '0.6rem' }}
+                  />
+
+                  {/* Graphical Folders Grid */}
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
+                    gap: '1rem', 
+                    marginTop: '0.5rem' 
+                  }}>
+                    {filteredCrmClients.map(client => {
+                      const progress = getClientOnboardingProgress(client);
+                      const completedCount = getCompletedStepsCount(progress);
+                      const progressPercent = completedCount * 25;
+                      const storageMB = (client.storageUsed / (1024 * 1024)).toFixed(2);
+
+                      return (
+                        <div 
+                          key={client.hospitalId}
+                          className="card folder-card-premium"
+                          style={{ 
+                            padding: '1.25rem', 
+                            backgroundColor: 'var(--bg-secondary)', 
+                            border: '1px solid var(--border-color)', 
+                            borderRadius: '12px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.75rem',
+                            position: 'relative',
+                            transition: 'transform 0.2s, box-shadow 0.2s'
+                          }}
+                        >
+                          {/* Top bar */}
+                          <div className="flex justify-between align-center">
+                            <div style={{ display: 'flex', padding: '0.5rem', backgroundColor: 'var(--primary-light)', color: 'var(--primary)', borderRadius: '8px' }}>
+                              <FolderOpen size={20} />
+                            </div>
+                            <span className="badge" style={{ 
+                              backgroundColor: client.status === 'Paid' ? 'var(--bg-success)' : client.status === 'Expired' ? 'var(--bg-danger)' : 'var(--primary-light)', 
+                              color: client.status === 'Paid' ? 'var(--color-success)' : client.status === 'Expired' ? 'var(--color-danger)' : 'var(--primary)',
+                              fontSize: '0.7rem', fontWeight: 'bold'
+                            }}>
+                              {client.status}
+                            </span>
+                          </div>
+
+                          {/* Client title */}
+                          <div>
+                            <h4 style={{ fontWeight: 'bold', fontSize: '1rem', margin: 0, color: 'var(--text-primary)' }}>
+                              {client.hospitalName}
+                            </h4>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>{client.email}</span>
+                          </div>
+
+                          {/* Onboarding progress bar */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                            <div className="flex justify-between" style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                              <span>Onboarding: {completedCount}/4 Steps</span>
+                              <span>{progressPercent}%</span>
+                            </div>
+                            <div style={{ width: '100%', height: '6px', backgroundColor: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
+                              <div style={{ width: `${progressPercent}%`, height: '100%', backgroundColor: completedCount === 4 ? 'var(--color-success)' : 'var(--primary)' }}></div>
+                            </div>
+                          </div>
+
+                          {/* Details metadata info */}
+                          <div style={{ display: 'flex', justifyBetween: 'space-between', fontSize: '0.7rem', color: 'var(--text-tertiary)', borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem' }}>
+                            <span>Dynamic: {client.beds} Beds</span>
+                            <span>Storage: {storageMB} MB</span>
+                          </div>
+
+                          {/* Open Dossier Button */}
+                          <button 
+                            onClick={() => loadCrmClient(client)}
+                            className="btn btn-primary glow-premium"
+                            style={{ 
+                              width: '100%', 
+                              padding: '0.5rem', 
+                              fontSize: '0.8rem', 
+                              fontWeight: 'bold', 
+                              cursor: 'pointer', 
+                              borderRadius: '8px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '0.25rem',
+                              marginTop: '0.25rem'
+                            }}
+                          >
+                            <span>Open Dossier Console</span> <ChevronRight size={14} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
             </div>
           ))}
