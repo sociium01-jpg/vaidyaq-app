@@ -52,7 +52,12 @@ export default function Dashboard() {
     setOnboardingSteps,
     importNABHTemplates,
     logActivity,
-    qualityIndicators
+    qualityIndicators,
+    isSubscribed,
+    trialDaysLeft,
+    subscriptionDaysLeft,
+    getLiveCountdownString,
+    setForcePaymentScreen
   } = useContext(QualiNABHContext);
 
   const [selectedDeptRisk, setSelectedDeptRisk] = useState(null);
@@ -394,6 +399,37 @@ DOCUMENT CONTROL CYCLE: Reviewed every 6 months. Revision 1.0.`;
 
   return (
     <div className="flex flex-col gap-3">
+      {/* Expiry / Lock Warning Banner */}
+      {!isSubscribed && trialDaysLeft > 0 && trialDaysLeft <= 2 && (
+        <div className="card shadow-md flex justify-between align-center" style={{ backgroundColor: 'rgba(217, 119, 6, 0.15)', border: '1px solid rgb(217, 119, 6)', color: 'var(--text-primary)', padding: '1rem', borderRadius: '12px', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '1.25rem' }}>⚠️</span>
+            <div>
+              <strong style={{ color: 'rgb(217, 119, 6)' }}>Free Trial Expiring Soon</strong>
+              <div style={{ fontSize: '0.8rem', marginTop: '0.15rem' }}>Your 7-day trial ends in <strong>{getLiveCountdownString()}</strong>. Upgrade today to prevent account lockout.</div>
+            </div>
+          </div>
+          <button onClick={() => setForcePaymentScreen(true)} className="btn btn-primary glow-premium" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', cursor: 'pointer' }}>
+            Upgrade Plan
+          </button>
+        </div>
+      )}
+
+      {isSubscribed && subscriptionDaysLeft > 0 && subscriptionDaysLeft <= 20 && (
+        <div className="card shadow-md flex justify-between align-center" style={{ backgroundColor: 'rgba(217, 119, 6, 0.15)', border: '1px solid rgb(217, 119, 6)', color: 'var(--text-primary)', padding: '1rem', borderRadius: '12px', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '1.25rem' }}>⚠️</span>
+            <div>
+              <strong style={{ color: 'rgb(217, 119, 6)' }}>Subscription Expiration Notice</strong>
+              <div style={{ fontSize: '0.8rem', marginTop: '0.15rem' }}>Your subscription expires in <strong>{subscriptionDaysLeft} days</strong> ({getLiveCountdownString()}). Renew today to preserve your compliance vault history.</div>
+            </div>
+          </div>
+          <button onClick={() => setForcePaymentScreen(true)} className="btn btn-primary glow-premium" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', cursor: 'pointer' }}>
+            Renew Now
+          </button>
+        </div>
+      )}
+
       {/* Page Title & Onboarding Toggle Bar */}
       <div className="flex justify-between align-center" style={{ marginBottom: '0.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
@@ -403,35 +439,37 @@ DOCUMENT CONTROL CYCLE: Reviewed every 6 months. Revision 1.0.`;
           </p>
         </div>
         
-        {/* Onboarding Mode Toggles */}
-        <div style={{ display: 'inline-flex', padding: '0.3rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '24px' }}>
-          <button
-            onClick={() => switchHospitalMode('new')}
-            style={{
-              padding: '0.4rem 0.8rem',
-              borderRadius: '20px',
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              backgroundColor: hospitalMode === 'new' ? 'var(--primary-light)' : 'transparent',
-              color: hospitalMode === 'new' ? 'var(--primary-hover)' : 'var(--text-secondary)'
-            }}
-          >
-            🏥 New Hospital (Empty)
-          </button>
-          <button
-            onClick={() => switchHospitalMode('active')}
-            style={{
-              padding: '0.4rem 0.8rem',
-              borderRadius: '20px',
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              backgroundColor: hospitalMode === 'active' ? 'var(--primary-light)' : 'transparent',
-              color: hospitalMode === 'active' ? 'var(--primary-hover)' : 'var(--text-secondary)'
-            }}
-          >
-            📊 Active Demo (Preloaded)
-          </button>
-        </div>
+        {/* Onboarding Mode Toggles (Only shown for Demo Sandbox Users) */}
+        {(currentUser?.email === 'demo@vaidyaq.com' || currentUser?.email === 'quality.head@hospital.org') && (
+          <div style={{ display: 'inline-flex', padding: '0.3rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '24px' }}>
+            <button
+              onClick={() => switchHospitalMode('new')}
+              style={{
+                padding: '0.4rem 0.8rem',
+                borderRadius: '20px',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                backgroundColor: hospitalMode === 'new' ? 'var(--primary-light)' : 'transparent',
+                color: hospitalMode === 'new' ? 'var(--primary-hover)' : 'var(--text-secondary)'
+              }}
+            >
+              🏥 New Hospital (Empty)
+            </button>
+            <button
+              onClick={() => switchHospitalMode('active')}
+              style={{
+                padding: '0.4rem 0.8rem',
+                borderRadius: '20px',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                backgroundColor: hospitalMode === 'active' ? 'var(--primary-light)' : 'transparent',
+                color: hospitalMode === 'active' ? 'var(--primary-hover)' : 'var(--text-secondary)'
+              }}
+            >
+              📊 Active Demo (Preloaded)
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 1. Welcoming Onboarding wizard if database state is 'new' */}

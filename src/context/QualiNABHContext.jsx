@@ -141,10 +141,54 @@ const defaultQualityIndicators = [
 ];
 
 export const QualiNABHProvider = ({ children }) => {
-  // Authentication Role
+  // Get namespaced key loader helper
+  const loadNamespacedState = (key, defaultValue) => {
+    const savedUser = localStorage.getItem('qn_user');
+    let activeEmail = null;
+    if (savedUser) {
+      try {
+        activeEmail = JSON.parse(savedUser)?.email;
+      } catch (e) {}
+    }
+    const prefix = activeEmail ? `${activeEmail}_` : '';
+    const saved = localStorage.getItem(prefix + key);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return saved; // string fallback
+      }
+    }
+    
+    // Fallback logic for demo accounts (demo@vaidyaq.com or quality.head@hospital.org)
+    const isDemo = activeEmail === 'demo@vaidyaq.com' || activeEmail === 'quality.head@hospital.org';
+    if (isDemo) {
+      const globalSaved = localStorage.getItem(key);
+      if (globalSaved) {
+        try {
+          return JSON.parse(globalSaved);
+        } catch (e) {}
+      }
+      return defaultValue;
+    }
+    
+    // For new signups, return blank templates
+    if (activeEmail) {
+      if (key === 'qn_standards') {
+        return defaultStandards.map(s => ({ ...s, score: 0, status: "Not Met" }));
+      }
+      if (key === 'qn_licenses') {
+        return defaultLicenses.map(l => ({ ...l, status: 'Active' }));
+      }
+      return Array.isArray(defaultValue) ? [] : typeof defaultValue === 'object' ? {} : defaultValue;
+    }
+    return defaultValue;
+  };
+
+  // Authentication Role - default to null (landing page marketing)
   const [currentUser, setCurrentUser] = useState(() => {
     const saved = localStorage.getItem('qn_user');
-    return saved ? JSON.parse(saved) : { email: "quality.head@hospital.org", role: "Quality Head", name: "Dr. Sarah Paul" };
+    return saved ? JSON.parse(saved) : null;
   });
 
   // Theme State
@@ -155,41 +199,41 @@ export const QualiNABHProvider = ({ children }) => {
   // Current Router Tab
   const [currentRoute, setCurrentRoute] = useState('/');
 
+  // Force early renewal payment block screen early flag
+  const [forcePaymentScreen, setForcePaymentScreen] = useState(false);
+
   // Hospital Onboarding State Type: 'active' or 'new'
   const [hospitalMode, setHospitalMode] = useState(() => {
-    return localStorage.getItem('qn_hospital_mode') || 'active';
+    return loadNamespacedState('qn_hospital_mode', 'active');
   });
 
   // Dynamic Hospital Settings
   const [hospitalName, setHospitalName] = useState(() => {
-    return localStorage.getItem('qn_hospital_name') || 'City Central Metro Hospital';
+    return loadNamespacedState('qn_hospital_name', 'City Central Metro Hospital');
   });
 
   const [hospitalBeds, setHospitalBeds] = useState(() => {
-    return localStorage.getItem('qn_hospital_beds') || '120';
+    return loadNamespacedState('qn_hospital_beds', '120');
   });
 
   const [hospitalTier, setHospitalTier] = useState(() => {
-    return localStorage.getItem('qn_hospital_tier') || 'Full Accreditation';
+    return loadNamespacedState('qn_hospital_tier', 'Full Accreditation');
   });
 
   const [activeDepts, setActiveDepts] = useState(() => {
-    const saved = localStorage.getItem('qn_active_depts');
-    return saved ? JSON.parse(saved) : ['ICU', 'Pharmacy', 'Emergency', 'OT', 'Housekeeping / Facilities', 'HR / Staffing'];
+    return loadNamespacedState('qn_active_depts', ['ICU', 'Pharmacy', 'Emergency', 'OT', 'Housekeeping / Facilities', 'HR / Staffing']);
   });
 
   const [onboardingSteps, setOnboardingSteps] = useState(() => {
-    const saved = localStorage.getItem('qn_onboarding_steps');
-    return saved ? JSON.parse(saved) : { identity: false, departments: false, importTemplates: false, firstSop: false };
+    return loadNamespacedState('qn_onboarding_steps', { identity: false, departments: false, importTemplates: false, firstSop: false });
   });
 
   // Databases States
   const [standards, setStandards] = useState(() => {
-    const saved = localStorage.getItem('qn_standards');
-    return saved ? JSON.parse(saved) : defaultStandards;
+    return loadNamespacedState('qn_standards', defaultStandards);
   });
 
-  // SaaS Multi-tenant & Vendor Admin States
+  // SaaS Multi-tenant & Vendor Admin States - demo-hosp configured with email demo@vaidyaq.com and password demo123
   const [clientsList, setClientsList] = useState(() => {
     const saved = localStorage.getItem('qn_clients_list');
     const signup = new Date(Date.now() - 3*24*60*60*1000).toISOString();
@@ -198,48 +242,68 @@ export const QualiNABHProvider = ({ children }) => {
       { 
         hospitalId: "demo-hosp", 
         hospitalName: "City Central Metro Hospital", 
-        email: "quality.head@hospital.org", 
+        email: "demo@vaidyaq.com", 
         beds: 120, 
         trialStartDate: signup, 
         signupDate: signup,
         planExpiryDate: expiry,
-        isSubscribed: false, 
-        status: "Active Trial", 
+        isSubscribed: true, 
+        status: "Paid", 
         address: "Sector 4, Dwarka, New Delhi", 
         regId: "REG-99201",
         govId: "07AAAAA1111A1Z1",
         govIdType: "GSTIN",
         govIdStatus: "Approved",
         storageUsed: 3145728,
-        bounced: false
+        bounced: false,
+        password: "demo123",
+        firstLoginDate: signup
+      },
+      { 
+        hospitalId: "sarah-hosp", 
+        hospitalName: "Central City Clinic", 
+        email: "quality.head@hospital.org", 
+        beds: 50, 
+        trialStartDate: signup, 
+        signupDate: signup,
+        planExpiryDate: expiry,
+        isSubscribed: true, 
+        status: "Paid", 
+        address: "Sector 4, Dwarka, New Delhi", 
+        regId: "REG-99202",
+        govId: "07AAAAA1111A1Z2",
+        govIdType: "GSTIN",
+        govIdStatus: "Approved",
+        storageUsed: 1048576,
+        bounced: false,
+        password: "demo123",
+        firstLoginDate: signup
       }
     ];
   });
 
   const [isSubscribed, setIsSubscribed] = useState(() => {
-    const saved = localStorage.getItem('qn_is_subscribed');
-    return saved ? JSON.parse(saved) : false;
+    return loadNamespacedState('qn_is_subscribed', false);
   });
 
   const [trialStartDate, setTrialStartDate] = useState(() => {
-    return localStorage.getItem('qn_trial_start_date') || new Date().toISOString();
+    return loadNamespacedState('qn_trial_start_date', new Date().toISOString());
   });
 
   const [geminiApiKey, setGeminiApiKey] = useState(() => {
-    return localStorage.getItem('qn_gemini_api_key') || '';
+    return loadNamespacedState('qn_gemini_api_key', '');
   });
 
   const [hospitalLogo, setHospitalLogo] = useState(() => {
-    return localStorage.getItem('qn_hospital_logo') || '🛡️';
+    return loadNamespacedState('qn_hospital_logo', '🛡️');
   });
 
   const [teamMembers, setTeamMembers] = useState(() => {
-    const saved = localStorage.getItem('qn_team_members');
-    return saved ? JSON.parse(saved) : [
+    return loadNamespacedState('qn_team_members', [
       { email: "quality.head@hospital.org", name: "Dr. Sarah Paul", role: "Quality Head", department: "Quality Control" },
       { email: "super@vaidyaq.com", name: "Col. Roy", role: "Super Admin", department: "Board" },
       { email: "pharmacy@hospital.org", name: "Dr. Sen", role: "Department Head", department: "Pharmacy" }
-    ];
+    ]);
   });
 
   const [vendorAdminCredentials, setVendorAdminCredentials] = useState(() => {
@@ -286,49 +350,39 @@ export const QualiNABHProvider = ({ children }) => {
     return localStorage.getItem('qn_vendor_gemini_key') || '';
   });
 
-
-
   const [documents, setDocuments] = useState(() => {
-    const saved = localStorage.getItem('qn_documents');
-    return saved ? JSON.parse(saved) : defaultDocuments;
+    return loadNamespacedState('qn_documents', defaultDocuments);
   });
 
   const [audits, setAudits] = useState(() => {
-    const saved = localStorage.getItem('qn_audits');
-    return saved ? JSON.parse(saved) : defaultAudits;
+    return loadNamespacedState('qn_audits', defaultAudits);
   });
 
   const [capaItems, setCapaItems] = useState(() => {
-    const saved = localStorage.getItem('qn_capas');
-    return saved ? JSON.parse(saved) : defaultCapas;
+    return loadNamespacedState('qn_capas', defaultCapas);
   });
 
   const [incidents, setIncidents] = useState(() => {
-    const saved = localStorage.getItem('qn_incidents');
-    return saved ? JSON.parse(saved) : defaultIncidents;
+    return loadNamespacedState('qn_incidents', defaultIncidents);
   });
 
   const [licenses, setLicenses] = useState(() => {
-    const saved = localStorage.getItem('qn_licenses');
-    return saved ? JSON.parse(saved) : defaultLicenses;
+    return loadNamespacedState('qn_licenses', defaultLicenses);
   });
 
   const [tasks, setTasks] = useState(() => {
-    const saved = localStorage.getItem('qn_tasks');
-    return saved ? JSON.parse(saved) : defaultTasks;
+    return loadNamespacedState('qn_tasks', defaultTasks);
   });
 
   const [auditLogs, setAuditLogs] = useState(() => {
-    const saved = localStorage.getItem('qn_audit_logs');
-    return saved ? JSON.parse(saved) : defaultAuditLogs;
+    return loadNamespacedState('qn_audit_logs', defaultAuditLogs);
   });
 
   const [qualityIndicators, setQualityIndicators] = useState(() => {
-    const saved = localStorage.getItem('qn_quality_indicators');
-    return saved ? JSON.parse(saved) : defaultQualityIndicators;
+    return loadNamespacedState('qn_quality_indicators', defaultQualityIndicators);
   });
 
-  // Sync states with local storage
+  // Sync states with local storage (namespaced if user is logged in)
   useEffect(() => {
     localStorage.setItem('qn_user', JSON.stringify(currentUser));
   }, [currentUser]);
@@ -339,88 +393,128 @@ export const QualiNABHProvider = ({ children }) => {
   }, [theme]);
 
   useEffect(() => {
-    localStorage.setItem('qn_hospital_mode', hospitalMode);
-  }, [hospitalMode]);
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.email}_qn_hospital_mode`, hospitalMode);
+    }
+  }, [hospitalMode, currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('qn_hospital_name', hospitalName);
-  }, [hospitalName]);
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.email}_qn_hospital_name`, hospitalName);
+    }
+  }, [hospitalName, currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('qn_hospital_beds', hospitalBeds);
-  }, [hospitalBeds]);
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.email}_qn_hospital_beds`, hospitalBeds);
+    }
+  }, [hospitalBeds, currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('qn_hospital_tier', hospitalTier);
-  }, [hospitalTier]);
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.email}_qn_hospital_tier`, hospitalTier);
+    }
+  }, [hospitalTier, currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('qn_active_depts', JSON.stringify(activeDepts));
-  }, [activeDepts]);
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.email}_qn_active_depts`, JSON.stringify(activeDepts));
+    }
+  }, [activeDepts, currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('qn_onboarding_steps', JSON.stringify(onboardingSteps));
-  }, [onboardingSteps]);
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.email}_qn_onboarding_steps`, JSON.stringify(onboardingSteps));
+    }
+  }, [onboardingSteps, currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('qn_standards', JSON.stringify(standards));
-  }, [standards]);
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.email}_qn_standards`, JSON.stringify(standards));
+    }
+  }, [standards, currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('qn_documents', JSON.stringify(documents));
-  }, [documents]);
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.email}_qn_documents`, JSON.stringify(documents));
+    }
+  }, [documents, currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('qn_audits', JSON.stringify(audits));
-  }, [audits]);
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.email}_qn_audits`, JSON.stringify(audits));
+    }
+  }, [audits, currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('qn_capas', JSON.stringify(capaItems));
-  }, [capaItems]);
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.email}_qn_capas`, JSON.stringify(capaItems));
+    }
+  }, [capaItems, currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('qn_incidents', JSON.stringify(incidents));
-  }, [incidents]);
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.email}_qn_incidents`, JSON.stringify(incidents));
+    }
+  }, [incidents, currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('qn_licenses', JSON.stringify(licenses));
-  }, [licenses]);
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.email}_qn_licenses`, JSON.stringify(licenses));
+    }
+  }, [licenses, currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('qn_tasks', JSON.stringify(tasks));
-  }, [tasks]);
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.email}_qn_tasks`, JSON.stringify(tasks));
+    }
+  }, [tasks, currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('qn_audit_logs', JSON.stringify(auditLogs));
-  }, [auditLogs]);
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.email}_qn_audit_logs`, JSON.stringify(auditLogs));
+    }
+  }, [auditLogs, currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('qn_quality_indicators', JSON.stringify(qualityIndicators));
-  }, [qualityIndicators]);
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.email}_qn_quality_indicators`, JSON.stringify(qualityIndicators));
+    }
+  }, [qualityIndicators, currentUser]);
 
   useEffect(() => {
     localStorage.setItem('qn_clients_list', JSON.stringify(clientsList));
   }, [clientsList]);
 
   useEffect(() => {
-    localStorage.setItem('qn_is_subscribed', JSON.stringify(isSubscribed));
-  }, [isSubscribed]);
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.email}_qn_is_subscribed`, JSON.stringify(isSubscribed));
+    }
+  }, [isSubscribed, currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('qn_trial_start_date', trialStartDate);
-  }, [trialStartDate]);
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.email}_qn_trial_start_date`, trialStartDate);
+    }
+  }, [trialStartDate, currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('qn_gemini_api_key', geminiApiKey);
-  }, [geminiApiKey]);
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.email}_qn_gemini_api_key`, geminiApiKey);
+    }
+  }, [geminiApiKey, currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('qn_hospital_logo', hospitalLogo);
-  }, [hospitalLogo]);
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.email}_qn_hospital_logo`, hospitalLogo);
+    }
+  }, [hospitalLogo, currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('qn_team_members', JSON.stringify(teamMembers));
-  }, [teamMembers]);
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.email}_qn_team_members`, JSON.stringify(teamMembers));
+    }
+  }, [teamMembers, currentUser]);
 
   useEffect(() => {
     localStorage.setItem('qn_vendor_credentials', JSON.stringify(vendorAdminCredentials));
@@ -572,6 +666,7 @@ export const QualiNABHProvider = ({ children }) => {
     const newHospitalId = `hosp-${Date.now()}`;
     const signup = new Date().toISOString();
     const expiry = new Date(Date.now() + 7*24*60*60*1000).toISOString();
+    
     const newClient = {
       hospitalId: newHospitalId,
       hospitalName: hospitalNameInput,
@@ -588,7 +683,9 @@ export const QualiNABHProvider = ({ children }) => {
       govIdType: "GSTIN",
       govIdStatus: "Pending",
       storageUsed: 1048576,
-      bounced: true
+      bounced: false,
+      password: password,
+      firstLoginDate: signup // Signup automatically logs them in!
     };
 
     setClientsList(prev => [newClient, ...prev]);
@@ -606,7 +703,7 @@ export const QualiNABHProvider = ({ children }) => {
     setTeamMembers([superAdminUser]);
     setCurrentUser(superAdminUser);
 
-    // Reset standard scores to 0 (Unonboarded state)
+    // Reset namespaced states to empty for a clean slate
     setStandards(defaultStandards.map(s => ({ ...s, score: 0, status: "Not Met" })));
     setDocuments([]);
     setAudits([]);
@@ -627,10 +724,21 @@ export const QualiNABHProvider = ({ children }) => {
     );
   };
 
-  const purchaseSubscription = () => {
+  // Purchase/Renew subscription (cycle can be 'quarterly' or 'annually')
+  const purchaseSubscription = (cycle = 'annually') => {
     setIsSubscribed(true);
-    const priceAmount = Number(hospitalBeds) <= 20 ? 55999 : Number(hospitalBeds) <= 150 ? 129999 : 249999;
-    const gstVal = Math.round(priceAmount * 0.18 * 100) / 100;
+    setForcePaymentScreen(false);
+    
+    const beds = Number(hospitalBeds);
+    const baseFee = beds <= 20 ? 55999 : beds <= 150 ? 129999 : 249999;
+    
+    // Quarterly is 30% of annual price
+    const priceAmount = cycle === 'quarterly' ? Math.round(baseFee * 0.3) : baseFee;
+    const gstVal = Math.round(priceAmount * 0.18);
+    const totalAmount = priceAmount + gstVal;
+    
+    const termDays = cycle === 'quarterly' ? 90 : 365;
+    const newExpiry = new Date(Date.now() + termDays * 24 * 60 * 60 * 1000).toISOString();
     
     const newTrans = {
       id: `trans-${Date.now()}`,
@@ -640,23 +748,34 @@ export const QualiNABHProvider = ({ children }) => {
       gst: gstVal,
       date: new Date().toISOString().slice(0, 10),
       status: "Successful",
-      billingCycle: "H1 2026"
+      billingCycle: cycle === 'quarterly' ? "Quarterly Plan" : "Annual Plan"
     };
     setTransactions(prev => [newTrans, ...prev]);
 
     setClientsList(prev => prev.map(c => {
-      if (c.hospitalName === hospitalName || c.email === currentUser.email) {
-        return { ...c, isSubscribed: true, status: "Paid", planExpiryDate: new Date(Date.now() + 365*24*60*60*1000).toISOString() };
+      if (c.email === currentUser.email) {
+        return { 
+          ...c, 
+          isSubscribed: true, 
+          status: "Paid", 
+          planExpiryDate: newExpiry,
+          billingCycle: cycle === 'quarterly' ? "Quarterly" : "Annual"
+        };
       }
       return c;
     }));
-    logActivity(`Subscription payment of ₹${priceAmount.toLocaleString()} processed successfully.`);
+
+    // Save active state to context
+    setIsSubscribed(true);
+    setTrialStartDate(null); // Clear trial start to denote active paid subscription
+
+    logActivity(`Subscription payment of ₹${priceAmount.toLocaleString()} processed successfully for ${cycle} cycle.`);
 
     // Send payment confirmation email
     sendSimulatedEmail(
       currentUser.email,
       "VaidyaQ Subscription Active - Payment Received",
-      `Hello, we have successfully received your payment of ₹${priceAmount.toLocaleString()} + ₹${gstVal.toLocaleString()} GST. Your subscription is active until ${new Date(Date.now() + 365*24*60*60*1000).toLocaleDateString()}.`,
+      `Hello, we have successfully received your payment of ₹${priceAmount.toLocaleString()} + ₹${gstVal.toLocaleString()} GST (Total: ₹${totalAmount.toLocaleString()}). Your ${cycle} subscription is active until ${new Date(newExpiry).toLocaleDateString('en-IN')}.`,
       "Payment"
     );
   };
@@ -1000,6 +1119,70 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
     return docId;
   };
 
+  // Live countdown ticker
+  const [liveNow, setLiveNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setLiveNow(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const clientRecord = currentUser ? clientsList.find(c => c.email === currentUser.email) : null;
+
+  const trialTimeLeftMs = (() => {
+    if (isSubscribed || !clientRecord) return 0;
+    if (!clientRecord.trialStartDate) return 7 * 24 * 60 * 60 * 1000;
+    const start = new Date(clientRecord.trialStartDate).getTime();
+    const expiry = start + 7 * 24 * 60 * 60 * 1000;
+    const diff = expiry - liveNow;
+    return diff < 0 ? 0 : diff;
+  })();
+
+  const trialDaysLeft = Math.ceil(trialTimeLeftMs / (1000 * 60 * 60 * 24));
+
+  const subscriptionTimeLeftMs = (() => {
+    if (!isSubscribed || !clientRecord || !clientRecord.planExpiryDate) return 0;
+    const expiry = new Date(clientRecord.planExpiryDate).getTime();
+    const diff = expiry - liveNow;
+    return diff < 0 ? 0 : diff;
+  })();
+
+  const subscriptionDaysLeft = Math.ceil(subscriptionTimeLeftMs / (1000 * 60 * 60 * 24));
+
+  const isAppLocked = forcePaymentScreen || (currentUser && (
+    (!isSubscribed && trialTimeLeftMs <= 0) ||
+    (isSubscribed && subscriptionTimeLeftMs <= 0)
+  ));
+
+  const getLiveCountdownString = () => {
+    if (isSubscribed) {
+      if (!clientRecord || !clientRecord.planExpiryDate) return "No active subscription";
+      const diff = new Date(clientRecord.planExpiryDate).getTime() - liveNow;
+      if (diff <= 0) return "Expired";
+      
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const secs = Math.floor((diff % (1000 * 60)) / 1000);
+      
+      return `${days}d ${hours}h ${mins}m ${secs}s`;
+    } else {
+      if (!clientRecord || !clientRecord.trialStartDate) return "7 days remaining";
+      const start = new Date(clientRecord.trialStartDate).getTime();
+      const diff = (start + 7*24*60*60*1000) - liveNow;
+      if (diff <= 0) return "Expired";
+      
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const secs = Math.floor((diff % (1000 * 60)) / 1000);
+      
+      return `${days}d ${hours}h ${mins}m ${secs}s`;
+    }
+  };
+
   // Computed readiness scoring indices
   const totalStandardsCount = standards.length;
   const maxPossibleScore = totalStandardsCount * 10;
@@ -1066,13 +1249,12 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
       pendingAuditsCount,
       incidentsThisMonthCount,
       approveSOPDraft,
-      trialDaysLeft: (() => {
-        const start = new Date(trialStartDate).getTime();
-        const now = Date.now();
-        const diffTime = (start + 7*24*60*60*1000) - now;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return diffDays < 0 ? 0 : diffDays;
-      })()
+      trialDaysLeft,
+      subscriptionDaysLeft,
+      isAppLocked,
+      getLiveCountdownString,
+      forcePaymentScreen,
+      setForcePaymentScreen
     }}>
       {children}
     </QualiNABHContext.Provider>

@@ -57,34 +57,56 @@ export default function PublicPages() {
   
   // 9. Sign Up/Sign In Flow
   const [isSignUp, setIsSignUp] = useState(false);
-  const [signUpForm, setSignUpForm] = useState({ hospitalName: '', beds: '50', email: '', password: '' });
+  const [signUpForm, setSignUpForm] = useState({ hospitalName: '', beds: '50', email: '', password: '', confirmPassword: '' });
+  const [signUpError, setSignUpError] = useState('');
   const [signInEmail, setSignInEmail] = useState('');
   const [signInPassword, setSignInPassword] = useState('');
   const [signInError, setSignInError] = useState(false);
 
   const handleCustomSignIn = (e) => {
     e.preventDefault();
-    const existingClient = clientsList.find(c => c.email === signInEmail);
+    const existingClient = clientsList.find(c => c.email.toLowerCase() === signInEmail.toLowerCase());
     if (existingClient) {
-      setHospitalName(existingClient.hospitalName);
-      setHospitalBeds(String(existingClient.beds));
-      setTrialStartDate(existingClient.trialStartDate);
-      setIsSubscribed(existingClient.status === 'Paid');
+      const storedPassword = existingClient.password || "demo123";
+      if (signInPassword !== storedPassword) {
+        setSignInError("Incorrect password. Please verify your credentials and try again.");
+        return;
+      }
+
+      let clientToLoad = { ...existingClient };
+      
+      // Moment client logs in, trial countdown starts (if trial not started)
+      if (!existingClient.isSubscribed && !existingClient.firstLoginDate) {
+        const localNow = new Date().toISOString();
+        const trialExpiry = new Date(Date.now() + 7*24*60*60*1000).toISOString();
+        
+        clientToLoad.firstLoginDate = localNow;
+        clientToLoad.trialStartDate = localNow;
+        clientToLoad.planExpiryDate = trialExpiry;
+        clientToLoad.status = "Active Trial";
+        
+        setClientsList(prev => prev.map(c => c.email.toLowerCase() === signInEmail.toLowerCase() ? clientToLoad : c));
+      }
+
+      setHospitalName(clientToLoad.hospitalName);
+      setHospitalBeds(String(clientToLoad.beds));
+      setTrialStartDate(clientToLoad.trialStartDate || new Date().toISOString());
+      setIsSubscribed(clientToLoad.status === 'Paid');
       setHospitalLogo('🛡️');
       
       const loggedUser = {
         name: "Hospital Director",
-        email: existingClient.email,
+        email: clientToLoad.email,
         role: "Super Admin",
         department: "Board"
       };
       setTeamMembers([loggedUser]);
       setCurrentUser(loggedUser);
       setSignInError(false);
-      logActivity(`Logged in client: ${existingClient.hospitalName} (${existingClient.email})`);
+      logActivity(`Logged in client: ${clientToLoad.hospitalName} (${clientToLoad.email})`);
       setCurrentRoute('/app/dashboard');
     } else {
-      setSignInError(true);
+      setSignInError("No client registered with this email address. Please sign up or try again.");
     }
   };
 
@@ -1746,7 +1768,13 @@ Key Benefits of the SaaS Model:
 
               {signInError && (
                 <div style={{ backgroundColor: 'var(--bg-danger)', color: 'var(--color-danger)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--color-danger)', fontSize: '0.8rem', marginBottom: '1rem' }}>
-                  ❌ No client registered with this email address. Please sign up or try again.
+                  ❌ {typeof signInError === 'string' ? signInError : "No client registered with this email address. Please sign up or try again."}
+                </div>
+              )}
+
+              {signUpError && (
+                <div style={{ backgroundColor: 'var(--bg-danger)', color: 'var(--color-danger)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--color-danger)', fontSize: '0.8rem', marginBottom: '1rem' }}>
+                  ❌ {signUpError}
                 </div>
               )}
 
@@ -1754,6 +1782,11 @@ Key Benefits of the SaaS Model:
                 /* SIGN UP FORM */
                 <form onSubmit={(e) => {
                   e.preventDefault();
+                  if (signUpForm.password !== signUpForm.confirmPassword) {
+                    setSignUpError("Passwords do not match. Please reconfirm your password.");
+                    return;
+                  }
+                  setSignUpError('');
                   signUpClient(signUpForm.email, signUpForm.password, signUpForm.hospitalName, Number(signUpForm.beds));
                 }} className="flex flex-col gap-3">
                   <div className="form-group" style={{ textAlign: 'left' }}>
@@ -1805,6 +1838,18 @@ Key Benefits of the SaaS Model:
                       style={{ width: '100%' }}
                     />
                   </div>
+                  <div className="form-group" style={{ textAlign: 'left' }}>
+                    <label className="form-label" style={{ fontWeight: 'bold' }}>Confirm Password</label>
+                    <input
+                      type="password"
+                      required
+                      className="form-control"
+                      placeholder="••••••••"
+                      value={signUpForm.confirmPassword}
+                      onChange={(e) => setSignUpForm({ ...signUpForm, confirmPassword: e.target.value })}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
                   <button type="submit" className="btn btn-primary glow-premium" style={{ width: '100%', marginTop: '1rem', padding: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}>
                     Register & Start 7-Day Trial
                   </button>
@@ -1844,34 +1889,17 @@ Key Benefits of the SaaS Model:
 
                   <hr style={{ border: 'none', borderBottom: '1px solid var(--border-color)', margin: '1.5rem 0' }} />
 
-                  {/* Simulation Quick Entry buttons */}
-                  <div style={{ marginBottom: '0.5rem' }}>
-                    <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8rem', display: 'block', textAlign: 'left' }}>Or Quick Access Demo Roles:</label>
-                    <div className="flex flex-col gap-2" style={{ marginTop: '0.5rem' }}>
-                      <button
-                        onClick={() => handleLogin('Quality Head')}
-                        className="btn btn-secondary flex align-center justify-between"
-                        style={{ padding: '0.5rem 0.75rem', fontSize: '0.85rem', cursor: 'pointer' }}
-                      >
-                        <span>Quality Head (Sarah Paul)</span>
-                        <ChevronRight size={14} />
-                      </button>
-                      <button
-                        onClick={() => handleLogin('Super Admin')}
-                        className="btn btn-secondary flex align-center justify-between"
-                        style={{ padding: '0.5rem 0.75rem', fontSize: '0.85rem', cursor: 'pointer' }}
-                      >
-                        <span>COO / Super Admin (Col. Roy)</span>
-                        <ChevronRight size={14} />
-                      </button>
-                      <button
-                        onClick={() => handleLogin('Auditor')}
-                        className="btn btn-secondary flex align-center justify-between"
-                        style={{ padding: '0.5rem 0.75rem', fontSize: '0.85rem', cursor: 'pointer' }}
-                      >
-                        <span>Internal Auditor (Ramesh Kumar)</span>
-                        <ChevronRight size={14} />
-                      </button>
+                  {/* Preloaded Demo Credentials Card */}
+                  <div className="card" style={{ padding: '1rem', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '10px', textAlign: 'left' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--primary)', fontWeight: 'bold', fontSize: '0.8rem', marginBottom: '0.4rem' }}>
+                      <span>💡 Preloaded Demo Sandbox Account</span>
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                      To view the fully configured accreditation system, log in using:
+                      <div style={{ marginTop: '0.35rem', fontFamily: 'monospace', fontSize: '0.7rem' }}>
+                        Email: <strong>demo@vaidyaq.com</strong><br />
+                        Password: <strong>demo123</strong>
+                      </div>
                     </div>
                   </div>
                 </div>

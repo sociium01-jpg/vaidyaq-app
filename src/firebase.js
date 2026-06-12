@@ -3,8 +3,6 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 // Your web app's Firebase configuration
-// Replace these placeholders with your actual keys from the Firebase Console:
-// Project Settings -> General -> Your Apps -> Web App configuration
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "YOUR_API_KEY_HERE",
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "YOUR_PROJECT_ID.firebaseapp.com",
@@ -14,11 +12,26 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || "YOUR_APP_ID"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+let app = null;
+let auth = null;
+let db = null;
+let isConfigured = false;
+let configError = null;
 
-// Initialize Services
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+try {
+  // Only initialize if the key is not the default placeholder
+  if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY_HERE" && firebaseConfig.projectId !== "YOUR_PROJECT_ID") {
+    app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+    isConfigured = true;
+  } else {
+    configError = "Firebase environment variables are using default placeholder values.";
+  }
+} catch (err) {
+  configError = err.message;
+  console.warn("Firebase initialization skipped or failed:", err);
+}
 
+export { app, auth, db, isConfigured, configError, firebaseConfig };
 export default app;

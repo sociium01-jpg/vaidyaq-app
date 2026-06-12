@@ -1,5 +1,6 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { QualiNABHContext } from '../context/QualiNABHContext';
+import { isConfigured, configError } from '../firebase';
 import { 
   ShieldCheck, Lock, Activity, Users, Settings, UserPlus, 
   RefreshCw, Play, CircleAlert, CheckCircle, Database,
@@ -2054,6 +2055,16 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
                       <div style={{ width: `${storagePercentage}%`, height: '100%', backgroundColor: storagePercentage > 80 ? 'var(--color-danger)' : 'var(--primary)', borderRadius: '3px' }}></div>
                     </div>
                     <span style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)' }}>{storagePercentage}%</span>
+                  </div>
+                </div>
+
+                <div className="card" style={{ padding: '1rem 1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Firebase DB Status</div>
+                  <div style={{ fontSize: '1.4rem', fontWeight: 800, marginTop: '0.25rem', color: isConfigured ? 'var(--color-success)' : 'rgb(217, 119, 6)' }}>
+                    {isConfigured ? '🟢 Active' : '🟡 Simulated'}
+                  </div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', marginTop: '0.25rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={configError || 'Auth & Firestore online.'}>
+                    {isConfigured ? 'Auth & Firestore online.' : configError || 'Keys not set.'}
                   </div>
                 </div>
 

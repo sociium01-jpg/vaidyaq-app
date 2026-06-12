@@ -11,7 +11,10 @@ export default function Navbar({ setSidebarOpen }) {
     currentUser,
     hospitalName,
     hospitalBeds,
-    hospitalTier
+    hospitalTier,
+    isSubscribed,
+    trialDaysLeft,
+    subscriptionDaysLeft
   } = useContext(QualiNABHContext);
 
   const [showNotifications, setShowNotifications] = useState(false);
@@ -48,6 +51,26 @@ export default function Navbar({ setSidebarOpen }) {
       type: 'danger',
       text: `${overdueTasksCount} tasks are currently overdue.`,
       time: 'High Priority'
+    });
+  }
+
+  // 4. Subscription Expiry Warning
+  if (isSubscribed && subscriptionDaysLeft > 0 && subscriptionDaysLeft <= 20) {
+    notificationsList.push({
+      id: 'notif-sub-expiry',
+      type: 'warning',
+      text: `Subscription expires in ${subscriptionDaysLeft} days. Renew now to avoid lockout.`,
+      time: 'Renewal Warning'
+    });
+  }
+
+  // 5. Trial Expiry Warning
+  if (!isSubscribed && trialDaysLeft > 0 && trialDaysLeft <= 2) {
+    notificationsList.push({
+      id: 'notif-trial-expiry',
+      type: 'warning',
+      text: `Free trial ends in ${trialDaysLeft} days. Upgrade now.`,
+      time: 'Trial Warning'
     });
   }
 

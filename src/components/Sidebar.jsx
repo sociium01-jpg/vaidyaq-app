@@ -76,6 +76,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
   };
 
   const handleLogout = () => {
+    setCurrentUser(null);
     setCurrentRoute('/');
     logActivity("Logged out of SaaS session");
   };
@@ -180,24 +181,26 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
           </button>
         </div>
 
-        {/* Role Selector */}
-        <div style={{ marginTop: '0.5rem' }}>
-          <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700, marginBottom: '0.25rem' }}>Simulate Access Role</label>
-          <select
-            value={currentUser.role}
-            onChange={handleRoleChange}
-            className="role-badge-selector"
-          >
-            <option value="Quality Head">Quality Head</option>
-            <option value="Super Admin">COO (Super Admin)</option>
-            <option value="Hospital Admin">Director (Hospital Admin)</option>
-            <option value="Department Head">HOD (Dept Head)</option>
-            <option value="Auditor">Hospital Auditor</option>
-            <option value="Staff">Nurse/Staff</option>
-            <option value="External Consultant">NABH Consultant</option>
-            <option value="Viewer">Assessor (Viewer)</option>
-          </select>
-        </div>
+        {/* Role Selector (Only shown for Demo Sandbox Users) */}
+        {(currentUser?.email === 'demo@vaidyaq.com' || currentUser?.email === 'quality.head@hospital.org') && (
+          <div style={{ marginTop: '0.5rem' }}>
+            <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700, marginBottom: '0.25rem' }}>Simulate Access Role</label>
+            <select
+              value={currentUser.role}
+              onChange={handleRoleChange}
+              className="role-badge-selector"
+            >
+              <option value="Quality Head">Quality Head</option>
+              <option value="Super Admin">COO (Super Admin)</option>
+              <option value="Hospital Admin">Director (Hospital Admin)</option>
+              <option value="Department Head">HOD (Dept Head)</option>
+              <option value="Auditor">Hospital Auditor</option>
+              <option value="Staff">Nurse/Staff</option>
+              <option value="External Consultant">NABH Consultant</option>
+              <option value="Viewer">Assessor (Viewer)</option>
+            </select>
+          </div>
+        )}
 
         {/* Current user summary */}
         <div style={{ padding: '0.5rem', marginTop: '0.25rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
