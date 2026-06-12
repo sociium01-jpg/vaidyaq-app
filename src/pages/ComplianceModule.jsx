@@ -31,6 +31,7 @@ export default function ComplianceModule() {
     isStandardActive,
     emailLogs,
     complianceFlows,
+    setComplianceFlows,
     updateComplianceFlowStage,
     currentUser
   } = useContext(QualiNABHContext);
@@ -38,6 +39,21 @@ export default function ComplianceModule() {
   const [activeSubTab, setActiveSubTab] = useState('standards'); // 'standards', 'docs', 'licenses', 'flow'
   const [selectedFlowId, setSelectedFlowId] = useState('PSP');
   const [flowScanMessage, setFlowScanMessage] = useState('');
+
+  // Policy administrative states
+  const [showAddPolicyModal, setShowAddPolicyModal] = useState(false);
+  const [showEditPolicyModal, setShowEditPolicyModal] = useState(false);
+  const [policyForm, setPolicyForm] = useState({
+    id: '',
+    name: '',
+    department: 'Quality Control',
+    owner: '',
+    version: '1.0',
+    effectiveDate: '',
+    reviewDate: '',
+    approver: ''
+  });
+  const [policyError, setPolicyError] = useState('');
   
   // Document viewer state
   const [selectedDoc, setSelectedDoc] = useState(null);
@@ -391,6 +407,121 @@ export default function ComplianceModule() {
       }, 1500);
     };
     reader.readAsText(file);
+  };
+
+  const openAddPolicyModal = () => {
+    setPolicyForm({
+      id: '',
+      name: '',
+      department: 'Quality Control',
+      owner: '',
+      version: '1.0',
+      effectiveDate: '',
+      reviewDate: '',
+      approver: ''
+    });
+    setPolicyError('');
+    setShowAddPolicyModal(true);
+  };
+
+  const openEditPolicyModal = (flow) => {
+    setPolicyForm({
+      id: flow.id,
+      name: flow.name,
+      department: flow.department || 'Quality Control',
+      owner: flow.owner || '',
+      version: flow.version || '1.0',
+      effectiveDate: flow.effectiveDate || '',
+      reviewDate: flow.reviewDate || '',
+      approver: flow.approver || ''
+    });
+    setPolicyError('');
+    setShowEditPolicyModal(true);
+  };
+
+  const handleAddPolicySubmit = (e) => {
+    e.preventDefault();
+    setPolicyError('');
+    const idUpper = policyForm.id.trim().toUpperCase();
+    if (!idUpper) {
+      setPolicyError('Policy ID is required.');
+      return;
+    }
+    const exists = complianceFlows.some(f => f.id.toUpperCase() === idUpper);
+    if (exists) {
+      setPolicyError(`A policy with code [${idUpper}] already exists.`);
+      return;
+    }
+
+    const newFlow = {
+      id: idUpper,
+      name: policyForm.name,
+      department: policyForm.department,
+      owner: policyForm.owner,
+      version: policyForm.version,
+      effectiveDate: policyForm.effectiveDate || new Date().toISOString().split('T')[0],
+      reviewDate: policyForm.reviewDate || new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0],
+      approver: policyForm.approver,
+      stages: {
+        policy: "Not Started",
+        sop: "Not Started",
+        training: "Not Started",
+        implementation: "Not Started",
+        documentation: "Not Started",
+        audit: "Not Started",
+        findings: "Not Started",
+        capa: "Not Started",
+        review: "Not Started",
+        improvement: "Not Started",
+        updates: "Not Started"
+      },
+      linkedSops: [],
+      linkedTraining: []
+    };
+
+    setComplianceFlows(prev => [...prev, newFlow]);
+    logActivity(`Created new compliance policy flow: ${policyForm.name} [${idUpper}]`);
+    setSelectedFlowId(idUpper);
+    setShowAddPolicyModal(false);
+  };
+
+  const handleEditPolicySubmit = (e) => {
+    e.preventDefault();
+    setComplianceFlows(prev => prev.map(f => {
+      if (f.id === selectedFlowId) {
+        return {
+          ...f,
+          name: policyForm.name,
+          department: policyForm.department,
+          owner: policyForm.owner,
+          version: policyForm.version,
+          effectiveDate: policyForm.effectiveDate,
+          reviewDate: policyForm.reviewDate,
+          approver: policyForm.approver
+        };
+      }
+      return f;
+    }));
+    logActivity(`Updated compliance policy details for [${selectedFlowId}]`);
+    setShowEditPolicyModal(false);
+  };
+
+  const handleDeletePolicy = (flowId) => {
+    if (!window.confirm(`Are you sure you want to delete the policy flow [${flowId}]? All lifecycle progress will be permanently lost.`)) {
+      return;
+    }
+    setComplianceFlows(prev => {
+      const remaining = prev.filter(f => f.id !== flowId);
+      if (selectedFlowId === flowId) {
+        if (remaining.length > 0) {
+          setSelectedFlowId(remaining[0].id);
+        } else {
+          setSelectedFlowId('');
+        }
+      }
+      return remaining;
+    });
+    logActivity(`Deleted compliance policy flow: [${flowId}]`);
   };
 
   return (
@@ -928,9 +1059,19 @@ export default function ComplianceModule() {
         <div className="compliance-flow-layout">
           {/* Left Policy List */}
           <div className="flow-sidebar">
-            <h4 className="flow-sidebar-title">
-              Mandatory Policies
-            </h4>
+            <div className="flex justify-between align-center" style={{ marginBottom: '0.75rem' }}>
+              <h4 className="flow-sidebar-title" style={{ margin: 0 }}>
+                Mandatory Policies
+              </h4>
+              <button 
+                onClick={openAddPolicyModal} 
+                className="btn btn-secondary" 
+                style={{ padding: '0.25rem 0.5rem', fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                title="Add custom compliance policy"
+              >
+                <Plus size={10} /> Add
+              </button>
+            </div>
             <div className="flow-policy-list">
               {complianceFlows && complianceFlows.map(flow => {
                 const stagesList = Object.values(flow.stages || {});
@@ -979,10 +1120,28 @@ export default function ComplianceModule() {
 
             return (
               <div style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1.5rem' }} className="flex flex-col gap-4">
-                <div className="flex justify-between align-center border-b pb-3" style={{ borderColor: 'var(--border-color)' }}>
+                <div className="flex justify-between align-center border-b pb-3" style={{ borderColor: 'var(--border-color)', gap: '1rem', flexWrap: 'wrap' }}>
                   <div>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{currentFlow.name}</h3>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                    <div className="flex align-center gap-2" style={{ flexWrap: 'wrap' }}>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', margin: 0 }}>{currentFlow.name}</h3>
+                      <div className="flex gap-1" style={{ marginLeft: '4px' }}>
+                        <button 
+                          onClick={() => openEditPolicyModal(currentFlow)} 
+                          className="btn btn-secondary" 
+                          style={{ padding: '0.2rem 0.4rem', fontSize: '0.65rem', minHeight: 'auto', border: '1px solid var(--border-color)' }}
+                        >
+                          Edit
+                        </button>
+                        <button 
+                          onClick={() => handleDeletePolicy(currentFlow.id)} 
+                          className="btn btn-secondary" 
+                          style={{ padding: '0.2rem 0.4rem', fontSize: '0.65rem', minHeight: 'auto', color: 'var(--color-danger)', border: '1px solid var(--border-color)' }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
                       Owner: <strong>{currentFlow.owner}</strong> | Dept: {currentFlow.department} | Version: {currentFlow.version}
                     </p>
                   </div>
@@ -1235,6 +1394,244 @@ export default function ComplianceModule() {
               <div className="modal-footer">
                 <button type="button" onClick={() => { setShowAddLicenseModal(false); setScanMessage(''); }} className="btn btn-secondary">Cancel</button>
                 <button type="submit" className="btn btn-primary">Save License</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* D. Add Compliance Policy Flow Modal */}
+      {showAddPolicyModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '600px', backgroundColor: 'var(--bg-secondary)' }}>
+            <div className="modal-header">
+              <h3 style={{ fontSize: '1.1rem' }}>Add New Compliance Policy Flow</h3>
+              <button onClick={() => setShowAddPolicyModal(false)} style={{ fontSize: '1.2rem', fontWeight: 700 }}>✕</button>
+            </div>
+            <form onSubmit={handleAddPolicySubmit}>
+              <div className="modal-body flex flex-col gap-2" style={{ padding: '1.25rem' }}>
+                {policyError && (
+                  <div style={{ padding: '0.5rem', backgroundColor: 'var(--bg-danger)', color: 'var(--color-danger)', border: '1px solid var(--color-danger)', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600 }}>
+                    ⚠️ {policyError}
+                  </div>
+                )}
+
+                <div className="responsive-grid-2">
+                  <div className="form-group">
+                    <label className="form-label">Policy Code (ID)</label>
+                    <input
+                      type="text"
+                      required
+                      className="form-control"
+                      placeholder="e.g. EMP (3-4 characters)"
+                      value={policyForm.id}
+                      onChange={(e) => setPolicyForm({ ...policyForm, id: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Policy Title</label>
+                    <input
+                      type="text"
+                      required
+                      className="form-control"
+                      placeholder="e.g. Employee Wellness Policy"
+                      value={policyForm.name}
+                      onChange={(e) => setPolicyForm({ ...policyForm, name: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="responsive-grid-2">
+                  <div className="form-group">
+                    <label className="form-label">Responsible Owner</label>
+                    <input
+                      type="text"
+                      required
+                      className="form-control"
+                      placeholder="e.g. Dr. Sarah Paul"
+                      value={policyForm.owner}
+                      onChange={(e) => setPolicyForm({ ...policyForm, owner: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Approver Authority</label>
+                    <input
+                      type="text"
+                      required
+                      className="form-control"
+                      placeholder="e.g. Medical Director"
+                      value={policyForm.approver}
+                      onChange={(e) => setPolicyForm({ ...policyForm, approver: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="responsive-grid-2">
+                  <div className="form-group">
+                    <label className="form-label">Department</label>
+                    <select
+                      className="form-control"
+                      value={policyForm.department}
+                      onChange={(e) => setPolicyForm({ ...policyForm, department: e.target.value })}
+                    >
+                      <option value="Quality Control">Quality Control</option>
+                      <option value="Pharmacy">Pharmacy</option>
+                      <option value="ICU">ICU</option>
+                      <option value="Emergency">Emergency</option>
+                      <option value="OPD">OPD</option>
+                      <option value="Medical Records">Medical Records</option>
+                      <option value="Housekeeping">Housekeeping</option>
+                      <option value="Security & Facility">Security & Facility</option>
+                      <option value="HR">HR & Recruitment</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Version</label>
+                    <input
+                      type="text"
+                      required
+                      className="form-control"
+                      placeholder="e.g. 1.0"
+                      value={policyForm.version}
+                      onChange={(e) => setPolicyForm({ ...policyForm, version: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="responsive-grid-2">
+                  <div className="form-group">
+                    <label className="form-label">Effective Date</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={policyForm.effectiveDate}
+                      onChange={(e) => setPolicyForm({ ...policyForm, effectiveDate: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Next Review Date</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={policyForm.reviewDate}
+                      onChange={(e) => setPolicyForm({ ...policyForm, reviewDate: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" onClick={() => setShowAddPolicyModal(false)} className="btn btn-secondary">Cancel</button>
+                <button type="submit" className="btn btn-primary">Create Policy Flow</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* E. Edit Compliance Policy Flow Modal */}
+      {showEditPolicyModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '600px', backgroundColor: 'var(--bg-secondary)' }}>
+            <div className="modal-header">
+              <h3 style={{ fontSize: '1.1rem' }}>Edit Compliance Policy [ {selectedFlowId} ]</h3>
+              <button onClick={() => setShowEditPolicyModal(false)} style={{ fontSize: '1.2rem', fontWeight: 700 }}>✕</button>
+            </div>
+            <form onSubmit={handleEditPolicySubmit}>
+              <div className="modal-body flex flex-col gap-2" style={{ padding: '1.25rem' }}>
+                
+                <div className="form-group">
+                  <label className="form-label">Policy Title</label>
+                  <input
+                    type="text"
+                    required
+                    className="form-control"
+                    placeholder="e.g. Employee Wellness Policy"
+                    value={policyForm.name}
+                    onChange={(e) => setPolicyForm({ ...policyForm, name: e.target.value })}
+                  />
+                </div>
+
+                <div className="responsive-grid-2">
+                  <div className="form-group">
+                    <label className="form-label">Responsible Owner</label>
+                    <input
+                      type="text"
+                      required
+                      className="form-control"
+                      placeholder="e.g. Dr. Sarah Paul"
+                      value={policyForm.owner}
+                      onChange={(e) => setPolicyForm({ ...policyForm, owner: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Approver Authority</label>
+                    <input
+                      type="text"
+                      required
+                      className="form-control"
+                      placeholder="e.g. Medical Director"
+                      value={policyForm.approver}
+                      onChange={(e) => setPolicyForm({ ...policyForm, approver: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="responsive-grid-2">
+                  <div className="form-group">
+                    <label className="form-label">Department</label>
+                    <select
+                      className="form-control"
+                      value={policyForm.department}
+                      onChange={(e) => setPolicyForm({ ...policyForm, department: e.target.value })}
+                    >
+                      <option value="Quality Control">Quality Control</option>
+                      <option value="Pharmacy">Pharmacy</option>
+                      <option value="ICU">ICU</option>
+                      <option value="Emergency">Emergency</option>
+                      <option value="OPD">OPD</option>
+                      <option value="Medical Records">Medical Records</option>
+                      <option value="Housekeeping">Housekeeping</option>
+                      <option value="Security & Facility">Security & Facility</option>
+                      <option value="HR">HR & Recruitment</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Version</label>
+                    <input
+                      type="text"
+                      required
+                      className="form-control"
+                      placeholder="e.g. 1.0"
+                      value={policyForm.version}
+                      onChange={(e) => setPolicyForm({ ...policyForm, version: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="responsive-grid-2">
+                  <div className="form-group">
+                    <label className="form-label">Effective Date</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={policyForm.effectiveDate}
+                      onChange={(e) => setPolicyForm({ ...policyForm, effectiveDate: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Next Review Date</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={policyForm.reviewDate}
+                      onChange={(e) => setPolicyForm({ ...policyForm, reviewDate: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" onClick={() => setShowEditPolicyModal(false)} className="btn btn-secondary">Cancel</button>
+                <button type="submit" className="btn btn-primary">Save Changes</button>
               </div>
             </form>
           </div>
