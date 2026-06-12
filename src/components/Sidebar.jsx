@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 import { QualiNABHContext } from '../context/QualiNABHContext';
 import {
   LayoutDashboard,
@@ -13,7 +13,12 @@ import {
   Sun,
   Moon,
   ShieldCheck,
-  X
+  X,
+  Newspaper,
+  ChevronDown,
+  ChevronUp,
+  RefreshCw,
+  Bell
 } from 'lucide-react';
 
 export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
@@ -25,8 +30,16 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
     currentUser,
     setCurrentUser,
     logActivity,
-    openCapasCount
+    openCapasCount,
+    complianceFeed,
+    feedNotifications,
+    checkForComplianceUpdates
   } = useContext(QualiNABHContext);
+
+  const [newsCollapsed, setNewsCollapsed] = useState(true);
+  const [selectedNews, setSelectedNews] = useState(null);
+
+  const unreadNotifsCount = feedNotifications ? feedNotifications.filter(n => !n.read).length : 0;
 
   const mainNavItems = [
     { label: 'Dashboard', path: '/app/dashboard', icon: LayoutDashboard },
@@ -159,6 +172,80 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
           );
         })}
       </div>
+
+      {/* Compliance Feed Sidebar Widget */}
+      <div style={{ margin: '0.5rem 1rem', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '8px', backgroundColor: 'var(--bg-tertiary)' }}>
+        <button 
+          onClick={() => setNewsCollapsed(!newsCollapsed)}
+          style={{ width: '100%', display: 'flex', alignItems: 'center', justifySelf: 'stretch', justifyContent: 'space-between', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-primary)', padding: '0.2rem' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.8rem', fontWeight: 800 }}>
+            <Newspaper size={14} style={{ color: 'var(--primary)' }} />
+            <span>Compliance Feed</span>
+            {unreadNotifsCount > 0 && (
+              <span className="badge badge-danger" style={{ fontSize: '0.6rem', padding: '1px 4px' }}>
+                {unreadNotifsCount} New
+              </span>
+            )}
+          </div>
+          {newsCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+        </button>
+
+        {!newsCollapsed && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '160px', overflowY: 'auto' }}>
+              {complianceFeed && complianceFeed.slice(0, 3).map((item, idx) => (
+                <div 
+                  key={idx} 
+                  onClick={() => setSelectedNews(item)}
+                  style={{ cursor: 'pointer', padding: '0.35rem', borderRadius: '4px', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', transition: 'background-color 0.2s' }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6rem', color: 'var(--text-tertiary)' }}>
+                    <span>{item.category}</span>
+                    <span>{item.date}</span>
+                  </div>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text-primary)', marginTop: '2px' }}>
+                    {item.title}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button 
+              onClick={() => {
+                checkForComplianceUpdates();
+              }}
+              style={{ width: '100%', padding: '0.3rem', fontSize: '0.7rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', borderRadius: '4px' }}
+            >
+              <RefreshCw size={10} /> Check for updates
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Selected News Modal */}
+      {selectedNews && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '1rem' }}>
+          <div className="card" style={{ maxWidth: '450px', width: '100%', padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', textAlign: 'left' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>
+              <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>{selectedNews.category}</span>
+              <button onClick={() => setSelectedNews(null)} style={{ border: 'none', background: 'none', fontSize: '1rem', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 'bold' }}>✕</button>
+            </div>
+            <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: '0 0 0.5rem 0', color: 'var(--text-primary)' }}>{selectedNews.title}</h3>
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', marginBottom: '0.75rem' }}>
+              Source: <strong>{selectedNews.source}</strong> | Date: {selectedNews.date}
+            </div>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.4', margin: '0 0 1rem 0' }}>
+              {selectedNews.content}
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="btn btn-primary" onClick={() => setSelectedNews(null)} style={{ padding: '0.4rem 1rem', fontSize: '0.75rem', cursor: 'pointer' }}>
+                Close Update
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Footer Settings & Role Selector */}
       <div className="sidebar-footer flex flex-col gap-2">

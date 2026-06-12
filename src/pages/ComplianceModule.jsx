@@ -24,7 +24,8 @@ export default function ComplianceModule() {
     licenses,
     setLicenses,
     logActivity,
-    analyzeEvidenceFile
+    analyzeEvidenceFile,
+    isStandardActive
   } = useContext(QualiNABHContext);
 
   const [activeSubTab, setActiveSubTab] = useState('standards'); // 'standards', 'docs', 'licenses'
@@ -272,8 +273,9 @@ export default function ComplianceModule() {
                 {standards.map((std, idx) => {
                   // Find documents mapped to this standard
                   const mappedDocs = documents.filter(doc => doc.mappedStandards && doc.mappedStandards.includes(std.id));
+                  const active = isStandardActive(std);
                   return (
-                    <tr key={idx}>
+                    <tr key={idx} style={{ opacity: active ? 1 : 0.6, backgroundColor: active ? 'transparent' : 'var(--bg-tertiary)' }}>
                       <td style={{ fontWeight: 700 }}>
                         <span className="badge badge-neutral" style={{ fontSize: '0.75rem' }}>{std.chapter}</span>
                       </td>
@@ -287,7 +289,9 @@ export default function ComplianceModule() {
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{std.evidenceRequired}</span>
                       </td>
                       <td>
-                        {mappedDocs.length > 0 ? (
+                        {!active ? (
+                          <span className="badge" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-tertiary)', fontSize: '0.65rem' }}>Exempt</span>
+                        ) : mappedDocs.length > 0 ? (
                           <div className="flex flex-col gap-1">
                             {mappedDocs.map((doc, dIdx) => (
                               <div key={dIdx} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.8rem', color: 'var(--primary)' }}>
@@ -303,9 +307,15 @@ export default function ComplianceModule() {
                         )}
                       </td>
                       <td>
-                        <span className={`badge ${std.score === 10 ? 'badge-success' : std.score === 5 ? 'badge-warning' : 'badge-danger'}`}>
-                          {std.status}
-                        </span>
+                        {!active ? (
+                          <span className="badge" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-tertiary)', fontSize: '0.65rem' }}>
+                            Exempt (Inactive Dept)
+                          </span>
+                        ) : (
+                          <span className={`badge ${std.score === 10 ? 'badge-success' : std.score === 5 ? 'badge-warning' : 'badge-danger'}`}>
+                            {std.status}
+                          </span>
+                        )}
                       </td>
                     </tr>
                   );

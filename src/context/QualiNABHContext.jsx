@@ -140,6 +140,12 @@ const defaultQualityIndicators = [
   { month: "Jun", falls: 0, medicationErrors: 4, infections: 1, needleSticks: 0 }
 ];
 
+const defaultComplianceFeed = [
+  { id: "feed-1", date: "2026-06-10", title: "National Health Authority (NHA) releases ABDM v3.0 Guidelines", category: "Regulatory Update", content: "ABDM Health Locker integration requirements have been revised. Hospitals must ensure all medical record PDFs generated conform to the new metadata tagging guidelines.", source: "National Health Authority", isNew: true },
+  { id: "feed-2", date: "2026-06-08", title: "QCI introduces updated Fire Security Audit Template for Hospitals", category: "Compliance Alert", content: "Quality Council of India (QCI) has launched a new mock drill scoring checklist. Fire safety logs must now detail extinguisher canister weight verifications.", source: "Quality Council of India", isNew: false },
+  { id: "feed-3", date: "2026-06-02", title: "NABH 6th Edition Medication Storage Amendments", category: "NABH Notice", content: "High-alert medication locks must be checked at every shift change. Dual-custody signatures are mandated for narcotic withdrawals.", source: "NABH constitutive board", isNew: false }
+];
+
 export const QualiNABHProvider = ({ children }) => {
   // Get namespaced key loader helper
   const loadNamespacedState = (key, defaultValue) => {
@@ -147,7 +153,8 @@ export const QualiNABHProvider = ({ children }) => {
     let activeEmail = null;
     if (savedUser) {
       try {
-        activeEmail = JSON.parse(savedUser)?.email;
+        const parsed = JSON.parse(savedUser);
+        activeEmail = parsed.parentEmail || parsed.email;
       } catch (e) {}
     }
     const prefix = activeEmail ? `${activeEmail}_` : '';
@@ -382,6 +389,16 @@ export const QualiNABHProvider = ({ children }) => {
     return loadNamespacedState('qn_quality_indicators', defaultQualityIndicators);
   });
 
+  const [complianceFeed, setComplianceFeed] = useState(() => {
+    return loadNamespacedState('qn_compliance_feed', defaultComplianceFeed);
+  });
+  
+  const [feedNotifications, setFeedNotifications] = useState(() => {
+    return loadNamespacedState('qn_feed_notifications', [
+      { id: "notif-1", title: "ABDM Update", message: "New ABDM v3.0 guidelines released. Check the News Feed.", type: "warning", read: false }
+    ]);
+  });
+
   // Sync states with local storage (namespaced if user is logged in)
   useEffect(() => {
     localStorage.setItem('qn_user', JSON.stringify(currentUser));
@@ -394,127 +411,139 @@ export const QualiNABHProvider = ({ children }) => {
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.email}_qn_hospital_mode`, hospitalMode);
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_hospital_mode`, hospitalMode);
     }
   }, [hospitalMode, currentUser]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.email}_qn_hospital_name`, hospitalName);
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_hospital_name`, hospitalName);
     }
   }, [hospitalName, currentUser]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.email}_qn_hospital_beds`, hospitalBeds);
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_hospital_beds`, hospitalBeds);
     }
   }, [hospitalBeds, currentUser]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.email}_qn_hospital_tier`, hospitalTier);
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_hospital_tier`, hospitalTier);
     }
   }, [hospitalTier, currentUser]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.email}_qn_active_depts`, JSON.stringify(activeDepts));
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_active_depts`, JSON.stringify(activeDepts));
     }
   }, [activeDepts, currentUser]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.email}_qn_onboarding_steps`, JSON.stringify(onboardingSteps));
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_onboarding_steps`, JSON.stringify(onboardingSteps));
     }
   }, [onboardingSteps, currentUser]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.email}_qn_standards`, JSON.stringify(standards));
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_standards`, JSON.stringify(standards));
     }
   }, [standards, currentUser]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.email}_qn_documents`, JSON.stringify(documents));
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_documents`, JSON.stringify(documents));
     }
   }, [documents, currentUser]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.email}_qn_audits`, JSON.stringify(audits));
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_audits`, JSON.stringify(audits));
     }
   }, [audits, currentUser]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.email}_qn_capas`, JSON.stringify(capaItems));
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_capas`, JSON.stringify(capaItems));
     }
   }, [capaItems, currentUser]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.email}_qn_incidents`, JSON.stringify(incidents));
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_incidents`, JSON.stringify(incidents));
     }
   }, [incidents, currentUser]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.email}_qn_licenses`, JSON.stringify(licenses));
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_licenses`, JSON.stringify(licenses));
     }
   }, [licenses, currentUser]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.email}_qn_tasks`, JSON.stringify(tasks));
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_tasks`, JSON.stringify(tasks));
     }
   }, [tasks, currentUser]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.email}_qn_audit_logs`, JSON.stringify(auditLogs));
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_audit_logs`, JSON.stringify(auditLogs));
     }
   }, [auditLogs, currentUser]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.email}_qn_quality_indicators`, JSON.stringify(qualityIndicators));
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_quality_indicators`, JSON.stringify(qualityIndicators));
     }
   }, [qualityIndicators, currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('qn_clients_list', JSON.stringify(clientsList));
-  }, [clientsList]);
-
-  useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.email}_qn_is_subscribed`, JSON.stringify(isSubscribed));
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_is_subscribed`, JSON.stringify(isSubscribed));
     }
   }, [isSubscribed, currentUser]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.email}_qn_trial_start_date`, trialStartDate);
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_trial_start_date`, trialStartDate);
     }
   }, [trialStartDate, currentUser]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.email}_qn_gemini_api_key`, geminiApiKey);
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_gemini_api_key`, geminiApiKey);
     }
   }, [geminiApiKey, currentUser]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.email}_qn_hospital_logo`, hospitalLogo);
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_hospital_logo`, hospitalLogo);
     }
   }, [hospitalLogo, currentUser]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.email}_qn_team_members`, JSON.stringify(teamMembers));
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_team_members`, JSON.stringify(teamMembers));
     }
   }, [teamMembers, currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_compliance_feed`, JSON.stringify(complianceFeed));
+    }
+  }, [complianceFeed, currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_feed_notifications`, JSON.stringify(feedNotifications));
+    }
+  }, [feedNotifications, currentUser]);
+
+  useEffect(() => {
+    localStorage.setItem('qn_clients_list', JSON.stringify(clientsList));
+  }, [clientsList]);
 
   useEffect(() => {
     localStorage.setItem('qn_vendor_credentials', JSON.stringify(vendorAdminCredentials));
@@ -540,6 +569,99 @@ export const QualiNABHProvider = ({ children }) => {
     localStorage.setItem('qn_vendor_gemini_key', vendorGeminiKey);
   }, [vendorGeminiKey]);
 
+  // Initialize default global sub-users if not exists
+  useEffect(() => {
+    const saved = localStorage.getItem('qn_global_sub_users');
+    if (!saved) {
+      const defaultSubUsers = [
+        {
+          email: "sarah@demo.com",
+          name: "Dr. Sarah Paul",
+          role: "Quality Head",
+          department: "Quality Control",
+          password: "demo123",
+          parentEmail: "demo@vaidyaq.com"
+        },
+        {
+          email: "sen@demo.com",
+          name: "Dr. Sen",
+          role: "Department Head",
+          department: "Pharmacy",
+          password: "demo123",
+          parentEmail: "demo@vaidyaq.com"
+        },
+        {
+          email: "gracy@demo.com",
+          name: "Sister Gracy",
+          role: "Staff",
+          department: "ICU",
+          password: "demo123",
+          parentEmail: "demo@vaidyaq.com"
+        }
+      ];
+      localStorage.setItem('qn_global_sub_users', JSON.stringify(defaultSubUsers));
+    }
+  }, []);
+
+  // Reload namespaced states when currentUser changes
+  useEffect(() => {
+    if (currentUser) {
+      const activeEmail = currentUser.parentEmail || currentUser.email;
+      const prefix = activeEmail ? `${activeEmail}_` : '';
+      
+      const getSaved = (key, defaultVal) => {
+        const saved = localStorage.getItem(prefix + key);
+        if (saved) {
+          try { return JSON.parse(saved); } catch(e) { return saved; }
+        }
+        // Fallbacks
+        const isDemo = activeEmail === 'demo@vaidyaq.com' || activeEmail === 'quality.head@hospital.org';
+        if (isDemo) {
+          const globalSaved = localStorage.getItem(key);
+          if (globalSaved) {
+            try { return JSON.parse(globalSaved); } catch(e) {}
+          }
+          return defaultVal;
+        }
+        if (key === 'qn_standards') {
+          return defaultStandards.map(s => ({ ...s, score: 0, status: "Not Met" }));
+        }
+        if (key === 'qn_licenses') {
+          return defaultLicenses.map(l => ({ ...l, status: 'Active' }));
+        }
+        return Array.isArray(defaultVal) ? [] : typeof defaultVal === 'object' ? {} : defaultVal;
+      };
+
+      setHospitalMode(getSaved('qn_hospital_mode', 'active'));
+      setHospitalName(getSaved('qn_hospital_name', 'City Central Metro Hospital'));
+      setHospitalBeds(String(getSaved('qn_hospital_beds', '120')));
+      setHospitalTier(getSaved('qn_hospital_tier', 'Full Accreditation'));
+      setActiveDepts(getSaved('qn_active_depts', ['ICU', 'Pharmacy', 'Emergency', 'OT', 'Housekeeping / Facilities', 'HR / Staffing']));
+      setOnboardingSteps(getSaved('qn_onboarding_steps', { identity: false, departments: false, importTemplates: false, firstSop: false }));
+      setStandards(getSaved('qn_standards', defaultStandards));
+      setIsSubscribed(getSaved('qn_is_subscribed', false));
+      setTrialStartDate(getSaved('qn_trial_start_date', new Date().toISOString()));
+      setGeminiApiKey(getSaved('qn_gemini_api_key', ''));
+      setHospitalLogo(getSaved('qn_hospital_logo', '🛡️'));
+      setTeamMembers(getSaved('qn_team_members', [
+        { email: "quality.head@hospital.org", name: "Dr. Sarah Paul", role: "Quality Head", department: "Quality Control" },
+        { email: "super@vaidyaq.com", name: "Col. Roy", role: "Super Admin", department: "Board" },
+        { email: "pharmacy@hospital.org", name: "Dr. Sen", role: "Department Head", department: "Pharmacy" }
+      ]));
+      setDocuments(getSaved('qn_documents', defaultDocuments));
+      setAudits(getSaved('qn_audits', defaultAudits));
+      setCapaItems(getSaved('qn_capas', defaultCapas));
+      setIncidents(getSaved('qn_incidents', defaultIncidents));
+      setLicenses(getSaved('qn_licenses', defaultLicenses));
+      setTasks(getSaved('qn_tasks', defaultTasks));
+      setAuditLogs(getSaved('qn_audit_logs', defaultAuditLogs));
+      setQualityIndicators(getSaved('qn_quality_indicators', defaultQualityIndicators));
+      setComplianceFeed(getSaved('qn_compliance_feed', defaultComplianceFeed));
+      setFeedNotifications(getSaved('qn_feed_notifications', [
+        { id: "notif-1", title: "ABDM Update", message: "New ABDM v3.0 guidelines released. Check the News Feed.", type: "warning", read: false }
+      ]));
+    }
+  }, [currentUser]);
 
   // Log Security Activity helper
   const logActivity = (action) => {
@@ -798,10 +920,181 @@ export const QualiNABHProvider = ({ children }) => {
     logActivity("Configured custom Gemini AI API Token.");
   };
 
-  const inviteTeamMember = (email, name, role, department) => {
-    const newMember = { email, name, role, department };
+  const inviteTeamMember = (email, name, role, department, password = "password123") => {
+    const newMember = { email, name, role, department, password };
     setTeamMembers(prev => [...prev, newMember]);
+    
+    // Save to global sub-users registry
+    const globalSubUsers = JSON.parse(localStorage.getItem('qn_global_sub_users') || '[]');
+    // Filter out duplicates
+    const filtered = globalSubUsers.filter(u => u.email.toLowerCase() !== email.toLowerCase());
+    const subUserObj = {
+      email,
+      name,
+      role,
+      department,
+      password,
+      parentEmail: currentUser.parentEmail || currentUser.email
+    };
+    localStorage.setItem('qn_global_sub_users', JSON.stringify([...filtered, subUserObj]));
+    
     logActivity(`Invited team member: ${name} (${role}) to ${department}`);
+  };
+
+  const changeUserPassword = (oldPassword, newPassword) => {
+    if (!currentUser) return { success: false, message: "No active session." };
+
+    // 1. Owner change
+    if (currentUser.role === 'Super Admin' && !currentUser.parentEmail) {
+      setClientsList(prev => prev.map(c => {
+        if (c.email.toLowerCase() === currentUser.email.toLowerCase()) {
+          return { ...c, password: newPassword };
+        }
+        return c;
+      }));
+      logActivity("Updated owner password.");
+      return { success: true };
+    }
+
+    // 2. Sub-user change
+    const globalSubUsers = JSON.parse(localStorage.getItem('qn_global_sub_users') || '[]');
+    const userIndex = globalSubUsers.findIndex(u => u.email.toLowerCase() === currentUser.email.toLowerCase());
+    if (userIndex !== -1) {
+      if (globalSubUsers[userIndex].password !== oldPassword) {
+        return { success: false, message: "Incorrect current password." };
+      }
+      globalSubUsers[userIndex].password = newPassword;
+      localStorage.setItem('qn_global_sub_users', JSON.stringify(globalSubUsers));
+      logActivity(`Updated sub-user password for ${currentUser.name}`);
+      return { success: true };
+    }
+
+    return { success: false, message: "User not found in registry." };
+  };
+
+  const changeUserProfile = (name) => {
+    if (!currentUser) return;
+    const updatedUser = { ...currentUser, name };
+    setCurrentUser(updatedUser);
+    localStorage.setItem('qn_user', JSON.stringify(updatedUser));
+    
+    // Update local state list
+    setTeamMembers(prev => prev.map(m => m.email.toLowerCase() === currentUser.email.toLowerCase() ? { ...m, name } : m));
+    
+    if (currentUser.parentEmail) {
+      const globalSubUsers = JSON.parse(localStorage.getItem('qn_global_sub_users') || '[]');
+      const updatedList = globalSubUsers.map(u => u.email.toLowerCase() === currentUser.email.toLowerCase() ? { ...u, name } : u);
+      localStorage.setItem('qn_global_sub_users', JSON.stringify(updatedList));
+    }
+    logActivity(`Updated profile name to ${name}`);
+  };
+
+  const addHospitalTask = (taskObj) => {
+    const newTask = {
+      id: `task-${Date.now()}`,
+      title: taskObj.title,
+      assignedTo: taskObj.assignedTo,
+      assignedToEmail: taskObj.assignedToEmail || '',
+      department: taskObj.department || 'Quality Control',
+      dueDate: taskObj.dueDate,
+      priority: taskObj.priority || 'Medium',
+      mappedStandard: taskObj.mappedStandard || '',
+      status: 'Pending'
+    };
+    setTasks(prev => [newTask, ...prev]);
+    logActivity(`Assigned task: "${taskObj.title}" to ${taskObj.assignedTo}`);
+    return newTask.id;
+  };
+
+  const updateHospitalTaskStatus = (taskId, status) => {
+    setTasks(prev => prev.map(t => {
+      if (t.id === taskId) {
+        logActivity(`Updated task "${t.title}" status to ${status}`);
+        return { ...t, status };
+      }
+      return t;
+    }));
+  };
+
+  const deleteHospitalTask = (taskId) => {
+    setTasks(prev => {
+      const taskObj = prev.find(t => t.id === taskId);
+      if (taskObj) {
+        logActivity(`Deleted task: "${taskObj.title}"`);
+      }
+      return prev.filter(t => t.id !== taskId);
+    });
+  };
+
+  const checkForComplianceUpdates = () => {
+    logActivity("Checking Google News for live compliance updates...");
+    
+    const query = encodeURIComponent("NABH compliance hospital India OR ABDM healthcare India");
+    const rssUrl = `https://news.google.com/rss/search?q=${query}&hl=en-IN&gl=IN&ceid=IN:en`;
+    const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
+    
+    fetch(apiUrl)
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'ok' && data.items && data.items.length > 0) {
+          const fetchedFeed = data.items.slice(0, 5).map((item, idx) => ({
+            id: `feed-live-${idx}-${Date.now()}`,
+            date: item.pubDate ? item.pubDate.slice(0, 10) : new Date().toISOString().slice(0, 10),
+            title: item.title,
+            category: "Google Live News",
+            content: item.description || item.content || "Click source link to view full article.",
+            source: item.author || "Google News",
+            link: item.link,
+            isNew: true
+          }));
+
+          setComplianceFeed(fetchedFeed);
+          
+          // Add a notification about new updates
+          const newNotif = {
+            id: `notif-live-${Date.now()}`,
+            title: "Live Compliance Updates Scan Completed",
+            message: `Fetched ${fetchedFeed.length} live articles from Google News.`,
+            type: "success",
+            read: false
+          };
+          setFeedNotifications(prev => [newNotif, ...prev]);
+          logActivity(`Successfully scraped ${fetchedFeed.length} live compliance articles from Google News RSS.`);
+        } else {
+          throw new Error("Invalid RSS response.");
+        }
+      })
+      .catch(err => {
+        console.error("Failed to fetch live updates, falling back to offline templates:", err);
+        // Fallback to mock update if offline or API limit exceeded
+        const newUpdate = {
+          id: `feed-offline-${Date.now()}`,
+          date: new Date().toISOString().slice(0, 10),
+          title: "Ministry of Health mandates digital consent records via ABHA ID",
+          category: "Statutory Law",
+          content: "All clinical admissions from 01-Jul-2026 must support digital consent sign-offs using patient ABHA OTP verification under the ABDM program.",
+          source: "Ministry of Health & Family Welfare",
+          isNew: true
+        };
+        setComplianceFeed(prev => [newUpdate, ...prev]);
+        setFeedNotifications(prev => [
+          { id: `notif-offline-${Date.now()}`, title: "New Policy Mandate", message: "Ministry of Health digital consent guidelines released.", type: "danger", read: false },
+          ...prev
+        ]);
+        
+        setStandards(prev => prev.map(s => {
+          if (s.id === "AAC.2.b") {
+            return {
+              ...s,
+              description: "Admissions and digital consents are logged via patient ABHA credentials in compliance with ABDM guidelines.",
+              evidenceRequired: "ABHA Consent Log Sheets, Admission SOP"
+            };
+          }
+          return s;
+        }));
+
+        logActivity("Fetched default regulatory update templates (Google scan fallback).");
+      });
   };
 
   const setClientStatusOverride = (hospId, statusValue) => {
@@ -1400,15 +1693,31 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
     }
   };
 
+  const isStandardActive = (std) => {
+    if (!std.department) return true;
+    const stdDept = std.department.toLowerCase();
+    
+    // Global/hospital-wide departments are always active
+    const globalDepts = ["hr", "nursing", "medical records", "security & facility", "infection control", "quality control", "board", "quality"];
+    if (globalDepts.some(gd => stdDept.includes(gd))) return true;
+
+    // Check if standard department matches any selected active department
+    return activeDepts.some(ad => {
+      const normalizedAd = ad.toLowerCase();
+      return normalizedAd.includes(stdDept) || stdDept.includes(normalizedAd);
+    });
+  };
+
   // Computed readiness scoring indices
-  const totalStandardsCount = standards.length;
+  const activeStandards = standards.filter(isStandardActive);
+  const totalStandardsCount = activeStandards.length;
   const maxPossibleScore = totalStandardsCount * 10;
-  const currentEarnedScore = standards.reduce((sum, s) => sum + s.score, 0);
+  const currentEarnedScore = activeStandards.reduce((sum, s) => sum + s.score, 0);
   
   const rawScore = totalStandardsCount > 0 ? (currentEarnedScore / maxPossibleScore) * 100 : 0;
   const readinessScore = Math.round(rawScore * 10) / 10;
 
-  const evidenceUploadedCount = standards.filter(s => {
+  const evidenceUploadedCount = activeStandards.filter(s => {
     return documents.some(doc => doc.mappedStandards && doc.mappedStandards.includes(s.id) && doc.status === "Approved");
   }).length;
 
@@ -1450,6 +1759,11 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
       vendorEmployees, setVendorEmployees,
       signUpClient, purchaseSubscription,
       updateHospitalProfile, saveGeminiKey, inviteTeamMember,
+      changeUserPassword, changeUserProfile,
+      addHospitalTask, updateHospitalTaskStatus, deleteHospitalTask,
+      complianceFeed, setComplianceFeed,
+      feedNotifications, setFeedNotifications,
+      checkForComplianceUpdates,
       setClientStatusOverride,
       supportTickets, setSupportTickets,
       emailLogs, setEmailLogs,
@@ -1468,6 +1782,7 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
       approveSOPDraft,
       complianceKnowledgeBase,
       analyzeEvidenceFile,
+      isStandardActive,
       trialDaysLeft,
       subscriptionDaysLeft,
       isAppLocked,

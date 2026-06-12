@@ -20,7 +20,10 @@ import {
   CheckCircle2,
   Building2,
   Grid,
-  Plus
+  Plus,
+  Newspaper,
+  RefreshCw,
+  ExternalLink
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -57,7 +60,9 @@ export default function Dashboard() {
     trialDaysLeft,
     subscriptionDaysLeft,
     getLiveCountdownString,
-    setForcePaymentScreen
+    setForcePaymentScreen,
+    complianceFeed,
+    checkForComplianceUpdates
   } = useContext(QualiNABHContext);
 
   const [selectedDeptRisk, setSelectedDeptRisk] = useState(null);
@@ -439,37 +444,6 @@ DOCUMENT CONTROL CYCLE: Reviewed every 6 months. Revision 1.0.`;
           </p>
         </div>
         
-        {/* Onboarding Mode Toggles (Only shown for Demo Sandbox Users) */}
-        {(currentUser?.email === 'demo@vaidyaq.com' || currentUser?.email === 'quality.head@hospital.org') && (
-          <div style={{ display: 'inline-flex', padding: '0.3rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '24px' }}>
-            <button
-              onClick={() => switchHospitalMode('new')}
-              style={{
-                padding: '0.4rem 0.8rem',
-                borderRadius: '20px',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                backgroundColor: hospitalMode === 'new' ? 'var(--primary-light)' : 'transparent',
-                color: hospitalMode === 'new' ? 'var(--primary-hover)' : 'var(--text-secondary)'
-              }}
-            >
-              🏥 New Hospital (Empty)
-            </button>
-            <button
-              onClick={() => switchHospitalMode('active')}
-              style={{
-                padding: '0.4rem 0.8rem',
-                borderRadius: '20px',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                backgroundColor: hospitalMode === 'active' ? 'var(--primary-light)' : 'transparent',
-                color: hospitalMode === 'active' ? 'var(--primary-hover)' : 'var(--text-secondary)'
-              }}
-            >
-              📊 Active Demo (Preloaded)
-            </button>
-          </div>
-        )}
       </div>
 
       {/* 1. Welcoming Onboarding wizard if database state is 'new' */}
@@ -1025,31 +999,40 @@ DOCUMENT CONTROL CYCLE: Reviewed every 6 months. Revision 1.0.`;
             </button>
           </div>
 
-          {/* Quick Stats Summary */}
-          <div className="card">
-            <h4 style={{ fontWeight: 700, marginBottom: '0.75rem', fontSize: '0.9rem' }}>6th Edition Progress</h4>
-            <div className="flex flex-col gap-2">
-              <div>
-                <div className="flex justify-between" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>
-                  <span>SOP Uploads mapped to chapters</span>
-                  <span>{standards.length > 0 ? Math.round((evidenceUploadedCount/standards.length)*100) : 0}%</span>
-                </div>
-                <div style={{ width: '100%', height: '6px', backgroundColor: 'var(--bg-tertiary)', borderRadius: '3px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${standards.length > 0 ? (evidenceUploadedCount/standards.length)*100 : 0}%`, backgroundColor: 'var(--primary)' }} />
-                </div>
+          {/* Live Regulatory Compliance Feed Card */}
+          <div className="card animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+            <div className="flex align-center justify-between" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.2rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 800, fontSize: '0.9rem' }}>
+                <Newspaper size={18} style={{ color: 'var(--primary)' }} />
+                <span>Live Regulatory Updates</span>
               </div>
-
-              <div>
-                <div className="flex justify-between" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>
-                  <span>CAPA Action Closure Rate</span>
-                  <span>{capaItems.length > 0 ? Math.round((capaItems.filter(c=>c.status==='Closed').length / capaItems.length)*100) : 100}%</span>
+              <button 
+                onClick={checkForComplianceUpdates}
+                className="btn btn-secondary flex align-center gap-1"
+                style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem', fontWeight: 'bold', cursor: 'pointer' }}
+                title="Scan MoHFW, NHA & QCI portals for live compliance notifications"
+              >
+                <RefreshCw size={10} /> Scan Portals
+              </button>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxHeight: '240px', overflowY: 'auto' }}>
+              {complianceFeed && complianceFeed.map((item, idx) => (
+                <div key={idx} style={{ padding: '0.75rem', borderRadius: '8px', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: 'var(--text-tertiary)', marginBottom: '0.25rem' }}>
+                    <span className="badge badge-success" style={{ fontSize: '0.6rem', padding: '1px 4px' }}>{item.category}</span>
+                    <span>{item.date}</span>
+                  </div>
+                  <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>{item.title}</h4>
+                  <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>{item.content}</p>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', marginTop: '0.4rem', textAlign: 'right' }}>
+                    Source: <i>{item.source}</i>
+                  </div>
                 </div>
-                <div style={{ width: '100%', height: '6px', backgroundColor: 'var(--bg-tertiary)', borderRadius: '3px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${capaItems.length > 0 ? (capaItems.filter(c=>c.status==='Closed').length / capaItems.length)*100 : 100}%`, backgroundColor: 'var(--secondary)' }} />
-                </div>
-              </div>
+              ))}
             </div>
           </div>
+
         </div>
       </div>
 

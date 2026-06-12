@@ -52,6 +52,13 @@ export default function PublicPages() {
     setHospitalLogo,
     setTeamMembers
   } = useContext(QualiNABHContext);
+
+  useEffect(() => {
+    if (currentUser) {
+      setCurrentRoute('/app/dashboard');
+    }
+  }, [currentUser, setCurrentRoute]);
+
   const [activeTab, setActiveTab] = useState('home'); // 'home', 'solutions', 'pricing', 'login', 'book-demo'
   const [bedSize, setBedSize] = useState(75);
   
@@ -100,13 +107,44 @@ export default function PublicPages() {
         role: "Super Admin",
         department: "Board"
       };
-      setTeamMembers([loggedUser]);
       setCurrentUser(loggedUser);
       setSignInError(false);
       logActivity(`Logged in client: ${clientToLoad.hospitalName} (${clientToLoad.email})`);
       setCurrentRoute('/app/dashboard');
     } else {
-      setSignInError("No client registered with this email address. Please sign up or try again.");
+      // Look up sub-users database
+      const globalSubUsers = JSON.parse(localStorage.getItem('qn_global_sub_users') || '[]');
+      const subUser = globalSubUsers.find(u => u.email.toLowerCase() === signInEmail.toLowerCase());
+      if (subUser) {
+        if (signInPassword !== subUser.password) {
+          setSignInError("Incorrect password. Please verify your credentials and try again.");
+          return;
+        }
+
+        // Find the parent client to load their configuration
+        const parentClient = clientsList.find(c => c.email.toLowerCase() === subUser.parentEmail.toLowerCase());
+        if (parentClient) {
+          setHospitalName(parentClient.hospitalName);
+          setHospitalBeds(String(parentClient.beds));
+          setTrialStartDate(parentClient.trialStartDate || new Date().toISOString());
+          setIsSubscribed(parentClient.status === 'Paid');
+          setHospitalLogo('🛡️');
+        }
+
+        const loggedUser = {
+          name: subUser.name,
+          email: subUser.email,
+          role: subUser.role,
+          department: subUser.department,
+          parentEmail: subUser.parentEmail
+        };
+        setCurrentUser(loggedUser);
+        setSignInError(false);
+        logActivity(`Logged in team member: ${subUser.name} (${subUser.email}) under parent ${subUser.parentEmail}`);
+        setCurrentRoute('/app/dashboard');
+      } else {
+        setSignInError("No client or team member registered with this email address. Please sign up or try again.");
+      }
     }
   };
 
@@ -1864,7 +1902,7 @@ Key Benefits of the SaaS Model:
                         type="email"
                         required
                         className="form-control"
-                        placeholder="quality.head@hospital.org"
+                        placeholder="e.g. director@hospital.org"
                         value={signInEmail}
                         onChange={(e) => setSignInEmail(e.target.value)}
                         style={{ width: '100%' }}
@@ -1882,26 +1920,10 @@ Key Benefits of the SaaS Model:
                         style={{ width: '100%' }}
                       />
                     </div>
-                    <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1rem', padding: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}>
+                    <button type="submit" className="btn btn-primary animate-fade-in" style={{ width: '100%', marginTop: '1rem', padding: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}>
                       Log In Securely
                     </button>
                   </form>
-
-                  <hr style={{ border: 'none', borderBottom: '1px solid var(--border-color)', margin: '1.5rem 0' }} />
-
-                  {/* Preloaded Demo Credentials Card */}
-                  <div className="card" style={{ padding: '1rem', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '10px', textAlign: 'left' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--primary)', fontWeight: 'bold', fontSize: '0.8rem', marginBottom: '0.4rem' }}>
-                      <span>💡 Preloaded Demo Sandbox Account</span>
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-                      To view the fully configured accreditation system, log in using:
-                      <div style={{ marginTop: '0.35rem', fontFamily: 'monospace', fontSize: '0.7rem' }}>
-                        Email: <strong>demo@vaidyaq.com</strong><br />
-                        Password: <strong>demo123</strong>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               )}
             </div>

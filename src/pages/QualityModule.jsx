@@ -28,8 +28,11 @@ export default function QualityModule() {
     addIncident,
     qualityIndicators,
     setQualityIndicators,
-    logActivity
+    logActivity,
+    activeDepts
   } = useContext(QualiNABHContext);
+
+  const defaultDept = activeDepts && activeDepts.length > 0 ? activeDepts[0] : 'Quality Control';
 
   const [activeSubTab, setActiveSubTab] = useState('audits'); // 'audits', 'capa', 'incidents', 'indicators'
 
@@ -40,9 +43,9 @@ export default function QualityModule() {
   const [showCloseCapaModal, setShowCloseCapaModal] = useState(false);
 
   // Forms states
-  const [newAuditForm, setNewAuditForm] = useState({ title: '', department: 'ICU', date: '', checklistItem: '', checklist: [] });
-  const [newCapaForm, setNewCapaForm] = useState({ source: '', department: 'ICU', responsible: '', dueDate: '', priority: 'High', rootCause: '', correctiveAction: '', preventiveAction: '' });
-  const [newIncidentForm, setNewIncidentForm] = useState({ type: 'Medication Error', department: 'ICU', severity: 'Medium', description: '', immediateAction: '', investigator: '' });
+  const [newAuditForm, setNewAuditForm] = useState({ title: '', department: defaultDept, date: '', checklistItem: '', checklist: [] });
+  const [newCapaForm, setNewCapaForm] = useState({ source: '', department: defaultDept, responsible: '', dueDate: '', priority: 'High', rootCause: '', correctiveAction: '', preventiveAction: '' });
+  const [newIncidentForm, setNewIncidentForm] = useState({ type: 'Medication Error', department: defaultDept, severity: 'Medium', description: '', immediateAction: '', investigator: '' });
   
   const [selectedCapaToClose, setSelectedCapaToClose] = useState(null);
   const [closureEvidence, setClosureEvidence] = useState('');
@@ -98,21 +101,21 @@ export default function QualityModule() {
       date: newAuditForm.date,
       checklist: newAuditForm.checklist
     });
-    setNewAuditForm({ title: '', department: 'ICU', date: '', checklistItem: '', checklist: [] });
+    setNewAuditForm({ title: '', department: defaultDept, date: '', checklistItem: '', checklist: [] });
     setShowAuditModal(false);
   };
 
   const handleCreateCapa = (e) => {
     e.preventDefault();
     addCapa(newCapaForm);
-    setNewCapaForm({ source: '', department: 'ICU', responsible: '', dueDate: '', priority: 'High', rootCause: '', correctiveAction: '', preventiveAction: '' });
+    setNewCapaForm({ source: '', department: defaultDept, responsible: '', dueDate: '', priority: 'High', rootCause: '', correctiveAction: '', preventiveAction: '' });
     setShowCapaModal(false);
   };
 
   const handleCreateIncident = (e) => {
     e.preventDefault();
     addIncident(newIncidentForm);
-    setNewIncidentForm({ type: 'Medication Error', department: 'ICU', severity: 'Medium', description: '', immediateAction: '', investigator: '' });
+    setNewIncidentForm({ type: 'Medication Error', department: defaultDept, severity: 'Medium', description: '', immediateAction: '', investigator: '' });
     setShowIncidentModal(false);
   };
 
@@ -527,12 +530,13 @@ export default function QualityModule() {
                     value={newAuditForm.department}
                     onChange={(e) => setNewAuditForm({ ...newAuditForm, department: e.target.value })}
                   >
-                    <option value="ICU">Intensive Care Unit (ICU)</option>
-                    <option value="Pharmacy">Pharmacy</option>
-                    <option value="Emergency">Emergency Room</option>
-                    <option value="OT">Operating Theatre (OT)</option>
-                    <option value="Housekeeping">Housekeeping & Facility</option>
-                    <option value="HR">Human Resources</option>
+                    {(!activeDepts || activeDepts.length === 0) ? (
+                      <option value="Quality Control">Quality Control</option>
+                    ) : (
+                      activeDepts.map(dept => (
+                        <option key={dept} value={dept}>{dept}</option>
+                      ))
+                    )}
                   </select>
                 </div>
                 <div className="form-group">
@@ -617,12 +621,13 @@ export default function QualityModule() {
                       value={newCapaForm.department}
                       onChange={(e) => setNewCapaForm({ ...newCapaForm, department: e.target.value })}
                     >
-                      <option value="ICU">ICU</option>
-                      <option value="Pharmacy">Pharmacy</option>
-                      <option value="Emergency">Emergency</option>
-                      <option value="OT">OT</option>
-                      <option value="Housekeeping">Housekeeping</option>
-                      <option value="HR">HR</option>
+                      {(!activeDepts || activeDepts.length === 0) ? (
+                        <option value="Quality Control">Quality Control</option>
+                      ) : (
+                        activeDepts.map(dept => (
+                          <option key={dept} value={dept}>{dept}</option>
+                        ))
+                      )}
                     </select>
                   </div>
                 </div>
@@ -746,12 +751,13 @@ export default function QualityModule() {
                       value={newIncidentForm.department}
                       onChange={(e) => setNewIncidentForm({ ...newIncidentForm, department: e.target.value })}
                     >
-                      <option value="ICU">ICU</option>
-                      <option value="Pharmacy">Pharmacy</option>
-                      <option value="Emergency">Emergency Room</option>
-                      <option value="OT">Operating Theatre</option>
-                      <option value="Housekeeping">Housekeeping / Ward</option>
-                      <option value="HR">Human Resources</option>
+                      {(!activeDepts || activeDepts.length === 0) ? (
+                        <option value="Quality Control">Quality Control</option>
+                      ) : (
+                        activeDepts.map(dept => (
+                          <option key={dept} value={dept}>{dept}</option>
+                        ))
+                      )}
                     </select>
                   </div>
                 </div>
