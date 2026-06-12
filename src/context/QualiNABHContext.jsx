@@ -189,6 +189,54 @@ export const QualiNABHProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : defaultStandards;
   });
 
+  // SaaS Multi-tenant & Vendor Admin States
+  const [clientsList, setClientsList] = useState(() => {
+    const saved = localStorage.getItem('qn_clients_list');
+    return saved ? JSON.parse(saved) : [
+      { hospitalId: "demo-hosp", hospitalName: "City Central Metro Hospital", email: "quality.head@hospital.org", beds: 120, trialStartDate: new Date(Date.now() - 3*24*60*60*1000).toISOString(), isSubscribed: false, status: "Active Trial", address: "Sector 4, Dwarka, New Delhi", regId: "REG-99201" }
+    ];
+  });
+
+  const [isSubscribed, setIsSubscribed] = useState(() => {
+    const saved = localStorage.getItem('qn_is_subscribed');
+    return saved ? JSON.parse(saved) : false;
+  });
+
+  const [trialStartDate, setTrialStartDate] = useState(() => {
+    return localStorage.getItem('qn_trial_start_date') || new Date().toISOString();
+  });
+
+  const [geminiApiKey, setGeminiApiKey] = useState(() => {
+    return localStorage.getItem('qn_gemini_api_key') || '';
+  });
+
+  const [hospitalLogo, setHospitalLogo] = useState(() => {
+    return localStorage.getItem('qn_hospital_logo') || '🛡️';
+  });
+
+  const [teamMembers, setTeamMembers] = useState(() => {
+    const saved = localStorage.getItem('qn_team_members');
+    return saved ? JSON.parse(saved) : [
+      { email: "quality.head@hospital.org", name: "Dr. Sarah Paul", role: "Quality Head", department: "Quality Control" },
+      { email: "super@vaidyaq.com", name: "Col. Roy", role: "Super Admin", department: "Board" },
+      { email: "pharmacy@hospital.org", name: "Dr. Sen", role: "Department Head", department: "Pharmacy" }
+    ];
+  });
+
+  const [vendorAdminCredentials, setVendorAdminCredentials] = useState(() => {
+    const saved = localStorage.getItem('qn_vendor_credentials');
+    return saved ? JSON.parse(saved) : { username: "admin", password: "123" };
+  });
+
+  const [vendorEmployees, setVendorEmployees] = useState(() => {
+    const saved = localStorage.getItem('qn_vendor_employees');
+    return saved ? JSON.parse(saved) : [
+      { id: "emp-1", name: "Aarav Sharma", email: "aarav@vaidyaq.com", role: "Support Agent", assignedClients: ["demo-hosp"] },
+      { id: "emp-2", name: "Priya Nair", email: "priya@vaidyaq.com", role: "Billing Manager", assignedClients: ["demo-hosp"] }
+    ];
+  });
+
+
   const [documents, setDocuments] = useState(() => {
     const saved = localStorage.getItem('qn_documents');
     return saved ? JSON.parse(saved) : defaultDocuments;
@@ -299,6 +347,39 @@ export const QualiNABHProvider = ({ children }) => {
     localStorage.setItem('qn_quality_indicators', JSON.stringify(qualityIndicators));
   }, [qualityIndicators]);
 
+  useEffect(() => {
+    localStorage.setItem('qn_clients_list', JSON.stringify(clientsList));
+  }, [clientsList]);
+
+  useEffect(() => {
+    localStorage.setItem('qn_is_subscribed', JSON.stringify(isSubscribed));
+  }, [isSubscribed]);
+
+  useEffect(() => {
+    localStorage.setItem('qn_trial_start_date', trialStartDate);
+  }, [trialStartDate]);
+
+  useEffect(() => {
+    localStorage.setItem('qn_gemini_api_key', geminiApiKey);
+  }, [geminiApiKey]);
+
+  useEffect(() => {
+    localStorage.setItem('qn_hospital_logo', hospitalLogo);
+  }, [hospitalLogo]);
+
+  useEffect(() => {
+    localStorage.setItem('qn_team_members', JSON.stringify(teamMembers));
+  }, [teamMembers]);
+
+  useEffect(() => {
+    localStorage.setItem('qn_vendor_credentials', JSON.stringify(vendorAdminCredentials));
+  }, [vendorAdminCredentials]);
+
+  useEffect(() => {
+    localStorage.setItem('qn_vendor_employees', JSON.stringify(vendorEmployees));
+  }, [vendorEmployees]);
+
+
   // Log Security Activity helper
   const logActivity = (action) => {
     const newLog = {
@@ -347,6 +428,109 @@ export const QualiNABHProvider = ({ children }) => {
       logActivity("Loaded Active Demo Hospital database (Preloaded state)");
     }
   };
+
+  // SignUp a new Client
+  const signUpClient = (email, password, hospitalNameInput, bedsInput) => {
+    const newHospitalId = `hosp-${Date.now()}`;
+    const newClient = {
+      hospitalId: newHospitalId,
+      hospitalName: hospitalNameInput,
+      email: email,
+      beds: Number(bedsInput),
+      trialStartDate: new Date().toISOString(),
+      isSubscribed: false,
+      status: "Active Trial",
+      address: "Enter address...",
+      regId: `REG-${Math.floor(100000 + Math.random() * 900000)}`
+    };
+
+    setClientsList(prev => [newClient, ...prev]);
+
+    // Set as active client context settings
+    setHospitalName(hospitalNameInput);
+    setHospitalBeds(String(bedsInput));
+    setTrialStartDate(newClient.trialStartDate);
+    setIsSubscribed(false);
+    setHospitalLogo('🛡️');
+    setHospitalTier(Number(bedsInput) <= 20 ? 'Tier A: Clinics' : Number(bedsInput) <= 150 ? 'Tier B: Secondary Care' : 'Tier C: Tertiary Chains');
+    
+    // Set first team member as Super Admin
+    const superAdminUser = { email: email, name: "Hospital Director", role: "Super Admin", department: "Board" };
+    setTeamMembers([superAdminUser]);
+    setCurrentUser(superAdminUser);
+
+    // Reset standard scores to 0 (Unonboarded state)
+    setStandards(defaultStandards.map(s => ({ ...s, score: 0, status: "Not Met" })));
+    setDocuments([]);
+    setAudits([]);
+    setCapaItems([]);
+    setIncidents([]);
+    setTasks([]);
+    setHospitalMode('new'); // start in onboarding wizard
+    
+    setCurrentRoute('/app/dashboard');
+    logActivity(`Signed up new client hospital: ${hospitalNameInput} (Beds: ${bedsInput}) with first user as Super Admin.`);
+  };
+
+  const purchaseSubscription = () => {
+    setIsSubscribed(true);
+    setClientsList(prev => prev.map(c => {
+      if (c.hospitalName === hospitalName || c.email === currentUser.email) {
+        return { ...c, isSubscribed: true, status: "Paid" };
+      }
+      return c;
+    }));
+    logActivity(`Subscription payment of ₹${Number(hospitalBeds) <= 20 ? '55,999' : Number(hospitalBeds) <= 150 ? '1,29,999' : '2,49,999'} processed successfully.`);
+  };
+
+  const updateHospitalProfile = (logo, name, beds, address, regId) => {
+    setHospitalLogo(logo);
+    setHospitalName(name);
+    setHospitalBeds(String(beds));
+    setClientsList(prev => prev.map(c => {
+      if (c.hospitalName === hospitalName || c.email === currentUser.email) {
+        return { ...c, hospitalName: name, beds: Number(beds), address, regId };
+      }
+      return c;
+    }));
+    logActivity("Updated hospital profile details.");
+  };
+
+  const saveGeminiKey = (key) => {
+    setGeminiApiKey(key);
+    logActivity("Configured custom Gemini AI API Token.");
+  };
+
+  const inviteTeamMember = (email, name, role, department) => {
+    const newMember = { email, name, role, department };
+    setTeamMembers(prev => [...prev, newMember]);
+    logActivity(`Invited team member: ${name} (${role}) to ${department}`);
+  };
+
+  const setClientStatusOverride = (hospId, statusValue) => {
+    setClientsList(prev => prev.map(c => {
+      if (c.hospitalId === hospId) {
+        if (c.hospitalName === hospitalName) {
+          if (statusValue === 'Paid') {
+            setIsSubscribed(true);
+          } else if (statusValue === 'Expired') {
+            setIsSubscribed(false);
+            setTrialStartDate(new Date(Date.now() - 8*24*60*60*1000).toISOString());
+          } else if (statusValue === 'Restricted') {
+            setIsSubscribed(false);
+            setTrialStartDate(new Date(Date.now() - 8*24*60*60*1000).toISOString());
+          } else if (statusValue === 'Active Trial') {
+            setIsSubscribed(false);
+            setTrialStartDate(new Date().toISOString());
+          }
+        }
+        return { ...c, status: statusValue, isSubscribed: statusValue === 'Paid' };
+      }
+      return c;
+    }));
+    logActivity(`Vendor Admin override client ${hospId} status to: ${statusValue}`);
+  };
+
 
   // Import official NABH 6th edition templates with simulated score bump
   const importNABHTemplates = () => {
@@ -677,6 +861,18 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
       tasks, setTasks,
       auditLogs, setAuditLogs, logActivity,
       qualityIndicators, setQualityIndicators,
+      // SaaS Simulator States & Methods
+      clientsList, setClientsList,
+      isSubscribed, setIsSubscribed,
+      trialStartDate, setTrialStartDate,
+      geminiApiKey, setGeminiApiKey,
+      hospitalLogo, setHospitalLogo,
+      teamMembers, setTeamMembers,
+      vendorAdminCredentials, setVendorAdminCredentials,
+      vendorEmployees, setVendorEmployees,
+      signUpClient, purchaseSubscription,
+      updateHospitalProfile, saveGeminiKey, inviteTeamMember,
+      setClientStatusOverride,
       // Computed stats
       readinessScore,
       evidenceUploadedCount,
@@ -685,9 +881,17 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
       overdueTasksCount,
       pendingAuditsCount,
       incidentsThisMonthCount,
-      approveSOPDraft
+      approveSOPDraft,
+      trialDaysLeft: (() => {
+        const start = new Date(trialStartDate).getTime();
+        const now = Date.now();
+        const diffTime = (start + 7*24*60*60*1000) - now;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays < 0 ? 0 : diffDays;
+      })()
     }}>
       {children}
     </QualiNABHContext.Provider>
   );
 };
+

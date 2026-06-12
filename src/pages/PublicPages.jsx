@@ -36,10 +36,58 @@ import {
 } from 'lucide-react';
 
 export default function PublicPages() {
-  const { setCurrentRoute, theme, setTheme, currentUser, setCurrentUser, logActivity } = useContext(QualiNABHContext);
+  const { 
+    setCurrentRoute, 
+    theme, 
+    setTheme, 
+    currentUser, 
+    setCurrentUser, 
+    logActivity, 
+    signUpClient, 
+    clientsList,
+    setHospitalName,
+    setHospitalBeds,
+    setTrialStartDate,
+    setIsSubscribed,
+    setHospitalLogo,
+    setTeamMembers
+  } = useContext(QualiNABHContext);
   const [activeTab, setActiveTab] = useState('home'); // 'home', 'solutions', 'pricing', 'login', 'book-demo'
   const [bedSize, setBedSize] = useState(75);
   
+  // 9. Sign Up/Sign In Flow
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [signUpForm, setSignUpForm] = useState({ hospitalName: '', beds: '50', email: '', password: '' });
+  const [signInEmail, setSignInEmail] = useState('');
+  const [signInPassword, setSignInPassword] = useState('');
+  const [signInError, setSignInError] = useState(false);
+
+  const handleCustomSignIn = (e) => {
+    e.preventDefault();
+    const existingClient = clientsList.find(c => c.email === signInEmail);
+    if (existingClient) {
+      setHospitalName(existingClient.hospitalName);
+      setHospitalBeds(String(existingClient.beds));
+      setTrialStartDate(existingClient.trialStartDate);
+      setIsSubscribed(existingClient.status === 'Paid');
+      setHospitalLogo('🛡️');
+      
+      const loggedUser = {
+        name: "Hospital Director",
+        email: existingClient.email,
+        role: "Super Admin",
+        department: "Board"
+      };
+      setTeamMembers([loggedUser]);
+      setCurrentUser(loggedUser);
+      setSignInError(false);
+      logActivity(`Logged in client: ${existingClient.hospitalName} (${existingClient.email})`);
+      setCurrentRoute('/app/dashboard');
+    } else {
+      setSignInError(true);
+    }
+  };
+
   // 1. Landing Page Mockup Simulated States
   const [mockupActiveQuery, setMockupActiveQuery] = useState(null);
   const [mockupChatText, setMockupChatText] = useState("Click one of the blue prompt buttons below to ask me a compliance question about our mock hospital.");
@@ -415,11 +463,11 @@ Key Benefits of the SaaS Model:
   };
 
   const pricingDetails = {
-    tier: bedSize <= 50 ? "Starter Clinic" : bedSize <= 150 ? "Growth Hospital" : "Enterprise Network",
-    price: bedSize <= 50 ? "$149" : bedSize <= 150 ? "$299" : "Custom Quote",
-    color: bedSize <= 50 ? "var(--primary)" : bedSize <= 150 ? "var(--secondary)" : "#8b5cf6",
-    features: bedSize <= 50 
-      ? ["Up to 50 beds capacity", "5 Core Wards config", "AI SOP Generator (5 drafts)", "Local storage backup", "Support via Email"]
+    tier: bedSize <= 20 ? "Clinic Tier" : bedSize <= 150 ? "Secondary Care Tier" : "Tertiary Enterprise Tier",
+    price: bedSize <= 20 ? "₹55,999" : bedSize <= 150 ? "₹1,29,999" : "₹2,49,999",
+    color: bedSize <= 20 ? "var(--primary)" : bedSize <= 150 ? "var(--secondary)" : "#8b5cf6",
+    features: bedSize <= 20 
+      ? ["Up to 20 beds capacity", "5 Core Wards config", "AI SOP Generator (5 drafts)", "Local storage backup", "Support via Email"]
       : bedSize <= 150 
         ? ["Up to 150 beds capacity", "12 Active Wards config", "AI SOP Generator (Unlimited)", "Audit Finding to CAPA mapper", "Weekly CEO briefing summaries", "Dedicated Account manager"]
         : ["Unlimited beds & branches", "All clinical wards preloaded", "Dedicated private database instance", "Full consultant collaboration panel", "API HIMS integration", "24/7 Priority support hotline"]
@@ -427,6 +475,10 @@ Key Benefits of the SaaS Model:
 
   // Helper to navigate to tabs and scroll to top
   const navigateToTab = (tabName) => {
+    if (tabName === '/vendor-admin') {
+      setCurrentRoute('/vendor-admin');
+      return;
+    }
     setActiveTab(tabName);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -1165,6 +1217,64 @@ Key Benefits of the SaaS Model:
               </div>
             </section>
 
+            {/* WHY VAIDYAQ AI? BENEFITS SECTION */}
+            <section style={{ padding: '4rem 0', borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-primary)' }}>
+              <div className="container" style={{ maxWidth: '1000px', textAlign: 'left' }}>
+                <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+                  <span className="badge badge-success" style={{ marginBottom: '0.5rem' }}>Platform Benefits</span>
+                  <h2>Why VaidyaQ AI is the Industry Leader</h2>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', marginTop: '0.25rem', maxWidth: '600px', margin: '0.25rem auto 0 auto' }}>
+                    Unlike generic document drives or spreadsheets, VaidyaQ is an integrated, active compliance ecosystem built specifically for NABH guidelines.
+                  </p>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                  <div className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div style={{ fontSize: '2rem' }}>⚡</div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>De-risked Preloaded Templates</h3>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                      Get started in minutes with 7 pre-configured SOPs and policy guidelines mapped exactly to the 6th Edition requirements, complete with dynamic scoring logic.
+                    </p>
+                  </div>
+                  <div className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div style={{ fontSize: '2rem' }}>🔒</div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Privacy-First Design</h3>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                      All files and credentials are saved locally in your browser sandbox, and you can plug in your own Google Gemini API Key. No patient data ever exits your machine.
+                    </p>
+                  </div>
+                  <div className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div style={{ fontSize: '2rem' }}>🎯</div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Closed-loop CAPA Tracking</h3>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                      Audit findings are instantly mapped to Corrective & Preventive Action (CAPA) sheets. Assign issues to specific heads and monitor overdue items before accreditation inspections.
+                    </p>
+                  </div>
+                  <div className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div style={{ fontSize: '2rem' }}>📈</div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Interactive Clinical Dashboard</h3>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                      Trace patient falls, needle sticks, medication errors, and hospital infections by department and month. Export pivot sheets directly to CSV, PDF, or MS Word.
+                    </p>
+                  </div>
+                  <div className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div style={{ fontSize: '2rem' }}>👩‍⚕️</div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Dynamic Bed Pricing</h3>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                      Pay only for what you use. VaidyaQ automatically scales pricing based on your hospital's bed size—making it affordable for small clinics and comprehensive for enterprise chains.
+                    </p>
+                  </div>
+                  <div className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div style={{ fontSize: '2rem' }}>🎟️</div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>7-Day Full Access Trial</h3>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                      Test the complete software suite free for 7 days. Add your team, upload evidence docs, run fire safety logs, and try the AI features without any initial commitment.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
             {/* INTERACTIVE COMPLIANCE ESTIMATOR WIDGET */}
             <section style={{ padding: '4rem 0', borderBottom: '1px solid var(--border-color)' }}>
               <div className="container" style={{ maxWidth: '750px' }}>
@@ -1483,7 +1593,7 @@ Key Benefits of the SaaS Model:
                 </h3>
                 <div style={{ margin: '1rem 0' }}>
                   <span style={{ fontSize: '3rem', fontWeight: 800 }}>{pricingDetails.price}</span>
-                  {bedSize <= 150 && <span style={{ color: 'var(--text-secondary)', fontSize: '1rem' }}>/ month</span>}
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '1rem' }}>/ year</span>
                 </div>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', marginBottom: '1.5rem' }}>
                   * All prices exclude standard local taxes. Software updates are included.
@@ -1497,8 +1607,8 @@ Key Benefits of the SaaS Model:
                     </li>
                   ))}
                 </ul>
-                <button onClick={() => setActiveTab('book-demo')} className="btn btn-primary" style={{ width: '100%', padding: '0.75rem', cursor: 'pointer' }}>
-                  Start 14-Day Free Pilot
+                <button onClick={() => { setActiveTab('login'); setIsSignUp(true); }} className="btn btn-primary glow-premium" style={{ width: '100%', padding: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}>
+                  Start 7-Day Free Trial
                 </button>
               </div>
             </div>
@@ -1612,74 +1722,160 @@ Key Benefits of the SaaS Model:
             <div className="login-card">
               <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
                 <span style={{ fontSize: '2.5rem' }}>🛡️</span>
-                <h2 style={{ marginTop: '0.5rem' }}>Sign In to VaidyaQ</h2>
+                <h2 style={{ marginTop: '0.5rem' }}>{isSignUp ? "Register with VaidyaQ" : "Sign In to VaidyaQ"}</h2>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.25rem' }}>
                   Hospital Accreditation & Quality OS
                 </p>
               </div>
 
-              <div style={{ padding: '0.75rem', backgroundColor: 'var(--bg-warning)', color: 'var(--color-warning)', border: '1px solid var(--color-warning)', borderRadius: '8px', fontSize: '0.8rem', marginBottom: '1.25rem', fontWeight: 600 }}>
-                💡 <strong>Data Privacy Guard:</strong> This system uses client-side localStorage. No patient-identifiable data is uploaded to remote clouds.
-              </div>
-
-              {/* Simulation Quick Entry buttons */}
-              <div style={{ marginBottom: '1.5rem' }}>
-                <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8rem' }}>Quick Access Demo Roles</label>
-                <div className="flex flex-col gap-2" style={{ marginTop: '0.5rem' }}>
-                  <button
-                    onClick={() => handleLogin('Quality Head')}
-                    className="btn btn-secondary flex align-center justify-between"
-                    style={{ padding: '0.5rem 0.75rem', fontSize: '0.85rem', cursor: 'pointer' }}
-                  >
-                    <span>Quality Head (Sarah Paul)</span>
-                    <ChevronRight size={14} />
-                  </button>
-                  <button
-                    onClick={() => handleLogin('Super Admin')}
-                    className="btn btn-secondary flex align-center justify-between"
-                    style={{ padding: '0.5rem 0.75rem', fontSize: '0.85rem', cursor: 'pointer' }}
-                  >
-                    <span>COO / Super Admin (Col. Roy)</span>
-                    <ChevronRight size={14} />
-                  </button>
-                  <button
-                    onClick={() => handleLogin('Auditor')}
-                    className="btn btn-secondary flex align-center justify-between"
-                    style={{ padding: '0.5rem 0.75rem', fontSize: '0.85rem', cursor: 'pointer' }}
-                  >
-                    <span>Internal Auditor (Ramesh Kumar)</span>
-                    <ChevronRight size={14} />
-                  </button>
-                </div>
-              </div>
-
-              <hr style={{ border: 'none', borderBottom: '1px solid var(--border-color)', margin: '1.5rem 0' }} />
-
-              <form onSubmit={(e) => { e.preventDefault(); handleLogin('Quality Head'); }}>
-                <div className="form-group">
-                  <label className="form-label">Hospital Email</label>
-                  <input
-                    type="email"
-                    required
-                    className="form-control"
-                    placeholder="quality.head@hospital.org"
-                    disabled
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Password</label>
-                  <input
-                    type="password"
-                    required
-                    className="form-control"
-                    placeholder="••••••••"
-                    disabled
-                  />
-                </div>
-                <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1rem', padding: '0.625rem', cursor: 'pointer' }}>
-                  Log In (Simulate Quality Head)
+              {/* Mode Toggle Tabs */}
+              <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '1.5rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '8px', padding: '0.2rem' }}>
+                <button 
+                  onClick={() => { setIsSignUp(false); setSignInError(false); }}
+                  style={{ flex: 1, padding: '0.6rem', border: 'none', background: !isSignUp ? 'var(--primary-light)' : 'transparent', color: !isSignUp ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: 'bold', cursor: 'pointer', borderRadius: '6px' }}
+                >
+                  Sign In
                 </button>
-              </form>
+                <button 
+                  onClick={() => setIsSignUp(true)}
+                  style={{ flex: 1, padding: '0.6rem', border: 'none', background: isSignUp ? 'var(--primary-light)' : 'transparent', color: isSignUp ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: 'bold', cursor: 'pointer', borderRadius: '6px' }}
+                >
+                  Sign Up (7-Day Trial)
+                </button>
+              </div>
+
+              {signInError && (
+                <div style={{ backgroundColor: 'var(--bg-danger)', color: 'var(--color-danger)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--color-danger)', fontSize: '0.8rem', marginBottom: '1rem' }}>
+                  ❌ No client registered with this email address. Please sign up or try again.
+                </div>
+              )}
+
+              {isSignUp ? (
+                /* SIGN UP FORM */
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  signUpClient(signUpForm.email, signUpForm.password, signUpForm.hospitalName, Number(signUpForm.beds));
+                }} className="flex flex-col gap-3">
+                  <div className="form-group" style={{ textAlign: 'left' }}>
+                    <label className="form-label" style={{ fontWeight: 'bold' }}>Hospital Name</label>
+                    <input
+                      type="text"
+                      required
+                      className="form-control"
+                      placeholder="e.g. Apollo Metro Clinic"
+                      value={signUpForm.hospitalName}
+                      onChange={(e) => setSignUpForm({ ...signUpForm, hospitalName: e.target.value })}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div className="form-group" style={{ textAlign: 'left' }}>
+                    <label className="form-label" style={{ fontWeight: 'bold' }}>Bed Strength</label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      className="form-control"
+                      placeholder="e.g. 50"
+                      value={signUpForm.beds}
+                      onChange={(e) => setSignUpForm({ ...signUpForm, beds: e.target.value })}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div className="form-group" style={{ textAlign: 'left' }}>
+                    <label className="form-label" style={{ fontWeight: 'bold' }}>Owner Email ID</label>
+                    <input
+                      type="email"
+                      required
+                      className="form-control"
+                      placeholder="e.g. director@hospital.org"
+                      value={signUpForm.email}
+                      onChange={(e) => setSignUpForm({ ...signUpForm, email: e.target.value })}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div className="form-group" style={{ textAlign: 'left' }}>
+                    <label className="form-label" style={{ fontWeight: 'bold' }}>Password</label>
+                    <input
+                      type="password"
+                      required
+                      className="form-control"
+                      placeholder="••••••••"
+                      value={signUpForm.password}
+                      onChange={(e) => setSignUpForm({ ...signUpForm, password: e.target.value })}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <button type="submit" className="btn btn-primary glow-premium" style={{ width: '100%', marginTop: '1rem', padding: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}>
+                    Register & Start 7-Day Trial
+                  </button>
+                </form>
+              ) : (
+                /* SIGN IN FORM */
+                <div>
+                  <form onSubmit={handleCustomSignIn} className="flex flex-col gap-3">
+                    <div className="form-group" style={{ textAlign: 'left' }}>
+                      <label className="form-label" style={{ fontWeight: 'bold' }}>Hospital Email</label>
+                      <input
+                        type="email"
+                        required
+                        className="form-control"
+                        placeholder="quality.head@hospital.org"
+                        value={signInEmail}
+                        onChange={(e) => setSignInEmail(e.target.value)}
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <div className="form-group" style={{ textAlign: 'left' }}>
+                      <label className="form-label" style={{ fontWeight: 'bold' }}>Password</label>
+                      <input
+                        type="password"
+                        required
+                        className="form-control"
+                        placeholder="••••••••"
+                        value={signInPassword}
+                        onChange={(e) => setSignInPassword(e.target.value)}
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1rem', padding: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}>
+                      Log In Securely
+                    </button>
+                  </form>
+
+                  <hr style={{ border: 'none', borderBottom: '1px solid var(--border-color)', margin: '1.5rem 0' }} />
+
+                  {/* Simulation Quick Entry buttons */}
+                  <div style={{ marginBottom: '0.5rem' }}>
+                    <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8rem', display: 'block', textAlign: 'left' }}>Or Quick Access Demo Roles:</label>
+                    <div className="flex flex-col gap-2" style={{ marginTop: '0.5rem' }}>
+                      <button
+                        onClick={() => handleLogin('Quality Head')}
+                        className="btn btn-secondary flex align-center justify-between"
+                        style={{ padding: '0.5rem 0.75rem', fontSize: '0.85rem', cursor: 'pointer' }}
+                      >
+                        <span>Quality Head (Sarah Paul)</span>
+                        <ChevronRight size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleLogin('Super Admin')}
+                        className="btn btn-secondary flex align-center justify-between"
+                        style={{ padding: '0.5rem 0.75rem', fontSize: '0.85rem', cursor: 'pointer' }}
+                      >
+                        <span>COO / Super Admin (Col. Roy)</span>
+                        <ChevronRight size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleLogin('Auditor')}
+                        className="btn btn-secondary flex align-center justify-between"
+                        style={{ padding: '0.5rem 0.75rem', fontSize: '0.85rem', cursor: 'pointer' }}
+                      >
+                        <span>Internal Auditor (Ramesh Kumar)</span>
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -2054,6 +2250,14 @@ Key Benefits of the SaaS Model:
                   style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontSize: '0.75rem', cursor: 'pointer', textAlign: 'left' }}
                 >
                   ♿ Accessibility Statement
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => navigateToTab('/vendor-admin')}
+                  style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text-tertiary)', fontSize: '0.75rem', cursor: 'pointer', textAlign: 'left', marginTop: '0.5rem', fontStyle: 'italic' }}
+                >
+                  ⚙️ Vendor Admin (only for office use)
                 </button>
               </li>
             </ul>
