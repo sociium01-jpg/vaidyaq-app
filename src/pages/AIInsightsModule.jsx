@@ -11,8 +11,86 @@ import {
   CheckCircle2,
   Copy,
   Clock,
-  ArrowRight
+  ArrowRight,
+  RefreshCw
 } from 'lucide-react';
+
+// Helper to determine step-by-step workflow stages for visual flowcharts based on SOP Title / Code
+const getFlowchartSteps = (title = '', content = '') => {
+  const titleLower = title.toLowerCase();
+  if (titleLower.includes('high-alert') || titleLower.includes('medication safety') || titleLower.includes('mom.2.c')) {
+    return [
+      { step: "1", title: "Prescription Check", desc: "Verify generic name, dosage & clinical justification", icon: "clipboard" },
+      { step: "2", title: "Dual Custody Unlock", desc: "Two staff members must co-unlock the locked steel cupboard", icon: "key" },
+      { step: "3", title: "Double-Signature Verify", desc: "Verify Patient, Drug, Route, Timing, Dose, and Expiry", icon: "users" },
+      { step: "4", title: "Red Badge Labelling", desc: "Affix high-contrast red warning label to IV syringe/bag", icon: "tag" },
+      { step: "5", title: "Co-signed HIMS Entry", desc: "Record administration details and witness co-sign", icon: "edit" }
+    ];
+  }
+  if (titleLower.includes('expiry') || titleLower.includes('expired') || titleLower.includes('mom.3.a')) {
+    return [
+      { step: "1", title: "Monthly Shelf Audit", desc: "Pharmacist audits shelf expiries on the 1st of every month", icon: "calendar" },
+      { step: "2", title: "Red Box Isolation", desc: "Segregate near-expiry and expired batches immediately", icon: "package" },
+      { step: "3", title: "Locked Bin Custody", desc: "Store in labeled secure waste bin under dual lock", icon: "lock" },
+      { step: "4", title: "Verification Check", desc: "Pharmacist & Quality Head verify waste log correctness", icon: "user-check" },
+      { step: "5", title: "Chemical Destruction", desc: "Safe write-off disposal according to NFI guidelines", icon: "trash" }
+    ];
+  }
+  if (titleLower.includes('fire') || titleLower.includes('safety') || titleLower.includes('fms.1.d') || titleLower.includes('drill')) {
+    return [
+      { step: "1", title: "Alarm Activation", desc: "Sound physical fire alarm and call extension 555", icon: "bell" },
+      { step: "2", title: "Patient Rescue", desc: "Remove patients and visitors from immediate danger zone", icon: "heart" },
+      { step: "3", title: "Smoke Containment", desc: "Close fire-resistant doors and window shutters", icon: "shield" },
+      { step: "4", title: "PASS Extinguisher", desc: "Deploy canisters using Pull, Aim, Squeeze, Sweep method", icon: "wind" },
+      { step: "5", title: "Muster & Attendance", desc: "Assemble at evacuation point and log attendance records", icon: "users" }
+    ];
+  }
+  if (titleLower.includes('waste') || titleLower.includes('hazardous') || titleLower.includes('fms.2.a') || titleLower.includes('bio')) {
+    return [
+      { step: "1", title: "Color Segregation", desc: "Yellow (infectious), Red (plastics), Blue (glass), White (sharps)", icon: "filter" },
+      { step: "2", title: "Biohazard Labeling", desc: "Affix barcode manifest label with date and weight", icon: "tag" },
+      { step: "3", title: "PPE Safe Transport", desc: "Housekeeping staff wears heavy-duty gloves, boots, and masks", icon: "user" },
+      { step: "4", title: "Secured Store Room", desc: "Hold temporarily in locked waste yard under ventilation", icon: "lock" },
+      { step: "5", title: "Board Carrier handoff", desc: "Transfer manifest details to Pollution Board truck driver", icon: "truck" }
+    ];
+  }
+  if (titleLower.includes('icu') || titleLower.includes('critical') || titleLower.includes('cop.5.c')) {
+    return [
+      { step: "1", title: "Triage Score Check", desc: "Check clinical admission trigger thresholds", icon: "trending-up" },
+      { step: "2", title: "ICU Bed Allocation", desc: "Confirm high-dependency ventilator bed availability", icon: "grid" },
+      { step: "3", title: "Consultant Briefing", desc: "Notify ICU duty specialist and prepare vital monitors", icon: "phone" },
+      { step: "4", title: "SBAR Shift Handover", desc: "Nurse-to-nurse clinical handover log entry", icon: "shuffle" },
+      { step: "5", title: "Continuous Monitoring", desc: "Initiate digital vital charts and ventilator protocols", icon: "activity" }
+    ];
+  }
+  if (titleLower.includes('infection') || titleLower.includes('hygiene') || titleLower.includes('hrm.2.b')) {
+    return [
+      { step: "1", title: "Scrubbing Session", desc: "Train staff in WHO 5 Moments and 6 washing steps", icon: "shield" },
+      { step: "2", title: "PPE Protocol Check", desc: "Verify proper wearing of gowns, N95 masks, and gloves", icon: "user" },
+      { step: "3", title: "Aseptic Preparation", desc: "Sterilize clinical site with Chlorhexidine wash", icon: "droplet" },
+      { step: "4", title: "Disinfection Cycle", desc: "Clean equipment surfaces and autoclave surgical tools", icon: "refresh-cw" },
+      { step: "5", title: "Hygiene Compliance Log", desc: "Audit adherence scores and log staff quizzes", icon: "check-circle" }
+    ];
+  }
+  if (titleLower.includes('credential') || titleLower.includes('qualification') || titleLower.includes('hrm.1.a')) {
+    return [
+      { step: "1", title: "Credentials Upload", desc: "Collect degree certificates, council registrations, and CVs", icon: "folder-open" },
+      { step: "2", title: "Primary Verification", desc: "Cross-check details with universities and medical councils", icon: "globe" },
+      { step: "3", title: "Privileging Audit", desc: "Review and assess clinical privileging scopes", icon: "briefcase" },
+      { step: "4", title: "Privilege Sign-off", desc: "Board issue authorized clinical privilege certificate", icon: "key" },
+      { step: "5", title: "Annual Renewal Track", desc: "Monitor CME points and update council expiry records", icon: "refresh-cw" }
+    ];
+  }
+
+  // Generic Fallback Steps
+  return [
+    { step: "1", title: "Initiate Procedure", desc: "Verify ownership department guidelines", icon: "play" },
+    { step: "2", title: "Verify Authorization", desc: "Check staff credentials and qualification records", icon: "user-check" },
+    { step: "3", title: "Execute Protocol", desc: "Follow detailed instructions under clinical checklist", icon: "settings" },
+    { step: "4", title: "Activity Register Logging", desc: "Update checklist, registers, or CAPA templates", icon: "file-signature" },
+    { step: "5", title: "Quality Audit Review", desc: "Track performance indicators and update revision v", icon: "history" }
+  ];
+};
 
 export default function AIInsightsModule() {
   const {
@@ -366,6 +444,101 @@ This SOP is subject to audit every 6 months. Revision 1.0.`;
     setSelectedGapFile(null);
   };
 
+  const renderFlowchartComponent = (title, content) => {
+    const steps = getFlowchartSteps(title, content);
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '0.5rem 0' }}>
+        {steps.map((step, idx) => (
+          <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.75rem', 
+                width: '100%', 
+                padding: '0.75rem', 
+                backgroundColor: 'var(--bg-secondary)', 
+                border: '1.5px solid var(--border-color)', 
+                borderRadius: '8px', 
+                boxShadow: 'var(--shadow-sm)',
+                transition: 'transform 0.2s',
+                cursor: 'default'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            >
+              <div 
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  width: '24px', 
+                  height: '24px', 
+                  borderRadius: '50%', 
+                  backgroundColor: 'var(--primary-light)', 
+                  color: 'var(--primary)', 
+                  fontWeight: 'bold', 
+                  fontSize: '0.75rem' 
+                }}
+              >
+                {step.step}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>{step.title}</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.1rem' }}>{step.desc}</div>
+              </div>
+              <div style={{ fontSize: '1.1rem' }}>
+                {step.icon === 'clipboard' && '📋'}
+                {step.icon === 'key' && '🔑'}
+                {step.icon === 'users' && '👥'}
+                {step.icon === 'tag' && '🏷️'}
+                {step.icon === 'edit' && '✍️'}
+                {step.icon === 'calendar' && '📅'}
+                {step.icon === 'package' && '📦'}
+                {step.icon === 'lock' && '🔒'}
+                {step.icon === 'user-check' && '👤'}
+                {step.icon === 'trash' && '🗑️'}
+                {step.icon === 'bell' && '🔔'}
+                {step.icon === 'heart' && '❤️'}
+                {step.icon === 'shield' && '🛡️'}
+                {step.icon === 'wind' && '💨'}
+                {step.icon === 'filter' && '🧪'}
+                {step.icon === 'file-text' && '📄'}
+                {step.icon === 'user' && '🧑'}
+                {step.icon === 'truck' && '🚚'}
+                {step.icon === 'trending-up' && '📈'}
+                {step.icon === 'grid' && '🗂️'}
+                {step.icon === 'phone' && '📞'}
+                {step.icon === 'shuffle' && '🔀'}
+                {step.icon === 'activity' && '⚡'}
+                {step.icon === 'droplet' && '💧'}
+                {step.icon === 'user-plus' && '➕'}
+                {step.icon === 'refresh-cw' && '🔄'}
+                {step.icon === 'folder-open' && '📁'}
+                {step.icon === 'globe' && '🌐'}
+                {step.icon === 'briefcase' && '💼'}
+                {step.icon === 'play' && '▶️'}
+                {step.icon === 'file-signature' && '🖊️'}
+                {step.icon === 'history' && '🕒'}
+              </div>
+            </div>
+            {idx < steps.length - 1 && (
+              <div 
+                style={{ 
+                  width: '2px', 
+                  height: '16px', 
+                  backgroundColor: 'var(--primary)', 
+                  margin: '0.25rem 0', 
+                  opacity: 0.5 
+                }} 
+              />
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="flex flex-col gap-3">
       {/* Sub navigation */}
@@ -664,20 +837,25 @@ This SOP is subject to audit every 6 months. Revision 1.0.`;
               </div>
               
               {sopDraftText ? (
-                <>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1, overflowY: 'auto' }}>
                   <textarea
-                    className="sop-content-draft flex-1 form-control"
-                    style={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.85rem', padding: '1rem', backgroundColor: 'var(--bg-tertiary)' }}
+                    className="sop-content-draft form-control"
+                    style={{ minHeight: '160px', height: '160px', whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.85rem', padding: '1rem', backgroundColor: 'var(--bg-tertiary)' }}
                     value={sopDraftText}
                     onChange={(e) => setSopDraftText(e.target.value)}
                   />
+                  {/* Flowchart Component */}
+                  <div style={{ backgroundColor: 'var(--bg-primary)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Workflow Flowchart Nodes:</label>
+                    {renderFlowchartComponent(sopTitle, sopDraftText)}
+                  </div>
                   <div className="flex gap-2 justify-end" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem' }}>
                     <button onClick={() => setSopDraftText('')} className="btn btn-secondary">Discard</button>
                     <button onClick={handleApproveSOP} className="btn btn-primary">
                       <CheckCircle2 size={16} /> Approve & Save to Library
                     </button>
                   </div>
-                </>
+                </div>
               ) : (
                 <div style={{ textAlign: 'center', margin: 'auto', color: 'var(--text-tertiary)' }} className="flex flex-col align-center gap-2">
                   <FileCode size={48} />

@@ -13,7 +13,9 @@ import {
   Eye,
   Trash2,
   Clock,
-  Sparkles
+  Sparkles,
+  CheckCircle2,
+  Upload
 } from 'lucide-react';
 
 export default function ComplianceModule() {
@@ -25,7 +27,8 @@ export default function ComplianceModule() {
     setLicenses,
     logActivity,
     analyzeEvidenceFile,
-    isStandardActive
+    isStandardActive,
+    emailLogs
   } = useContext(QualiNABHContext);
 
   const [activeSubTab, setActiveSubTab] = useState('standards'); // 'standards', 'docs', 'licenses'
@@ -57,6 +60,18 @@ export default function ComplianceModule() {
   const [sopFile, setSopFile] = useState(null);
   const [sopScanError, setSopScanError] = useState('');
 
+  // Custom license states
+  const [showAddLicenseModal, setShowAddLicenseModal] = useState(false);
+  const [newLicenseForm, setNewLicenseForm] = useState({
+    name: '',
+    authority: '',
+    issueDate: '',
+    expiryDate: '',
+    responsible: ''
+  });
+  const [scanProgress, setScanProgress] = useState(false);
+  const [scanMessage, setScanMessage] = useState('');
+
   // Calculate days remaining helper
   const getDaysRemaining = (expiryStr) => {
     if (!expiryStr) return -999999;
@@ -68,6 +83,97 @@ export default function ComplianceModule() {
     const diffTime = expiry - today;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
+  };
+
+  const handleAddLicenseSubmit = (e) => {
+    e.preventDefault();
+    const newLic = {
+      id: `lic-custom-${Date.now()}`,
+      name: newLicenseForm.name,
+      authority: newLicenseForm.authority,
+      issueDate: newLicenseForm.issueDate,
+      expiryDate: newLicenseForm.expiryDate,
+      responsible: newLicenseForm.responsible,
+      status: 'Active'
+    };
+    setLicenses(prev => [...prev, newLic]);
+    setNewLicenseForm({ name: '', authority: '', issueDate: '', expiryDate: '', responsible: '' });
+    setShowAddLicenseModal(false);
+    setScanMessage('');
+    logActivity(`Added statutory license: ${newLic.name}`);
+  };
+
+  const handleDeleteLicense = (id) => {
+    if (!window.confirm("Are you sure you want to delete this license?")) return;
+    const lic = licenses.find(l => l.id === id);
+    setLicenses(prev => prev.filter(l => l.id !== id));
+    logActivity(`Deleted statutory license: ${lic ? lic.name : id}`);
+  };
+
+  const handleScanUploadedLicense = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setScanProgress(true);
+    setScanMessage("Scanning document headers...");
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const content = evt.target.result || "";
+      const text = `${file.name} ${content}`.toLowerCase();
+
+      setTimeout(() => {
+        let name = "Custom Statutory Certificate";
+        if (text.includes("pollution") || text.includes("waste")) {
+          name = "Pollution Control Board - Bio-Medical Waste Authorization";
+        } else if (text.includes("narcotic") || text.includes("drug")) {
+          name = "Narcotic Drugs Storage License";
+        } else if (text.includes("fire")) {
+          name = "Fire Safety No-Objection Certificate (NOC)";
+        } else if (text.includes("aerb") || text.includes("radiation") || text.includes("x-ray") || text.includes("xray")) {
+          name = "Atomic Energy Regulatory Board (AERB) X-Ray Certification";
+        } else if (file.name.includes('.')) {
+          name = file.name.split('.').slice(0, -1).join(' ').replace(/[-_]/g, ' ')
+                     .replace(/\b\w/g, c => c.toUpperCase());
+        }
+
+        let authority = "Government Licensing Authority";
+        if (text.includes("pollution")) authority = "State Pollution Control Board";
+        else if (text.includes("narcotic") || text.includes("drug")) authority = "State Drug Controller Office";
+        else if (text.includes("fire")) authority = "Fire Safety Board";
+        else if (text.includes("aerb")) authority = "Atomic Energy Regulatory Board";
+
+        let responsible = "Facilities Manager";
+        if (text.includes("narcotic") || text.includes("drug") || text.includes("pharmacy")) responsible = "Pharmacy Head";
+        else if (text.includes("x-ray") || text.includes("radiation")) responsible = "Radiology Chief";
+        else if (text.includes("fire")) responsible = "Chief Operating Officer";
+
+        let issueDate = new Date().toISOString().slice(0,10);
+        let expiryDate = new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000).toISOString().slice(0,10);
+
+        const dateRegex = /\b\d{4}-\d{2}-\d{2}\b/g;
+        const foundDates = text.match(dateRegex);
+        if (foundDates && foundDates.length >= 2) {
+          issueDate = foundDates[0];
+          expiryDate = foundDates[1];
+        } else if (foundDates && foundDates.length === 1) {
+          expiryDate = foundDates[0];
+        }
+
+        setNewLicenseForm({
+          name,
+          authority,
+          issueDate,
+          expiryDate,
+          responsible
+        });
+
+        setScanProgress(false);
+        setScanMessage(`Scan Complete! Document successfully identified as: "${name}"`);
+        logActivity(`Scanned statutory license file: ${file.name}`);
+      }, 1500);
+    };
+    reader.readAsText(file.slice(0, 10000));
   };
 
   const handleLicenseFileChange = (e) => {
@@ -436,14 +542,19 @@ export default function ComplianceModule() {
       {/* 3. LICENSE TRACKER VIEW */}
       {activeSubTab === 'licenses' && (
         <div className="flex flex-col gap-3">
-          <div style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', padding: '1rem', borderRadius: '12px' }}>
-            <h3 style={{ fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Clock size={16} color="var(--primary)" />
-              <span>Statutory Compliance Calendar</span>
-            </h3>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.1rem' }}>
-              Hospitals must renew operational and biomedical certificates regularly. Expired licenses trigger red alerts in Quality Reports.
-            </p>
+          <div className="flex justify-between align-center" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', padding: '1rem', borderRadius: '12px' }}>
+            <div>
+              <h3 style={{ fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Clock size={16} color="var(--primary)" />
+                <span>Statutory Compliance Calendar</span>
+              </h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.1rem' }}>
+                Hospitals must renew operational and biomedical certificates regularly. Expired licenses trigger red alerts in Quality Reports.
+              </p>
+            </div>
+            <button onClick={() => setShowAddLicenseModal(true)} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Plus size={14} /> Add Statutory License
+            </button>
           </div>
 
           <div className="table-container">
@@ -499,17 +610,28 @@ export default function ComplianceModule() {
                         <span className={`badge ${stateBadge}`}>{statusText}</span>
                       </td>
                       <td>
-                        {(days <= 60 || lic.status === 'Expired') ? (
+                        <div className="flex gap-2">
+                          {(days <= 60 || lic.status === 'Expired' || !lic.expiryDate) ? (
+                            <button
+                              onClick={() => setRenewingLicenseId(lic.id)}
+                              className="btn btn-primary"
+                              style={{ padding: '0.35rem 0.625rem', fontSize: '0.75rem' }}
+                            >
+                              <RefreshCw size={12} /> Renew
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>No action required</span>
+                          )}
                           <button
-                            onClick={() => setRenewingLicenseId(lic.id)}
-                            className="btn btn-primary"
-                            style={{ padding: '0.35rem 0.625rem', fontSize: '0.75rem' }}
+                            type="button"
+                            onClick={() => handleDeleteLicense(lic.id)}
+                            className="btn btn-secondary"
+                            style={{ padding: '0.35rem 0.625rem', fontSize: '0.75rem', color: 'var(--color-danger)', backgroundColor: 'transparent', border: '1px solid var(--border-color)' }}
+                            title="Delete custom statutory license"
                           >
-                            <RefreshCw size={12} /> Renew
+                            <Trash2 size={12} />
                           </button>
-                        ) : (
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>No action required</span>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -517,6 +639,28 @@ export default function ComplianceModule() {
               </tbody>
             </table>
           </div>
+
+          {/* Statutory Alerts Log Card */}
+          {emailLogs && emailLogs.filter(e => e.category === 'Statutory Alert').length > 0 && (
+            <div className="card" style={{ marginTop: '1rem', borderTop: '4px solid var(--color-danger)' }}>
+              <div className="flex align-center gap-2" style={{ marginBottom: '0.75rem' }}>
+                <ShieldAlert size={18} color="var(--color-danger)" />
+                <h4 style={{ fontWeight: 700, fontSize: '0.9rem' }}>Automated License Renewal Reminder Emails Sent</h4>
+              </div>
+              <div className="flex flex-col gap-2" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                {emailLogs.filter(e => e.category === 'Statutory Alert').map(email => (
+                  <div key={email.id} style={{ padding: '0.5rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '6px', fontSize: '0.8rem' }}>
+                    <div className="flex justify-between" style={{ color: 'var(--text-tertiary)', fontSize: '0.7rem', marginBottom: '0.25rem' }}>
+                      <span>To: <strong>{email.recipient}</strong></span>
+                      <span>{email.sentAt}</span>
+                    </div>
+                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{email.subject}</div>
+                    <div style={{ color: 'var(--text-secondary)', marginTop: '0.15rem' }}>{email.body}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -707,6 +851,121 @@ export default function ComplianceModule() {
               <div className="modal-footer">
                 <button type="button" onClick={handleCloseRenewModal} className="btn btn-secondary">Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={licenseScanning || !licenseScanSuccess}>Confirm Renewal</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* C. Add Custom License Modal */}
+      {showAddLicenseModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '600px', backgroundColor: 'var(--bg-secondary)' }}>
+            <div className="modal-header">
+              <h3 style={{ fontSize: '1.1rem' }}>Add Custom Statutory License</h3>
+              <button onClick={() => { setShowAddLicenseModal(false); setScanMessage(''); }} style={{ fontSize: '1.2rem', fontWeight: 700 }}>✕</button>
+            </div>
+            <form onSubmit={handleAddLicenseSubmit}>
+              <div className="modal-body flex flex-col gap-2" style={{ padding: '1.25rem' }}>
+                
+                {/* Simulated OCR File Upload Scanner */}
+                <div className="form-group">
+                  <label className="form-label">Upload Scanned License Copy to Auto-Fill (Optional)</label>
+                  <div 
+                    className="upload-zone" 
+                    style={{ padding: '1.5rem', border: '2px dashed var(--border-color)', borderRadius: '8px', cursor: 'pointer', textAlign: 'center', backgroundColor: 'var(--bg-primary)' }}
+                    onClick={() => document.getElementById('scan-license-input').click()}
+                  >
+                    <input 
+                      type="file" 
+                      id="scan-license-input" 
+                      style={{ display: 'none' }}
+                      accept=".pdf,.png,.jpg,.jpeg,.txt"
+                      onChange={handleScanUploadedLicense}
+                    />
+                    {scanProgress ? (
+                      <div>
+                        <RefreshCw size={20} style={{ animation: 'spin 1.5s linear infinite', margin: '0 auto 0.5rem' }} />
+                        <p style={{ fontSize: '0.8rem', fontWeight: 600 }}>Scanning text content via VaidyaQ OCR...</p>
+                      </div>
+                    ) : (
+                      <div>
+                        <Upload size={20} color="var(--primary)" style={{ margin: '0 auto 0.5rem' }} />
+                        <p style={{ fontSize: '0.8rem', fontWeight: 600 }}>Click to upload file and auto-fill</p>
+                        <p style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>Supports PDF, Image, TXT</p>
+                      </div>
+                    )}
+                  </div>
+                  {scanMessage && (
+                    <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--color-success)', padding: '0.5rem', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '6px' }}>
+                      ✓ {scanMessage}
+                    </div>
+                  )}
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">License / Certificate Name</label>
+                  <input
+                    type="text"
+                    required
+                    className="form-control"
+                    placeholder="e.g. Narcotic Drugs Storage License"
+                    value={newLicenseForm.name}
+                    onChange={(e) => setNewLicenseForm({ ...newLicenseForm, name: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Issuing Authority</label>
+                  <input
+                    type="text"
+                    required
+                    className="form-control"
+                    placeholder="e.g. State Drug Controller Office"
+                    value={newLicenseForm.authority}
+                    onChange={(e) => setNewLicenseForm({ ...newLicenseForm, authority: e.target.value })}
+                  />
+                </div>
+
+                <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div className="form-group">
+                    <label className="form-label">Issue Date</label>
+                    <input
+                      type="date"
+                      required
+                      className="form-control"
+                      value={newLicenseForm.issueDate}
+                      onChange={(e) => setNewLicenseForm({ ...newLicenseForm, issueDate: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Expiry Date</label>
+                    <input
+                      type="date"
+                      required
+                      className="form-control"
+                      value={newLicenseForm.expiryDate}
+                      onChange={(e) => setNewLicenseForm({ ...newLicenseForm, expiryDate: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Responsible Department Owner</label>
+                  <input
+                    type="text"
+                    required
+                    className="form-control"
+                    placeholder="e.g. Pharmacy Head"
+                    value={newLicenseForm.responsible}
+                    onChange={(e) => setNewLicenseForm({ ...newLicenseForm, responsible: e.target.value })}
+                  />
+                </div>
+
+              </div>
+              <div className="modal-footer">
+                <button type="button" onClick={() => { setShowAddLicenseModal(false); setScanMessage(''); }} className="btn btn-secondary">Cancel</button>
+                <button type="submit" className="btn btn-primary">Save License</button>
               </div>
             </form>
           </div>

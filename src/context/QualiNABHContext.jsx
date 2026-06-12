@@ -484,6 +484,46 @@ export const QualiNABHProvider = ({ children }) => {
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_licenses`, JSON.stringify(licenses));
+      
+      // Auto check and send warning emails for expiring/expired licenses
+      if (licenses && licenses.length > 0) {
+        licenses.forEach(lic => {
+          if (!lic.expiryDate) return;
+          const exp = new Date(lic.expiryDate);
+          if (isNaN(exp.getTime())) return;
+          
+          const today = new Date();
+          exp.setHours(0,0,0,0);
+          today.setHours(0,0,0,0);
+          const diffTime = exp - today;
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          
+          const activeEmail = currentUser.parentEmail || currentUser.email;
+          const emailSentKey = `${activeEmail}_email_sent_${lic.id}_${lic.expiryDate}`;
+          const alreadySent = localStorage.getItem(emailSentKey);
+          
+          if (!alreadySent) {
+            const ownerEmail = activeEmail;
+            if (diffDays <= 0) {
+              sendSimulatedEmail(
+                ownerEmail,
+                `URGENT ALERT: Statutory License Expired - ${lic.name}`,
+                `Hello, the statutory certificate "${lic.name}" issued by "${lic.authority}" expired on ${lic.expiryDate}. Please renew immediately to prevent clinical restrictions or legal penalties.`,
+                "Statutory Alert"
+              );
+              localStorage.setItem(emailSentKey, "true");
+            } else if (diffDays <= 20) {
+              sendSimulatedEmail(
+                ownerEmail,
+                `WARNING: Statutory License Expiring Soon - ${lic.name}`,
+                `Hello, the statutory certificate "${lic.name}" is expiring in ${diffDays} days (Expiry: ${lic.expiryDate}). Please initiate renewal proceedings and upload the new certificate.`,
+                "Statutory Alert"
+              );
+              localStorage.setItem(emailSentKey, "true");
+            }
+          }
+        });
+      }
     }
   }, [licenses, currentUser]);
 
