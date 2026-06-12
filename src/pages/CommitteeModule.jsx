@@ -149,7 +149,6 @@ export default function CommitteeModule() {
 
     if (!aiDraftMOM) return;
 
-    // Save committee meeting
     const newMeeting = {
       date: aiDraftMOM.date,
       attendees: aiDraftMOM.attendees,
@@ -189,183 +188,166 @@ export default function CommitteeModule() {
   );
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Premium Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-slate-900 to-indigo-950 p-6 rounded-2xl border border-indigo-900/30 text-white shadow-xl">
+    <div className="flex flex-col gap-3">
+      {/* Premium Header Container */}
+      <div className="flex justify-between align-center" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', padding: '1.25rem 1.5rem', borderRadius: '12px' }}>
         <div>
-          <span className="bg-indigo-500/20 text-indigo-300 text-xs px-3 py-1 rounded-full border border-indigo-500/30 font-medium">
+          <span className="badge badge-success" style={{ textTransform: 'none', fontSize: '0.7rem' }}>
             Module 7: MOM & Governance Desk
           </span>
-          <h1 className="text-2xl font-bold tracking-tight mt-2 flex items-center gap-2">
+          <h1 style={{ fontSize: '1.35rem', fontWeight: 800, margin: '0.4rem 0 0 0' }}>
             Committee & Meeting Registrar
           </h1>
-          <p className="text-slate-400 text-sm mt-1">
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
             Track statutory committee resolutions, draft AI minutes, and store official governance records as audit evidence.
           </p>
         </div>
         <button
           onClick={() => setActiveSubTab('registrar')}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 transition px-4 py-2.5 rounded-xl text-sm font-semibold shadow-md shadow-indigo-950"
+          className="btn btn-primary"
         >
           <Plus size={16} /> New Meeting MOM
         </button>
       </div>
 
       {/* Navigation Sub-tabs */}
-      <div className="flex border-b border-slate-200 dark:border-slate-800 gap-6">
+      <div className="tabs-container" style={{ margin: 0 }}>
         <button
           onClick={() => setActiveSubTab('meetings')}
-          className={`pb-3 text-sm font-medium border-b-2 transition flex items-center gap-2 ${
-            activeSubTab === 'meetings'
-              ? 'border-indigo-600 text-indigo-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
+          className={`tab-btn ${activeSubTab === 'meetings' ? 'active' : ''}`}
         >
-          <Calendar size={16} /> Active Committees & Calendars
+          Active Committees & Calendars
         </button>
         <button
           onClick={() => setActiveSubTab('registrar')}
-          className={`pb-3 text-sm font-medium border-b-2 transition flex items-center gap-2 ${
-            activeSubTab === 'registrar'
-              ? 'border-indigo-600 text-indigo-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
+          className={`tab-btn ${activeSubTab === 'registrar' ? 'active' : ''}`}
         >
-          <Plus size={16} /> Log Meeting MOM (Manual)
+          Log Meeting MOM (Manual)
         </button>
         <button
           onClick={() => setActiveSubTab('ai-minutes')}
-          className={`pb-3 text-sm font-medium border-b-2 transition flex items-center gap-2 ${
-            activeSubTab === 'ai-minutes'
-              ? 'border-indigo-600 text-indigo-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
+          className={`tab-btn ${activeSubTab === 'ai-minutes' ? 'active' : ''}`}
         >
-          <Sparkles size={16} /> AI Minutes Compiler
+          AI Minutes Compiler
         </button>
         <button
           onClick={() => setActiveSubTab('vault')}
-          className={`pb-3 text-sm font-medium border-b-2 transition flex items-center gap-2 ${
-            activeSubTab === 'vault'
-              ? 'border-indigo-600 text-indigo-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
+          className={`tab-btn ${activeSubTab === 'vault' ? 'active' : ''}`}
         >
-          <FileText size={16} /> Governance Audit Vault
+          Governance Audit Vault
         </button>
       </div>
 
       {/* Success Notification Banner */}
       {successMessage && (
-        <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-300 dark:border-emerald-900 text-emerald-800 dark:text-emerald-300 p-4 rounded-xl flex items-center gap-2.5 shadow-sm">
-          <CheckCircle size={18} />
-          <span className="text-sm font-medium">{successMessage}</span>
+        <div style={{ padding: '0.75rem 1rem', backgroundColor: 'var(--bg-success)', color: 'var(--color-success)', border: '1px solid var(--color-success)', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 605, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <CheckCircle size={16} />
+          <span>{successMessage}</span>
         </div>
       )}
 
       {/* Tab 1: Active Committees & Meeting Calendars */}
       {activeSubTab === 'meetings' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Users className="text-indigo-500" size={18} /> Committees List
-                </h2>
-                <div className="relative w-64">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Search committees..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full text-xs pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950"
-                  />
-                </div>
+        <div className="grid" style={{ gridTemplateColumns: '1fr 320px', gap: '1.5rem' }}>
+          {/* Left panel: Committees list */}
+          <div className="card" style={{ padding: '1.25rem' }}>
+            <div className="flex justify-between align-center" style={{ marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 'bold' }} className="flex align-center gap-1">
+                <Users size={16} /> Committees List
+              </h3>
+              <div className="flex align-center" style={{ border: '1px solid var(--border-color)', borderRadius: '6px', padding: '2px 8px', backgroundColor: 'var(--bg-primary)' }}>
+                <Search size={12} color="var(--text-tertiary)" style={{ marginRight: '6px' }} />
+                <input
+                  type="text"
+                  placeholder="Search committees..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={{ border: 'none', backgroundColor: 'transparent', fontSize: '0.75rem', width: '150px', outline: 'none' }}
+                />
               </div>
+            </div>
 
-              <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredCommittees.length === 0 ? (
-                  <div className="p-8 text-center text-slate-400 text-sm">
-                    No committees found. Customize by adding a committee.
-                  </div>
-                ) : (
-                  filteredCommittees.map(c => (
-                    <div key={c.id} className="py-4 first:pt-0 last:pb-0 space-y-3">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-semibold text-slate-900 dark:text-white text-base">{c.name}</h3>
-                          <p className="text-xs text-slate-500 mt-0.5">
-                            Chair: <span className="font-medium">{c.chair}</span> | Dept: {c.department} | Schedule: {c.frequency}
-                          </p>
-                        </div>
-                        <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs px-2.5 py-0.5 rounded-full font-medium">
-                          {(c.meetings || []).length} Meetings logged
+            <div className="flex flex-col gap-3">
+              {filteredCommittees.length === 0 ? (
+                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                  No active committees registered.
+                </div>
+              ) : (
+                filteredCommittees.map(c => (
+                  <div key={c.id} style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }} className="flex flex-col gap-2">
+                    <div className="flex justify-between align-center">
+                      <div>
+                        <h4 style={{ fontSize: '0.9rem', fontWeight: 'bold', margin: 0 }}>{c.name}</h4>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                          Chair: <strong>{c.chair}</strong> | Department: {c.department} | Freq: {c.frequency}
                         </span>
                       </div>
-
-                      {/* Display recent meeting list for this committee */}
-                      <div className="pl-4 border-l-2 border-slate-200 dark:border-slate-800 space-y-2">
-                        {(!c.meetings || c.meetings.length === 0) ? (
-                          <p className="text-xs text-slate-400 italic">No meetings logged yet for this committee.</p>
-                        ) : (
-                          c.meetings.slice(0, 2).map((meet, index) => (
-                            <div key={index} className="text-xs space-y-1 bg-slate-50 dark:bg-slate-950/50 p-2.5 rounded-lg">
-                              <div className="flex justify-between font-semibold text-slate-700 dark:text-slate-300">
-                                <span>📅 Date: {meet.date}</span>
-                                <span className="text-indigo-500">MOM #{index + 1}</span>
-                              </div>
-                              <p className="text-slate-600 dark:text-slate-400">
-                                <strong>Agenda:</strong> {meet.agenda}
-                              </p>
-                              <p className="text-slate-500 dark:text-slate-400 italic line-clamp-1">
-                                {meet.minutes}
-                              </p>
-                              {meet.actionItems && meet.actionItems.length > 0 && (
-                                <div className="mt-1 flex flex-wrap gap-1">
-                                  {meet.actionItems.map((item, keyId) => (
-                                    <span key={keyId} className="bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 px-2 py-0.5 rounded text-[10px]">
-                                      ✔️ Task: {item.task} ({item.assignedTo})
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          ))
-                        )}
-                      </div>
+                      <span className="badge badge-neutral" style={{ fontSize: '0.65rem' }}>
+                        {(c.meetings || []).length} Meetings logged
+                      </span>
                     </div>
-                  ))
-                )}
-              </div>
+
+                    {/* Display recent meeting list for this committee */}
+                    <div style={{ paddingLeft: '0.75rem', borderLeft: '3px solid var(--primary-light)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      {(!c.meetings || c.meetings.length === 0) ? (
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', fontStyle: 'italic', margin: 0 }}>No meetings logged yet for this committee.</p>
+                      ) : (
+                        c.meetings.slice(0, 2).map((meet, index) => (
+                          <div key={index} style={{ fontSize: '0.75rem', padding: '0.5rem 0.75rem', backgroundColor: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                            <div className="flex justify-between font-semibold text-slate-700 dark:text-slate-350" style={{ marginBottom: '2px' }}>
+                              <span>📅 Date: {meet.date}</span>
+                              <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>MOM #{index + 1}</span>
+                            </div>
+                            <div style={{ color: 'var(--text-primary)' }}>
+                              <strong>Agenda:</strong> {meet.agenda}
+                            </div>
+                            <div style={{ color: 'var(--text-secondary)', marginTop: '2px', fontStyle: 'italic' }}>
+                              {meet.minutes}
+                            </div>
+                            {meet.actionItems && meet.actionItems.length > 0 && (
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.4rem' }}>
+                                {meet.actionItems.map((item, keyId) => (
+                                  <span key={keyId} style={{ backgroundColor: 'var(--primary-light)', color: 'var(--primary)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 'semibold' }}>
+                                    ✔️ Task: {item.task} ({item.assignedTo})
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
           {/* Right sidebar: Scheduled meetings calendar info */}
-          <div className="space-y-6">
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
-              <h2 className="font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-4">
-                <Clock className="text-indigo-500" size={18} /> Governance Requirements
-              </h2>
-              <div className="space-y-3.5 text-xs text-slate-600 dark:text-slate-400">
-                <div className="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-100 dark:border-slate-850">
-                  <h4 className="font-semibold text-slate-900 dark:text-white">Monthly Committees</h4>
-                  <ul className="list-disc pl-4 mt-1.5 space-y-1">
-                    <li>Quality Assurance & Safety Committee</li>
-                    <li>Infection Prevention & Control Committee</li>
-                    <li>Pharmacy and Therapeutics Committee</li>
+          <div className="flex flex-col gap-4">
+            <div className="card" style={{ padding: '1.25rem' }}>
+              <h3 style={{ fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.75rem' }} className="flex align-center gap-1">
+                <Clock size={16} /> Governance Requirements
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.75rem' }}>
+                <div style={{ padding: '0.75rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '8px' }}>
+                  <h4 style={{ fontWeight: 'bold', margin: 0 }}>Monthly Committees</h4>
+                  <ul style={{ paddingLeft: '1rem', marginTop: '0.3rem', listStyleType: 'disc' }}>
+                    <li>Quality Assurance & Safety</li>
+                    <li>Infection Prevention & Control</li>
+                    <li>Pharmacy and Therapeutics</li>
                   </ul>
                 </div>
-                <div className="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-100 dark:border-slate-850">
-                  <h4 className="font-semibold text-slate-900 dark:text-white">Quarterly Committees</h4>
-                  <ul className="list-disc pl-4 mt-1.5 space-y-1">
-                    <li>Blood Transfusion & Safety Committee</li>
+                <div style={{ padding: '0.75rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '8px' }}>
+                  <h4 style={{ fontWeight: 'bold', margin: 0 }}>Quarterly Committees</h4>
+                  <ul style={{ paddingLeft: '1rem', marginTop: '0.3rem', listStyleType: 'disc' }}>
+                    <li>Blood Transfusion & Safety</li>
                     <li>Medical Records Review Board</li>
-                    <li>Radiation Safety Committee (AERB NOCs)</li>
+                    <li>Radiation Safety Committee (AERB)</li>
                   </ul>
                 </div>
-                <p className="italic text-[11px] text-slate-500">
-                  💡 NABH Assessors mandate that all agendas be pre-circulated 48 hours prior, and MOM digital records be published within 7 days of the meeting.
+                <p style={{ fontStyle: 'italic', color: 'var(--text-tertiary)', fontSize: '0.7rem', margin: 0 }}>
+                  💡 NABH Assessors mandate that all agendas be pre-circulated 48 hours prior, and MOM digital records be published within 7 days.
                 </p>
               </div>
             </div>
@@ -375,116 +357,112 @@ export default function CommitteeModule() {
 
       {/* Tab 2: Log Meeting MOM (Manual) */}
       {activeSubTab === 'registrar' && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm max-w-4xl">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-6">
-            <Plus className="text-indigo-500" size={20} /> Log Committee Minutes of Meeting
-          </h2>
+        <div className="card" style={{ padding: '1.5rem', maxWidth: '800px' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '1.25rem' }} className="flex align-center gap-1">
+            <Plus size={18} /> Log Committee Minutes of Meeting
+          </h3>
 
-          <form onSubmit={handleSaveMeeting} className="space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Select Committee *
-                </label>
+          <form onSubmit={handleSaveMeeting} className="flex flex-col gap-3">
+            <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="form-group">
+                <label className="form-label">Select Committee *</label>
                 <select
                   value={selectedCommitteeId}
                   onChange={(e) => setSelectedCommitteeId(e.target.value)}
                   required
-                  className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2"
+                  className="form-control"
+                  style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1.5px solid var(--border-color)' }}
                 >
                   {committees.map(c => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Meeting Date *
-                </label>
+              <div className="form-group">
+                <label className="form-label">Meeting Date *</label>
                 <input
                   type="date"
                   value={meetingDate}
                   onChange={(e) => setMeetingDate(e.target.value)}
                   required
-                  className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2"
+                  className="form-control"
                 />
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                Attendees (Comma separated) *
-              </label>
+            <div className="form-group">
+              <label className="form-label">Attendees (Comma separated) *</label>
               <input
                 type="text"
                 placeholder="Dr. Sarah Paul, Col. Roy, Sister Gracy"
                 value={attendeesText}
                 onChange={(e) => setAttendeesText(e.target.value)}
                 required
-                className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2"
+                className="form-control"
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                Meeting Agenda *
-              </label>
+            <div className="form-group">
+              <label className="form-label">Meeting Agenda *</label>
               <input
                 type="text"
                 placeholder="Review of bio-waste disposal bags & OT sterilizer reports"
                 value={agendaText}
                 onChange={(e) => setAgendaText(e.target.value)}
                 required
-                className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2"
+                className="form-control"
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                Discussion Minutes & Decisions *
-              </label>
+            <div className="form-group">
+              <label className="form-label">Discussion Minutes & Decisions *</label>
               <textarea
                 rows={5}
                 placeholder="Log decisions made here. For example: Replaced autoclaving indicators. Scheduled quarterly facility checks. Set up hand wash scores monitoring..."
                 value={minutesText}
                 onChange={(e) => setMinutesText(e.target.value)}
                 required
-                className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2"
+                className="form-control"
+                style={{ resize: 'vertical' }}
               />
             </div>
 
             {/* Action Items Board */}
-            <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-850">
-              <h3 className="text-sm font-bold text-slate-950 dark:text-slate-100 mb-3 flex items-center gap-1">
+            <div style={{ padding: '1rem', backgroundColor: 'var(--bg-primary)', borderRadius: '10px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <h4 style={{ fontSize: '0.8rem', fontWeight: 'bold', margin: 0 }}>
                 🔨 Assign Action Items (Link directly to global task boards)
-              </h3>
+              </h4>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+              <div className="grid" style={{ gridTemplateColumns: '1.5fr 1fr 1fr', gap: '0.5rem' }}>
                 <input
                   type="text"
                   placeholder="Task Description"
                   value={newActionItem.task}
                   onChange={(e) => setNewActionItem({ ...newActionItem, task: e.target.value })}
-                  className="w-full text-xs rounded border border-slate-200 dark:border-slate-800 px-2 py-1.5 bg-white dark:bg-slate-900"
+                  className="form-control"
+                  style={{ padding: '0.5rem', fontSize: '0.75rem' }}
                 />
                 <input
                   type="text"
                   placeholder="Assignee (e.g. Sister Gracy)"
                   value={newActionItem.assignedTo}
                   onChange={(e) => setNewActionItem({ ...newActionItem, assignedTo: e.target.value })}
-                  className="w-full text-xs rounded border border-slate-200 dark:border-slate-800 px-2 py-1.5 bg-white dark:bg-slate-900"
+                  className="form-control"
+                  style={{ padding: '0.5rem', fontSize: '0.75rem' }}
                 />
-                <div className="flex gap-2">
+                <div style={{ display: 'flex', gap: '0.3rem' }}>
                   <input
                     type="date"
                     value={newActionItem.dueDate}
                     onChange={(e) => setNewActionItem({ ...newActionItem, dueDate: e.target.value })}
-                    className="w-full text-xs rounded border border-slate-200 dark:border-slate-800 px-2 py-1.5 bg-white dark:bg-slate-900"
+                    className="form-control"
+                    style={{ padding: '0.5rem', fontSize: '0.75rem', flex: 1 }}
                   />
                   <button
                     type="button"
                     onClick={handleAddActionItem}
-                    className="bg-indigo-600 text-white px-3 py-1 rounded text-xs hover:bg-indigo-700 transition"
+                    className="btn btn-primary"
+                    style={{ padding: '0.5rem 0.75rem', fontSize: '0.75rem' }}
                   >
                     Add
                   </button>
@@ -492,17 +470,17 @@ export default function CommitteeModule() {
               </div>
 
               {actionItems.length > 0 && (
-                <div className="mt-2 space-y-1.5">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.25rem' }}>
                   {actionItems.map(item => (
-                    <div key={item.id} className="flex justify-between items-center text-xs bg-white dark:bg-slate-900 p-2 rounded border border-slate-100 dark:border-slate-800">
+                    <div key={item.id} className="flex justify-between align-center" style={{ padding: '0.5rem', backgroundColor: 'var(--bg-secondary)', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.75rem' }}>
                       <div>
-                        <span className="font-semibold text-indigo-600 dark:text-indigo-400">✔️ {item.task}</span>
-                        <span className="text-slate-500"> - Assigned to {item.assignedTo} (Due {item.dueDate})</span>
+                        <span style={{ fontWeight: 'bold', color: 'var(--secondary)' }}>✔️ {item.task}</span>
+                        <span style={{ color: 'var(--text-secondary)' }}> - Assigned to {item.assignedTo} (Due {item.dueDate})</span>
                       </div>
                       <button
                         type="button"
                         onClick={() => handleRemoveActionItem(item.id)}
-                        className="text-red-500 hover:text-red-700 font-semibold px-2"
+                        style={{ color: 'var(--color-danger)', fontWeight: 'bold', fontSize: '0.75rem', cursor: 'pointer' }}
                       >
                         Remove
                       </button>
@@ -512,17 +490,17 @@ export default function CommitteeModule() {
               )}
             </div>
 
-            <div className="flex justify-end gap-3 pt-3">
+            <div className="flex justify-end gap-2" style={{ marginTop: '0.5rem' }}>
               <button
                 type="button"
                 onClick={() => setActiveSubTab('meetings')}
-                className="px-4 py-2 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-950 text-sm font-semibold rounded-lg text-slate-700 dark:text-slate-300"
+                className="btn btn-secondary"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm px-5 py-2 rounded-lg transition"
+                className="btn btn-primary"
               >
                 Log MOM Records
               </button>
@@ -533,23 +511,22 @@ export default function CommitteeModule() {
 
       {/* Tab 3: AI Minutes Compiler */}
       {activeSubTab === 'ai-minutes' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Sparkles className="text-indigo-500" size={18} /> Compile AI Minutes from Notes
-            </h2>
-            <p className="text-xs text-slate-500">
+        <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+          <div className="card" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 'bold', margin: 0 }} className="flex align-center gap-1">
+              <Sparkles size={16} /> Compile AI Minutes from Notes
+            </h3>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>
               Paste your raw voice recorder transcript, bulleted notes, or rough discussion texts below. The Copilot will generate a standardized meeting record.
             </p>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                Select Target Committee
-              </label>
+            <div className="form-group">
+              <label className="form-label" style={{ fontSize: '0.75rem' }}>Select Target Committee</label>
               <select
                 value={selectedCommitteeId}
                 onChange={(e) => setSelectedCommitteeId(e.target.value)}
-                className="w-full text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-2 py-1.5"
+                className="form-control"
+                style={{ padding: '0.5rem', fontSize: '0.75rem' }}
               >
                 {committees.map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
@@ -557,95 +534,91 @@ export default function CommitteeModule() {
               </select>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                Paste Raw Meeting Transcripts / Notes *
-              </label>
+            <div className="form-group">
+              <label className="form-label" style={{ fontSize: '0.75rem' }}>Paste Raw Meeting Transcripts / Notes *</label>
               <textarea
                 rows={10}
                 placeholder="Example: We met today 10th June with Col. Roy and Sarah. Gracy mentioned ICU cart had expired syringes. Roy said replace them instantly. Gracy will do it by 15th. Also discussed readiness was 68%, need SOP for expired medicine disposal (Sen to draft by 15th)..."
                 value={rawTranscript}
                 onChange={(e) => setRawTranscript(e.target.value)}
-                className="w-full text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3"
+                className="form-control"
+                style={{ fontSize: '0.75rem', resize: 'vertical' }}
               />
             </div>
 
             <button
               onClick={handleGenerateAIDraft}
               disabled={generating || !rawTranscript.trim()}
-              className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold text-xs py-2.5 rounded-lg transition"
+              className="btn btn-primary"
+              style={{ width: '100%', padding: '0.6rem' }}
             >
-              {generating ? (
-                <>Generating Draft...</>
-              ) : (
-                <>
-                  <Sparkles size={14} /> Draft Minutes of Meeting
-                </>
-              )}
+              {generating ? "Generating Draft..." : "Draft Minutes of Meeting"}
             </button>
           </div>
 
           {/* AI Drafting Board */}
-          <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <FileText className="text-indigo-500" size={18} /> Generated Draft Minutes
-            </h2>
+          <div className="card" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 'bold', margin: 0 }} className="flex align-center gap-1">
+              <FileText size={16} /> Generated Draft Minutes
+            </h3>
 
             {!aiDraftMOM ? (
-              <div className="h-64 flex flex-col justify-center items-center border border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-center text-slate-400 p-6">
-                <Compass size={24} className="animate-spin text-slate-300 mb-2" />
-                <p className="text-xs">No draft generated yet. Paste transcripts on the left and click compile.</p>
+              <div style={{ height: '280px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', border: '1.5px dashed var(--border-color)', borderRadius: '10px', color: 'var(--text-tertiary)', fontSize: '0.75rem' }}>
+                <Compass size={24} color="var(--text-tertiary)" style={{ marginBottom: '6px' }} />
+                <p>No draft generated yet. Paste transcripts on the left and click compile.</p>
               </div>
             ) : (
-              <div className="space-y-4">
-                <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-900 text-amber-900 dark:text-amber-300 p-3.5 rounded-xl space-y-2">
-                  <h4 className="font-semibold text-xs flex items-center gap-1.5">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ padding: '0.75rem', backgroundColor: 'var(--bg-warning)', color: 'var(--color-warning)', border: '1px solid var(--color-warning)', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <h4 style={{ fontWeight: 'bold', fontSize: '0.75rem', margin: 0 }} className="flex align-center gap-1">
                     <Lock size={12} /> AI-Generated Draft Signature Verification Required
                   </h4>
-                  <p className="text-[11px] leading-relaxed">
+                  <p style={{ fontSize: '0.7rem', margin: 0, lineHeight: 1.4 }}>
                     Accreditation guardrails mandate human-in-the-loop review. Verify the details below and enter the 4-digit signature code to publish.
                   </p>
                   
-                  <div className="flex gap-2 items-center mt-2">
+                  <div className="flex gap-2 align-center">
                     <input
                       type="password"
                       placeholder="Enter Signature PIN (1234)"
                       value={pinInput}
                       onChange={(e) => setPinInput(e.target.value)}
-                      className="text-xs font-semibold px-2.5 py-1.5 rounded border border-amber-300 dark:border-amber-800 bg-white dark:bg-slate-900 w-44"
+                      className="form-control"
+                      style={{ fontSize: '0.75rem', padding: '0.45rem', width: '160px', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
                     />
                     <button
                       onClick={handleApproveAIDraft}
                       disabled={draftApproved}
-                      className="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs px-3.5 py-1.5 rounded transition flex items-center gap-1"
+                      className="btn btn-primary"
+                      style={{ padding: '0.45rem 0.8rem', fontSize: '0.75rem' }}
                     >
                       <Unlock size={12} /> Sign & Approve
                     </button>
                   </div>
-                  {pinError && <p className="text-[10px] text-red-500 font-semibold mt-1">{pinError}</p>}
+                  {pinError && <p style={{ fontSize: '0.65rem', color: 'var(--color-danger)', fontWeight: 'bold', margin: 0 }}>{pinError}</p>}
                 </div>
 
-                <div className="bg-white dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-850 space-y-3 text-xs text-slate-700 dark:text-slate-300">
-                  <div className="border-b pb-2">
-                    <h3 className="font-bold text-slate-900 dark:text-white text-sm">
+                <div style={{ backgroundColor: 'var(--bg-primary)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.75rem' }}>
+                  <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>
+                    <h3 style={{ fontWeight: 'bold', fontSize: '0.85rem', margin: 0 }}>
                       {aiDraftMOM.committeeName}
                     </h3>
-                    <p className="text-[10px] text-slate-400 mt-0.5">Meeting Date: {aiDraftMOM.date}</p>
+                    <p style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', margin: '2px 0 0 0' }}>Meeting Date: {aiDraftMOM.date}</p>
                   </div>
 
-                  <p><strong>Attendees:</strong> {aiDraftMOM.attendees.join(', ')}</p>
-                  <p><strong>Agenda:</strong> {aiDraftMOM.agenda}</p>
-                  <p className="whitespace-pre-line font-mono bg-slate-50 dark:bg-slate-900 p-2.5 rounded border">
+                  <p style={{ margin: 0 }}><strong>Attendees:</strong> {aiDraftMOM.attendees.join(', ')}</p>
+                  <p style={{ margin: 0 }}><strong>Agenda:</strong> {aiDraftMOM.agenda}</p>
+                  <p style={{ margin: 0, fontFamily: 'monospace', whiteSpace: 'pre-line', backgroundColor: 'var(--bg-secondary)', padding: '0.6rem', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.7rem' }}>
                     {aiDraftMOM.minutes}
                   </p>
 
-                  <div className="pt-2 border-t">
-                    <h4 className="font-semibold text-slate-950 dark:text-slate-100 mb-1.5">Action Items formulated:</h4>
-                    <ul className="space-y-1">
+                  <div style={{ marginTop: '0.4rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.4rem' }}>
+                    <h4 style={{ fontWeight: 'bold', fontSize: '0.75rem', margin: '0 0 0.4rem 0' }}>Action Items formulated:</h4>
+                    <ul style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', paddingLeft: 0 }}>
                       {aiDraftMOM.actionItems.map((item, idx) => (
-                        <li key={idx} className="flex justify-between bg-slate-50 dark:bg-slate-900 p-1.5 rounded text-[11px]">
+                        <li key={idx} style={{ display: 'flex', justifyContent: 'space-between', backgroundColor: 'var(--bg-secondary)', padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.7rem' }}>
                           <span>✔️ {item.task} ({item.assignedTo})</span>
-                          <span className="text-[10px] text-slate-400">Due: {item.dueDate}</span>
+                          <span style={{ color: 'var(--text-tertiary)' }}>Due: {item.dueDate}</span>
                         </li>
                       ))}
                     </ul>
@@ -659,48 +632,49 @@ export default function CommitteeModule() {
 
       {/* Tab 4: Governance Audit Vault */}
       {activeSubTab === 'vault' && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
-          <div className="flex justify-between items-center mb-6">
+        <div className="card" style={{ padding: '1.25rem' }}>
+          <div className="flex justify-between align-center" style={{ marginBottom: '1.25rem' }}>
             <div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Governance Audit Vault</h2>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <h3 style={{ fontSize: '1rem', fontWeight: 'bold', margin: 0 }}>Governance Audit Vault</h3>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
                 Download verified and signed Minutes of Meetings for legal compliance checklists.
               </p>
             </div>
-            <span className="text-xs bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-400 font-semibold px-3 py-1 rounded-full border border-indigo-200 dark:border-indigo-900">
+            <span className="badge badge-success" style={{ fontSize: '0.7rem' }}>
               NABH 6th Edition Compliant Vault
             </span>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+          <div className="table-container">
+            <table className="table">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 font-semibold uppercase">
-                  <th className="pb-3">Committee Name</th>
-                  <th className="pb-3">Meeting Date</th>
-                  <th className="pb-3">Attendees</th>
-                  <th className="pb-3">Key Agendas / Discussion</th>
-                  <th className="pb-3 text-center">Action Items</th>
-                  <th className="pb-3 text-center">Audit Evidence</th>
+                <tr>
+                  <th>Committee Name</th>
+                  <th>Meeting Date</th>
+                  <th>Attendees</th>
+                  <th>Key Agendas / Discussion</th>
+                  <th style={{ textAlign: 'center' }}>Action Items</th>
+                  <th style={{ textAlign: 'center' }}>Audit Evidence</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              <tbody>
                 {committees.map(c =>
                   (c.meetings || []).map((meet, mIdx) => (
-                    <tr key={`${c.id}-${mIdx}`} className="text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-950/40">
-                      <td className="py-3 font-semibold text-slate-900 dark:text-white">{c.name}</td>
-                      <td className="py-3">{meet.date}</td>
-                      <td className="py-3 max-w-[150px] truncate">{meet.attendees.join(', ')}</td>
-                      <td className="py-3 max-w-xs truncate">{meet.agenda}</td>
-                      <td className="py-3 text-center font-bold text-indigo-600 dark:text-indigo-400">
+                    <tr key={`${c.id}-${mIdx}`}>
+                      <td style={{ fontWeight: 'bold' }}>{c.name}</td>
+                      <td>{meet.date}</td>
+                      <td>{meet.attendees.join(', ')}</td>
+                      <td>{meet.agenda}</td>
+                      <td style={{ textAlign: 'center', fontWeight: 'bold', color: 'var(--secondary)' }}>
                         {meet.actionItems ? meet.actionItems.length : 0}
                       </td>
-                      <td className="py-3 text-center">
+                      <td style={{ textAlign: 'center' }}>
                         <button
                           onClick={() => handleSimulateDownload(c.name, meet.date)}
-                          className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-semibold"
+                          className="btn btn-secondary"
+                          style={{ padding: '2px 8px', fontSize: '0.7rem' }}
                         >
-                          <FileDown size={14} /> Download PDF
+                          <FileDown size={12} /> Download PDF
                         </button>
                       </td>
                     </tr>

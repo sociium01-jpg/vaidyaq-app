@@ -2478,11 +2478,14 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
                   </div>
 
                   {/* Dossier Dossier Sub Tab Selector */}
-                  <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', flexWrap: 'wrap' }}>
                     {[
                       { id: 'metadata', label: 'Client Metadata', icon: Sliders },
                       { id: 'vault', label: 'Vault Files', icon: Briefcase },
-                      { id: 'tickets', label: 'Support Cases', icon: ShieldAlert },
+                      { id: 'meetings', label: 'Committee MOMs', icon: Users },
+                      { id: 'incidents', label: 'Incident Desk', icon: ShieldAlert },
+                      { id: 'training', label: 'Staff Training', icon: Calendar },
+                      { id: 'tickets', label: 'Support Cases', icon: MessageSquare },
                       { id: 'payments', label: 'Bill History', icon: Coins },
                       { id: 'logs', label: 'Security Audits', icon: Database }
                     ].map(tab => {
@@ -2605,31 +2608,294 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
                           📂 Client Encryption Vault Documents
                         </h4>
                         
-                        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-                          {[
-                            { name: 'accreditation_assessment.pdf', size: '1.24 MB', type: 'PDF Document' },
-                            { name: 'fire_drill_noc_audit.jpg', size: '2.84 MB', type: 'JPEG Image' },
-                            { name: 'bio_waste_regulatory_noc.pdf', size: '920 KB', type: 'PDF Document' }
-                          ].map(file => (
-                            <div key={file.name} className="card" style={{ padding: '1rem', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                <FileText size={24} color="var(--primary)" />
-                                <div>
-                                  <div style={{ fontWeight: 'bold', fontSize: '0.8rem', wordBreak: 'break-all' }}>{file.name}</div>
-                                  <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>{file.type} • {file.size}</div>
+                        {(() => {
+                          const clientEmail = targetCrmClientDetails.email;
+                          const saved = localStorage.getItem(`${clientEmail}_qn_documents`);
+                          let filesList = [
+                            { name: 'accreditation_assessment.pdf', size: '1.24 MB', type: 'PDF Document', isMock: true },
+                            { name: 'fire_drill_noc_audit.jpg', size: '2.84 MB', type: 'JPEG Image', isMock: true },
+                            { name: 'bio_waste_regulatory_noc.pdf', size: '920 KB', type: 'PDF Document', isMock: true }
+                          ];
+                          if (saved) {
+                            try {
+                              const parsedDocs = JSON.parse(saved);
+                              if (Array.isArray(parsedDocs) && parsedDocs.length > 0) {
+                                filesList = parsedDocs.map(doc => ({
+                                  name: doc.title + (doc.title.match(/\.[a-zA-Z0-9]+$/) ? '' : '.pdf'),
+                                  size: doc.content ? `${Math.ceil(doc.content.length / 1024)} KB` : '45 KB',
+                                  type: doc.type || 'Document',
+                                  isMock: false
+                                }));
+                              }
+                            } catch (e) {
+                              console.error("Error parsing documents for client", e);
+                            }
+                          }
+                          return (
+                            <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                              {filesList.map(file => (
+                                <div key={file.name} className="card" style={{ padding: '1rem', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                    <FileText size={24} color="var(--primary)" />
+                                    <div>
+                                      <div style={{ fontWeight: 'bold', fontSize: '0.8rem', wordBreak: 'break-all' }}>{file.name}</div>
+                                      <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>{file.type} • {file.size}</div>
+                                    </div>
+                                  </div>
+                                  
+                                  <button 
+                                    onClick={() => {
+                                      if (file.isMock) {
+                                        handleDownloadMockFile(targetCrmClientDetails.hospitalName, file.name);
+                                      } else {
+                                        logSimulatedDownload(`${targetCrmClientDetails.hospitalName}/${file.name}`);
+                                        alert(`📥 Evidence PDF Downloaded:\nDocument: ${file.name}\nType: ${file.type}\nMD5 checksum logged in Audit Vault for NABH assessors.`);
+                                      }
+                                    }}
+                                    className="btn btn-secondary flex align-center gap-1"
+                                    style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', width: '100%', justifyContent: 'center', cursor: 'pointer' }}
+                                  >
+                                    <Download size={12} /> <span>Download & Audit</span>
+                                  </button>
                                 </div>
-                              </div>
-                              
-                              <button 
-                                onClick={() => handleDownloadMockFile(targetCrmClientDetails.hospitalName, file.name)}
-                                className="btn btn-secondary flex align-center gap-1"
-                                style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', width: '100%', justifyContent: 'center', cursor: 'pointer' }}
-                              >
-                                <Download size={12} /> <span>Download & Audit</span>
-                              </button>
+                              ))}
                             </div>
-                          ))}
-                        </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+
+                    {/* Sub Tab: Committee Meetings */}
+                    {dossierSubTab === 'meetings' && (
+                      <div>
+                        <h4 style={{ fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                          👥 Client Committee Resolutions & MOMs
+                        </h4>
+                        {(() => {
+                          const clientEmail = targetCrmClientDetails.email;
+                          const saved = localStorage.getItem(`${clientEmail}_qn_committees`);
+                          let parsedCommittees = [];
+                          if (saved) {
+                            try { parsedCommittees = JSON.parse(saved); } catch (e) {}
+                          }
+                          const allMeetings = [];
+                          parsedCommittees.forEach(c => {
+                            (c.meetings || []).forEach(m => {
+                              allMeetings.push({ ...m, committeeName: c.name });
+                            });
+                          });
+
+                          if (allMeetings.length === 0) {
+                            return (
+                              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+                                No committee meetings logged by this client.
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div className="table-container">
+                              <table className="table" style={{ fontSize: '0.75rem' }}>
+                                <thead>
+                                  <tr>
+                                    <th>Committee Name</th>
+                                    <th>Date</th>
+                                    <th>Attendees</th>
+                                    <th>Agenda</th>
+                                    <th>Minutes Summary</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {allMeetings.map((meet, mIdx) => (
+                                    <tr key={mIdx}>
+                                      <td style={{ fontWeight: 'bold' }}>{meet.committeeName}</td>
+                                      <td>{meet.date}</td>
+                                      <td>{meet.attendees ? meet.attendees.join(', ') : ''}</td>
+                                      <td>{meet.agenda}</td>
+                                      <td style={{ fontStyle: 'italic' }}>{meet.minutes}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+
+                    {/* Sub Tab: Incident Reports */}
+                    {dossierSubTab === 'incidents' && (
+                      <div>
+                        <h4 style={{ fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                          ⚠️ Client Reported Patient Incidents & Risks
+                        </h4>
+                        {(() => {
+                          const clientEmail = targetCrmClientDetails.email;
+                          const savedIncidents = localStorage.getItem(`${clientEmail}_qn_incidents`);
+                          const savedRisks = localStorage.getItem(`${clientEmail}_qn_risks`);
+                          let parsedIncidents = [];
+                          let parsedRisks = [];
+                          if (savedIncidents) {
+                            try { parsedIncidents = JSON.parse(savedIncidents); } catch (e) {}
+                          }
+                          if (savedRisks) {
+                            try { parsedRisks = JSON.parse(savedRisks); } catch (e) {}
+                          }
+
+                          return (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                              {/* Incidents Register */}
+                              <div>
+                                <h5 style={{ fontWeight: 'bold', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Incident Logs</h5>
+                                {parsedIncidents.length === 0 ? (
+                                  <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-tertiary)', fontStyle: 'italic', backgroundColor: 'var(--bg-tertiary)', borderRadius: '8px' }}>
+                                    No reported incidents.
+                                  </div>
+                                ) : (
+                                  <div className="table-container">
+                                    <table className="table" style={{ fontSize: '0.75rem' }}>
+                                      <thead>
+                                        <tr>
+                                          <th>ID</th>
+                                          <th>Type</th>
+                                          <th>Dept & Shift</th>
+                                          <th>Date</th>
+                                          <th>Severity</th>
+                                          <th>Status</th>
+                                          <th>Investigator & RCA</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {parsedIncidents.map((inc, idx) => (
+                                          <tr key={idx}>
+                                            <td style={{ fontWeight: 'bold' }}>{inc.id.substring(0, 8)}</td>
+                                            <td>{inc.type}</td>
+                                            <td>{inc.department} ({inc.shift || 'Morning'})</td>
+                                            <td>{inc.dateTime}</td>
+                                            <td>
+                                              <span className={`badge ${inc.severity === 'High' ? 'badge-danger' : inc.severity === 'Medium' ? 'badge-warning' : 'badge-neutral'}`}>
+                                                {inc.severity}
+                                              </span>
+                                            </td>
+                                            <td>
+                                              <span className={`badge ${inc.status === 'Closed' ? 'badge-success' : 'badge-warning'}`}>
+                                                {inc.status}
+                                              </span>
+                                            </td>
+                                            <td>
+                                              {inc.status === 'Closed' ? (
+                                                <div>
+                                                  <strong>{inc.investigator}:</strong> {inc.rootCause}
+                                                </div>
+                                              ) : (
+                                                <span style={{ color: 'var(--text-tertiary)' }}>Awaiting investigation</span>
+                                              )}
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Risks Register */}
+                              <div>
+                                <h5 style={{ fontWeight: 'bold', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Active Risk Register</h5>
+                                {parsedRisks.length === 0 ? (
+                                  <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-tertiary)', fontStyle: 'italic', backgroundColor: 'var(--bg-tertiary)', borderRadius: '8px' }}>
+                                    No logged risk items.
+                                  </div>
+                                ) : (
+                                  <div className="table-container">
+                                    <table className="table" style={{ fontSize: '0.75rem' }}>
+                                      <thead>
+                                        <tr>
+                                          <th>Category</th>
+                                          <th>Dept</th>
+                                          <th>Description</th>
+                                          <th>Rating</th>
+                                          <th>CAPA Proposed</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {parsedRisks.map((risk, idx) => (
+                                          <tr key={idx}>
+                                            <td style={{ fontWeight: 'bold' }}>{risk.category}</td>
+                                            <td>{risk.department}</td>
+                                            <td>{risk.description}</td>
+                                            <td>
+                                              <span className="badge" style={{
+                                                backgroundColor: risk.rating === 'Red' ? 'var(--bg-danger)' : risk.rating === 'Amber' ? 'var(--bg-warning)' : 'var(--bg-success)',
+                                                color: risk.rating === 'Red' ? 'var(--color-danger)' : risk.rating === 'Amber' ? 'var(--color-warning)' : 'var(--color-success)',
+                                                fontWeight: 'bold'
+                                              }}>{risk.rating} ({risk.likelihood}/{risk.impact})</span>
+                                            </td>
+                                            <td>{risk.correctiveAction}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+
+                    {/* Sub Tab: Staff Training */}
+                    {dossierSubTab === 'training' && (
+                      <div>
+                        <h4 style={{ fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                          🎓 Client Staff Training Registers
+                        </h4>
+                        {(() => {
+                          const clientEmail = targetCrmClientDetails.email;
+                          const savedTrainings = localStorage.getItem(`${clientEmail}_qn_trainings`);
+                          let parsedTrainings = [];
+                          if (savedTrainings) {
+                            try { parsedTrainings = JSON.parse(savedTrainings); } catch (e) {}
+                          }
+
+                          if (parsedTrainings.length === 0) {
+                            return (
+                              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+                                No training sessions logged by this client.
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div className="table-container">
+                              <table className="table" style={{ fontSize: '0.75rem' }}>
+                                <thead>
+                                  <tr>
+                                    <th>Topic / SOP</th>
+                                    <th>Department</th>
+                                    <th>Role Target</th>
+                                    <th>Session Date</th>
+                                    <th>Attendees Count</th>
+                                    <th>Pass Rate</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {parsedTrainings.map((meet, idx) => (
+                                    <tr key={idx}>
+                                      <td style={{ fontWeight: 'bold' }}>{meet.topic}</td>
+                                      <td>{meet.department}</td>
+                                      <td>{meet.role}</td>
+                                      <td>{meet.date}</td>
+                                      <td>{meet.attendees ? meet.attendees.length : 0} attendees</td>
+                                      <td style={{ fontWeight: 'bold', color: 'var(--color-success)' }}>{meet.passRate}%</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
 

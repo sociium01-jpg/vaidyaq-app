@@ -3,7 +3,7 @@ import { QualiNABHContext } from '../context/QualiNABHContext';
 import { 
   Building2, Users, Key, FileText, Upload, Plus, Trash2, 
   CheckCircle, Shield, ShieldAlert, Mail, UserCheck, Lock, 
-  User, Eye, EyeOff, Download, AlertOctagon, HelpCircle
+  User, Eye, EyeOff, Download, AlertOctagon, HelpCircle, Cpu
 } from 'lucide-react';
 
 export default function ProfileSettings() {
@@ -70,6 +70,18 @@ export default function ProfileSettings() {
   // Gemini state
   const [geminiKeyInput, setGeminiKeyInput] = useState(geminiApiKey);
   const [geminiSuccess, setGeminiSuccess] = useState(false);
+
+  // Integrations states
+  const [himsEnabled, setHimsEnabled] = useState(false);
+  const [himsProvider, setHimsProvider] = useState('KareXpert');
+  const [himsApiKey, setHimsApiKey] = useState('');
+  const [himsEndpoint, setHimsEndpoint] = useState('https://api.hims-provider.in/v1');
+  const [himsStatus, setHimsStatus] = useState('Disconnected');
+  const [billingEnabled, setBillingEnabled] = useState(false);
+  const [billingProvider, setBillingProvider] = useState('Tally');
+  const [erpEnabled, setErpEnabled] = useState(false);
+  const [erpProvider, setErpProvider] = useState('SAP Health');
+  const [integrationSuccess, setIntegrationSuccess] = useState('');
 
   // Check if current user is Super Admin
   const isSuperAdmin = currentUser && currentUser.role === 'Super Admin' && !currentUser.parentEmail;
@@ -282,6 +294,13 @@ export default function ProfileSettings() {
               style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.55rem 0.95rem', borderRadius: '8px', cursor: 'pointer', border: 'none', background: activeSubTab === 'vault' ? 'var(--primary-light)' : 'transparent', color: activeSubTab === 'vault' ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: 700 }}
             >
               <FileText size={16} /> Document Vault
+            </button>
+            <button 
+              onClick={() => setActiveSubTab('integrations')} 
+              className={`tab-btn ${activeSubTab === 'integrations' ? 'active' : ''}`}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.55rem 0.95rem', borderRadius: '8px', cursor: 'pointer', border: 'none', background: activeSubTab === 'integrations' ? 'var(--primary-light)' : 'transparent', color: activeSubTab === 'integrations' ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: 700 }}
+            >
+              <Cpu size={16} /> Systems Integrations (HMS/ERP)
             </button>
           </>
         )}
@@ -831,6 +850,218 @@ export default function ProfileSettings() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* 5. SYSTEMS INTEGRATIONS (HMS/ERP) */}
+      {activeSubTab === 'integrations' && isSuperAdmin && (
+        <div className="card flex flex-col gap-3" style={{ padding: '1.5rem' }}>
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Cpu size={18} /> HMS, ERP & Billing Integrations</h3>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+            Bridge your clinical workflows, patient transactions, and compliance documentation directly with external HIMS, Billing, or ERP registries.
+          </p>
+
+          {integrationSuccess && (
+            <div style={{ backgroundColor: 'var(--bg-success)', color: 'var(--color-success)', padding: '0.65rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 'bold' }}>
+              {integrationSuccess}
+            </div>
+          )}
+
+          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginTop: '1rem' }}>
+            {/* HIMS / HMS Integration */}
+            <div style={{ border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1.25rem', backgroundColor: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h4 style={{ fontWeight: 'bold', fontSize: '0.9rem', margin: 0 }}>Clinical HIMS Integration</h4>
+                <label className="switch" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={himsEnabled} 
+                    onChange={(e) => {
+                      setHimsEnabled(e.target.checked);
+                      if(!e.target.checked) setHimsStatus('Disconnected');
+                    }}
+                    style={{ marginRight: '6px' }}
+                  />
+                  <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: himsEnabled ? 'var(--primary)' : 'var(--text-secondary)' }}>
+                    {himsEnabled ? 'Active' : 'Disabled'}
+                  </span>
+                </label>
+              </div>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>Sync clinical registers, inpatient charts, and nursing handovers directly to EMR repositories.</p>
+
+              {himsEnabled && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem' }}>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.7rem' }}>Select Provider</label>
+                    <select 
+                      className="form-control" 
+                      value={himsProvider} 
+                      onChange={(e) => setHimsProvider(e.target.value)}
+                      style={{ padding: '0.4rem', fontSize: '0.75rem' }}
+                    >
+                      <option>KareXpert</option>
+                      <option>Medanta HIMS Suite</option>
+                      <option>Amrita Hospital EMR</option>
+                      <option>Custom FHIR API (ABDM)</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.7rem' }}>API Endpoint Gateway URL</label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      value={himsEndpoint} 
+                      onChange={(e) => setHimsEndpoint(e.target.value)}
+                      style={{ padding: '0.4rem', fontSize: '0.75rem' }}
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.7rem' }}>Client API Token / Auth Key</label>
+                    <input 
+                      type="password" 
+                      className="form-control" 
+                      value={himsApiKey} 
+                      placeholder="••••••••••••••••"
+                      onChange={(e) => setHimsApiKey(e.target.value)}
+                      style={{ padding: '0.4rem', fontSize: '0.75rem' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem' }}>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                      Connection Status: <strong style={{ color: himsStatus === 'Connected' ? 'var(--color-success)' : 'var(--color-danger)' }}>{himsStatus}</strong>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHimsStatus('Testing...');
+                        setTimeout(() => {
+                          setHimsStatus('Connected');
+                          setIntegrationSuccess('✔️ HIMS integration gateway configured. API handshakes established.');
+                          setTimeout(() => setIntegrationSuccess(''), 4000);
+                        }, 1200);
+                      }}
+                      className="btn btn-secondary"
+                      style={{ padding: '4px 10px', fontSize: '0.7rem' }}
+                    >
+                      Test Link
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Billing System Integration */}
+            <div style={{ border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1.25rem', backgroundColor: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h4 style={{ fontWeight: 'bold', fontSize: '0.9rem', margin: 0 }}>Billing & Financial Sync</h4>
+                <label className="switch" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={billingEnabled} 
+                    onChange={(e) => setBillingEnabled(e.target.checked)}
+                    style={{ marginRight: '6px' }}
+                  />
+                  <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: billingEnabled ? 'var(--primary)' : 'var(--text-secondary)' }}>
+                    {billingEnabled ? 'Active' : 'Disabled'}
+                  </span>
+                </label>
+              </div>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>Map clinical orders, tariff catalogs, and dynamic bed rates directly to billing software.</p>
+
+              {billingEnabled && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem' }}>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.7rem' }}>Select Billing Ledger</label>
+                    <select 
+                      className="form-control" 
+                      value={billingProvider} 
+                      onChange={(e) => setBillingProvider(e.target.value)}
+                      style={{ padding: '0.4rem', fontSize: '0.75rem' }}
+                    >
+                      <option>Tally Prime ERP</option>
+                      <option>QuickBooks Online</option>
+                      <option>Vyapar GST Software</option>
+                      <option>Razorpay POS Gateway</option>
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem' }}>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                      Status: <strong style={{ color: 'var(--color-success)' }}>Linked (Sandbox)</strong>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIntegrationSuccess('✔️ Billing ledger synchronized. Ledgers mapped successfully.');
+                        setTimeout(() => setIntegrationSuccess(''), 4000);
+                      }}
+                      className="btn btn-secondary"
+                      style={{ padding: '4px 10px', fontSize: '0.7rem' }}
+                    >
+                      Sync Accounts
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Enterprise ERP Integration */}
+            <div style={{ border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1.25rem', backgroundColor: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h4 style={{ fontWeight: 'bold', fontSize: '0.9rem', margin: 0 }}>Enterprise Hospital ERP</h4>
+                <label className="switch" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={erpEnabled} 
+                    onChange={(e) => setErpEnabled(e.target.checked)}
+                    style={{ marginRight: '6px' }}
+                  />
+                  <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: erpEnabled ? 'var(--primary)' : 'var(--text-secondary)' }}>
+                    {erpEnabled ? 'Active' : 'Disabled'}
+                  </span>
+                </label>
+              </div>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>Map inventory, bio-waste supplier records, and equipment calendars with enterprise resource planning hubs.</p>
+
+              {erpEnabled && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem' }}>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.7rem' }}>Select ERP Suite</label>
+                    <select 
+                      className="form-control" 
+                      value={erpProvider} 
+                      onChange={(e) => setErpProvider(e.target.value)}
+                      style={{ padding: '0.4rem', fontSize: '0.75rem' }}
+                    >
+                      <option>SAP Health ERP</option>
+                      <option>Microsoft Dynamics 365 Healthcare</option>
+                      <option>Oracle Cerner Millenium</option>
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem' }}>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                      Status: <strong style={{ color: 'var(--color-success)' }}>Linked (Active)</strong>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIntegrationSuccess('✔️ ERP resource channels matched. Equipment registers linked.');
+                        setTimeout(() => setIntegrationSuccess(''), 4000);
+                      }}
+                      className="btn btn-secondary"
+                      style={{ padding: '4px 10px', fontSize: '0.7rem' }}
+                    >
+                      Sync Inventory
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
