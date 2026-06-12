@@ -698,27 +698,33 @@ Key Benefits of the SaaS Model:
         {activeTab === 'home' && (
           <div>
             {/* Hero Section */}
-            <section className="hero-section" style={{ padding: '3rem 0 4rem 0' }}>
-              <div className="container hero-grid" style={{ gap: '2rem' }}>
+            <section className="hero-section" style={{ padding: '4rem 0 5rem 0', position: 'relative', overflow: 'hidden' }}>
+              {/* 2026 Mesh Glow blobs */}
+              <div className="hero-glow-bg">
+                <div className="gradient-blob blob-indigo" />
+                <div className="gradient-blob blob-teal" />
+              </div>
+
+              <div className="container hero-grid" style={{ gap: '2rem', position: 'relative', zIndex: 1 }}>
                 
                 {/* Left Column: CTA Details */}
                 <div style={{ textAlign: 'left' }}>
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem', padding: '0.5rem 1rem', backgroundColor: 'var(--primary-light)', borderRadius: '30px', border: '1px solid var(--primary)', boxShadow: '0 0 15px rgba(13, 148, 136, 0.2)', animation: 'pulse 2s infinite' }}>
                     <Sparkles size={14} color="var(--primary)" />
                     <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--primary-hover)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                      🚀 JAN 2025 RELEASE • NABH 6TH EDITION COMPLIANCE OS
+                      🚀 JAN 2026 RELEASE • NABH 6TH EDITION COMPLIANCE OS
                     </span>
                   </div>
                   <h1 className="hero-title" style={{ fontSize: '3.5rem', lineHeight: '1.1', fontWeight: 800 }}>
                     Stay Audit-Ready <br />
-                    <span className="text-gradient" style={{ display: 'inline-block', padding: '0.2rem 0' }}>Every Single Day.</span>
+                    <span className="text-gradient-2026" style={{ display: 'inline-block', padding: '0.2rem 0' }}>Every Single Day.</span>
                   </h1>
                   <p className="hero-subtitle" style={{ fontSize: '1.1rem', color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: '2rem' }}>
                     VaidyaQ AI is a clinical accreditation operating system. It links hospital documents, internal checklists, CAPAs, incidents, and licenses into a unified, live compliance grade.
                   </p>
                   
-                  <div className="flex align-center gap-3">
-                    <button onClick={() => navigateToTab('book-demo')} className="btn btn-primary glow-premium" style={{ padding: '0.9rem 2rem', fontSize: '1rem', fontWeight: 700, borderRadius: 'var(--radius-lg)' }}>
+                  <div className="flex align-center gap-3" style={{ flexWrap: 'wrap' }}>
+                    <button onClick={() => navigateToTab('book-demo')} className="btn btn-primary glow-premium glow-premium-btn" style={{ padding: '0.9rem 2rem', fontSize: '1rem', fontWeight: 700, borderRadius: 'var(--radius-lg)' }}>
                       Request Live Demo <ChevronRight size={18} />
                     </button>
                     <button onClick={() => navigateToTab('solutions')} className="btn btn-secondary" style={{ padding: '0.9rem 2rem', fontSize: '1rem', fontWeight: 700, borderRadius: 'var(--radius-lg)' }}>
@@ -726,17 +732,17 @@ Key Benefits of the SaaS Model:
                     </button>
                   </div>
 
-                  <div className="flex align-center gap-3" style={{ marginTop: '2.5rem', color: 'var(--text-tertiary)', fontSize: '0.8rem', fontWeight: 700 }}>
+                  <div className="flex align-center gap-3" style={{ marginTop: '2.5rem', color: 'var(--text-tertiary)', fontSize: '0.8rem', fontWeight: 700, flexWrap: 'wrap' }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>🛡️ AES-256 local encryption</span>
-                    <span>•</span>
+                    <span className="navbar-search">•</span>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>🔒 ABDM sandbox validated</span>
-                    <span>•</span>
+                    <span className="navbar-search">•</span>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>⚡ 60s incident reporting</span>
                   </div>
                 </div>
 
                 {/* Right Column: AI Video Loop / Dashboard Mockup Split Pane */}
-                <div className="card" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0, border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.15)', minHeight: '380px' }}>
+                <div className="glow-card float-element-slow" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0, border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.15)', minHeight: '380px' }}>
                   {/* Pane Toggle Tab Headers */}
                   <div style={{ display: 'flex', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)' }}>
                     <button
@@ -1027,7 +1033,7 @@ Key Benefits of the SaaS Model:
                 </div>
 
                 {/* Sub-selector timeline buttons */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.5rem', marginTop: '1rem' }}>
+                <div className="video-timeline-grid">
                   {videoFrames.map((frame, index) => (
                     <button
                       key={index}
@@ -1172,7 +1178,7 @@ Key Benefits of the SaaS Model:
                   {/* Right Column: Detail Inspector Panel */}
                   <div style={{ textAlign: 'left' }}>
                     {selectedPolicyNews ? (
-                      <div className="card" style={{ padding: '1.5rem', border: `1.5px solid ${selectedPolicyNews.color}`, backgroundColor: 'var(--bg-secondary)', position: 'sticky', top: '20px' }}>
+                      <div className="glow-card" style={{ padding: '1.5rem', border: `1.5px solid ${selectedPolicyNews.color}`, backgroundColor: 'var(--bg-secondary)', position: 'sticky', top: '20px' }}>
                         <div className="flex justify-between" style={{ fontSize: '0.7rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>
                           <span className="badge" style={{ backgroundColor: 'var(--primary-light)', color: 'var(--primary)', fontWeight: 700, fontSize: '0.65rem' }}>
                             {selectedPolicyNews.type}
@@ -1184,7 +1190,7 @@ Key Benefits of the SaaS Model:
                           {selectedPolicyNews.title}
                         </h3>
                         
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.75rem', margin: '0.75rem 0', padding: '0.5rem', backgroundColor: 'var(--bg-primary)', borderRadius: '6px' }}>
+                        <div className="responsive-grid-2" style={{ gap: '0.5rem', fontSize: '0.75rem', margin: '0.75rem 0', padding: '0.5rem', backgroundColor: 'var(--bg-primary)', borderRadius: '6px' }}>
                           <div>Chapter: <strong>{selectedPolicyNews.chapter}</strong></div>
                           <div>Impact: <strong style={{ color: selectedPolicyNews.color }}>{selectedPolicyNews.impact}</strong></div>
                           <div style={{ gridColumn: 'span 2' }}>Objective Element: <strong>{selectedPolicyNews.coreOE}</strong></div>
@@ -1289,42 +1295,42 @@ Key Benefits of the SaaS Model:
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
-                  <div className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div className="glow-card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                     <div style={{ fontSize: '2rem' }}>⚡</div>
                     <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>De-risked Preloaded Templates</h3>
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
                       Get started in minutes with 7 pre-configured SOPs and policy guidelines mapped exactly to the 6th Edition requirements, complete with dynamic scoring logic.
                     </p>
                   </div>
-                  <div className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div className="glow-card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                     <div style={{ fontSize: '2rem' }}>🔒</div>
                     <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Privacy-First Design</h3>
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
                       All files and credentials are saved locally in your browser sandbox, and you can plug in your own Google Gemini API Key. No patient data ever exits your machine.
                     </p>
                   </div>
-                  <div className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div className="glow-card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                     <div style={{ fontSize: '2rem' }}>🎯</div>
                     <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Closed-loop CAPA Tracking</h3>
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
                       Audit findings are instantly mapped to Corrective & Preventive Action (CAPA) sheets. Assign issues to specific heads and monitor overdue items before accreditation inspections.
                     </p>
                   </div>
-                  <div className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div className="glow-card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                     <div style={{ fontSize: '2rem' }}>📈</div>
                     <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Interactive Clinical Dashboard</h3>
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
                       Trace patient falls, needle sticks, medication errors, and hospital infections by department and month. Export pivot sheets directly to CSV, PDF, or MS Word.
                     </p>
                   </div>
-                  <div className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div className="glow-card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                     <div style={{ fontSize: '2rem' }}>👩‍⚕️</div>
                     <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Dynamic Bed Pricing</h3>
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
                       Pay only for what you use. VaidyaQ automatically scales pricing based on your hospital's bed size—making it affordable for small clinics and comprehensive for enterprise chains.
                     </p>
                   </div>
-                  <div className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div className="glow-card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                     <div style={{ fontSize: '2rem' }}>🎟️</div>
                     <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>7-Day Full Access Trial</h3>
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
@@ -1338,7 +1344,7 @@ Key Benefits of the SaaS Model:
             {/* INTERACTIVE COMPLIANCE ESTIMATOR WIDGET */}
             <section style={{ padding: '4rem 0', borderBottom: '1px solid var(--border-color)' }}>
               <div className="container" style={{ maxWidth: '750px' }}>
-                <div className="interactive-tool-box" style={{ border: '1px solid var(--border-color)', borderRadius: '16px', padding: '2rem', backgroundColor: 'var(--bg-secondary)' }}>
+                <div className="interactive-tool-box glow-card" style={{ padding: '2rem' }}>
                   <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
                     <div style={{ display: 'inline-flex', padding: '0.5rem', backgroundColor: 'var(--primary-light)', borderRadius: '50%', color: 'var(--primary)', marginBottom: '0.5rem' }}>
                       <FileSearch size={28} />
@@ -1425,7 +1431,7 @@ Key Benefits of the SaaS Model:
             {/* DIRECT DEMO REQUEST FORM SECTION */}
             <section id="direct-demo-form" style={{ padding: '4rem 0', borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-primary)' }}>
               <div className="container" style={{ maxWidth: '650px' }}>
-                <div className="card shadow-lg" style={{ padding: '2.5rem', backgroundColor: 'var(--bg-secondary)', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
+                <div className="glow-card" style={{ padding: '2.5rem' }}>
                   <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
                     <div style={{ display: 'inline-flex', padding: '0.5rem', backgroundColor: 'var(--primary-light)', borderRadius: '50%', color: 'var(--primary)', marginBottom: '0.5rem' }}>
                       <Calendar size={28} />
@@ -2092,7 +2098,7 @@ Key Benefits of the SaaS Model:
                   </div>
                 ) : (
                   <form onSubmit={(e) => { e.preventDefault(); setContactSubmitted(true); }} className="flex flex-col gap-3">
-                    <div className="form-group-split" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div className="form-group-split responsive-grid-2">
                       <div className="form-group">
                         <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8rem' }}>Your Name</label>
                         <input
@@ -2119,7 +2125,7 @@ Key Benefits of the SaaS Model:
                       </div>
                     </div>
 
-                    <div className="form-group-split" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div className="form-group-split responsive-grid-2">
                       <div className="form-group">
                         <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8rem' }}>Phone Number (Optional)</label>
                         <input
@@ -2232,7 +2238,7 @@ Key Benefits of the SaaS Model:
 
       {/* Footer Branding & Links */}
       <footer style={{ padding: '3rem 0', backgroundColor: 'var(--bg-tertiary)', borderTop: '1px solid var(--border-color)', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-        <div className="container grid" style={{ gridTemplateColumns: '1.2fr 1fr 1fr', gap: '2rem', textAlign: 'left' }}>
+        <div className="container footer-grid-layout">
           
           {/* Column 1: Brand & Contact */}
           <div>
