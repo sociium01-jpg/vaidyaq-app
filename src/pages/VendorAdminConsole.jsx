@@ -59,6 +59,16 @@ export default function VendorAdminConsole() {
   const [crmGovIdStatus, setCrmGovIdStatus] = useState('Pending');
   const [crmSaveSuccess, setCrmSaveSuccess] = useState(false);
 
+  // Tickets Desk States
+  const [ticketSearch, setTicketSearch] = useState('');
+  const [ticketFilterPriority, setTicketFilterPriority] = useState('All');
+  const [ticketFilterStatus, setTicketFilterStatus] = useState('All');
+  const [selectedTicket, setSelectedTicket] = useState(null); // Expand ticket to its own page state
+  const [ticketStatusInput, setTicketStatusInput] = useState('Open');
+  const [ticketAssigneeInput, setTicketAssigneeInput] = useState('Aarav Sharma');
+  const [ticketResolutionNotes, setTicketResolutionNotes] = useState('');
+  const [ticketSaveSuccess, setTicketSaveSuccess] = useState(false);
+
   // Finance Customizer States
   const [financeSelectedClient, setFinanceSelectedClient] = useState('');
   const [invoiceLogo, setInvoiceLogo] = useState('VaidyaQ');
@@ -74,11 +84,6 @@ export default function VendorAdminConsole() {
   const [layoutIncludeBank, setLayoutIncludeBank] = useState(true);
   const [layoutIncludeTerms, setLayoutIncludeTerms] = useState(true);
   const [layoutIncludeFooter, setLayoutIncludeFooter] = useState(true);
-
-  // Tickets Desk States
-  const [ticketSearch, setTicketSearch] = useState('');
-  const [ticketFilterPriority, setTicketFilterPriority] = useState('All');
-  const [ticketFilterStatus, setTicketFilterStatus] = useState('All');
 
   // Staff Console CRUD States
   const [empName, setEmpName] = useState('');
@@ -116,6 +121,19 @@ export default function VendorAdminConsole() {
   useEffect(() => {
     setApiKeyInput(vendorGeminiKey);
   }, [vendorGeminiKey]);
+
+  // Prepopulate ticket inputs when a ticket is loaded into its own page
+  useEffect(() => {
+    if (selectedTicket) {
+      const ticket = supportTickets.find(t => t.id === selectedTicket);
+      if (ticket) {
+        setTicketStatusInput(ticket.status);
+        setTicketAssigneeInput(ticket.assignedOperator);
+        setTicketResolutionNotes('');
+        setTicketSaveSuccess(false);
+      }
+    }
+  }, [selectedTicket, supportTickets]);
 
   // Handle Login
   const handleLoginSubmit = (e) => {
@@ -177,7 +195,6 @@ export default function VendorAdminConsole() {
     if (client.status === 'Paid') {
       return { identity: true, departments: true, importTemplates: true, firstSop: true };
     }
-    // Else mock partially completed trial state
     return { identity: true, departments: true, importTemplates: false, firstSop: false };
   };
 
@@ -325,22 +342,40 @@ export default function VendorAdminConsole() {
     printWindow.document.close();
   };
 
-  // Support Tickets - Change status
-  const updateTicketStatus = (ticketId, nextStatus) => {
+  // Support Tickets - Expand & Save Action station
+  const handleSaveTicketDetails = (e) => {
+    e.preventDefault();
     setSupportTickets(prev => prev.map(t => {
-      if (t.id === ticketId) {
-        const updated = { ...t, status: nextStatus };
-        // Log action and send simulated confirmation email to hospital
+      if (t.id === selectedTicket) {
+        const updated = {
+          ...t,
+          status: ticketStatusInput,
+          assignedOperator: ticketAssigneeInput
+        };
+
+        // If resolution notes are submitted
+        if (ticketResolutionNotes.trim()) {
+          updated.description = `${t.description}\n\n[Resolution Notes by ${currentOperator.name} (${new Date().toLocaleDateString()}): ${ticketResolutionNotes}]`;
+        }
+
+        // Notify via simulated email
         sendSimulatedEmail(
           "quality.head@hospital.org",
-          `Support Ticket ${t.sequenceCode} Status Update: ${nextStatus}`,
-          `Hello, your support ticket ${t.sequenceCode} regarding "${t.title}" is now marked as: ${nextStatus}. Assigned staff: ${t.assignedOperator}.`,
+          `Troubleshooter Update - Case ${t.sequenceCode} - ${ticketStatusInput}`,
+          `Hello, your troubleshoot request ${t.sequenceCode} has been updated to status: "${ticketStatusInput}". Assigned operator: ${ticketAssigneeInput}.\nNotes: ${ticketResolutionNotes || 'None'}`,
           "Ticket"
         );
+
         return updated;
       }
       return t;
     }));
+
+    setTicketSaveSuccess(true);
+    setTimeout(() => {
+      setTicketSaveSuccess(false);
+      setSelectedTicket(null); // Go back to Troubleshooter Queue list automatically after saving
+    }, 1500);
   };
 
   // Support Staff - Register Operator
@@ -619,6 +654,9 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
   // Target Client for Dossier detail card view
   const targetCrmClientDetails = clientsList.find(c => c.hospitalId === selectedCrmClient);
 
+  // Target Ticket details
+  const targetTicketDetails = supportTickets.find(t => t.id === selectedTicket);
+
   return (
     <div style={{ maxWidth: '1440px', margin: '0 auto', padding: '1.5rem', textAlign: 'left', minHeight: '100vh', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       
@@ -702,7 +740,7 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
           </button>
 
           <button 
-            onClick={() => setActiveTab('tickets')} 
+            onClick={() => { setActiveTab('tickets'); setSelectedTicket(null); }} 
             className={`tab-btn ${activeTab === 'tickets' ? 'active' : ''}`}
             style={{
               display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.65rem 0.75rem', width: '100%',
@@ -1078,11 +1116,11 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
             </div>
           )}
 
-          {/* TAB 2: CLIENT CRM FOLDERS (HIGH-END UX REDESIGN) */}
+          {/* TAB 2: CLIENT CRM FOLDERS */}
           {activeTab === 'crm' && renderPermissionGuard('view_crm', (
             <div className="flex flex-col gap-3">
               
-              {/* Dossier Detail Card View if Selected */}
+              {/* Dossier Detail Card View if Selected (EXPANDS TO ITS OWN FULL PAGE) */}
               {selectedCrmClient && targetCrmClientDetails ? (
                 <div className="flex flex-col gap-4">
                   {/* Dossier Header and navigation */}
@@ -1093,7 +1131,7 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
                         className="btn btn-secondary flex align-center gap-1"
                         style={{ padding: '0.45rem 0.8rem', cursor: 'pointer', borderRadius: '8px', fontSize: '0.8rem' }}
                       >
-                        <ArrowLeft size={14} /> <span>Directory</span>
+                        <ArrowLeft size={14} /> <span>Back to CRM Directory</span>
                       </button>
                       <div style={{ height: '20px', width: '1px', backgroundColor: 'var(--border-color)', margin: '0 0.5rem' }}></div>
                       <div>
@@ -1405,7 +1443,16 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
                             <div key={ticket.id} className="card" style={{ padding: '1rem', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
                               <div className="flex justify-between" style={{ marginBottom: '0.4rem' }}>
                                 <strong style={{ color: 'var(--primary)', fontFamily: 'monospace' }}>{ticket.sequenceCode}</strong>
-                                <span className="badge" style={{ backgroundColor: 'var(--primary-light)', fontSize: '0.65rem' }}>{ticket.priority} Priority</span>
+                                <div className="flex gap-1 align-center">
+                                  <span className="badge" style={{ backgroundColor: 'var(--primary-light)', fontSize: '0.65rem' }}>{ticket.priority} Priority</span>
+                                  <button 
+                                    onClick={() => { setSelectedTicket(ticket.id); setActiveTab('tickets'); }}
+                                    className="btn btn-secondary" 
+                                    style={{ padding: '0.15rem 0.4rem', fontSize: '0.65rem', cursor: 'pointer' }}
+                                  >
+                                    Inspect Case
+                                  </button>
+                                </div>
                               </div>
                               <div style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>{ticket.title}</div>
                               <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>{ticket.description}</p>
@@ -1857,127 +1904,249 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
 
           {/* TAB 4: SUPPORT TICKET QUEUE */}
           {activeTab === 'tickets' && renderPermissionGuard('resolve_tickets', (
-            <div className="card flex flex-col gap-3" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+            <div className="flex flex-col gap-3">
               
-              <div className="flex justify-between align-center" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', marginBottom: '0.5rem' }}>
-                <div>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <ShieldAlert size={18} /> <span>Software Error Routing Queue</span>
-                  </h3>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>High priority tickets automatically routed to supervisor Aarav Sharma. Medium/Low priority routed to Priya Nair.</p>
-                </div>
-                
-                {/* Active queues status counter */}
-                <div className="flex gap-2">
-                  <span className="badge" style={{ backgroundColor: 'var(--bg-danger)', color: 'var(--color-danger)', fontSize: '0.75rem' }}>
-                    Aarav Queue (High): {supportTickets.filter(t => t.assignedOperator === 'Aarav Sharma' && t.status !== 'Resolved').length} Open
-                  </span>
-                  <span className="badge" style={{ backgroundColor: 'var(--primary-light)', color: 'var(--primary)', fontSize: '0.75rem' }}>
-                    Priya Queue (Med/Low): {supportTickets.filter(t => t.assignedOperator === 'Priya Nair' && t.status !== 'Resolved').length} Open
-                  </span>
-                </div>
-              </div>
-
-              {/* Filters grid */}
-              <div className="grid" style={{ gridTemplateColumns: '2fr 1fr 1fr', gap: '1rem' }}>
-                <input 
-                  type="text" 
-                  className="form-control" 
-                  placeholder="Search tickets by title, customer hospital, or sequence code (TS-xxxx)..." 
-                  value={ticketSearch}
-                  onChange={(e) => setTicketSearch(e.target.value)}
-                  style={{ width: '100%', padding: '0.5rem' }}
-                />
-                
-                <select 
-                  className="form-control" 
-                  value={ticketFilterPriority} 
-                  onChange={(e) => setTicketFilterPriority(e.target.value)}
-                  style={{ width: '100%', padding: '0.5rem', backgroundColor: 'var(--bg-secondary)' }}
-                >
-                  <option value="All">All Priorities</option>
-                  <option value="High">High Priority</option>
-                  <option value="Medium">Medium Priority</option>
-                  <option value="Low">Low Priority</option>
-                </select>
-
-                <select 
-                  className="form-control" 
-                  value={ticketFilterStatus} 
-                  onChange={(e) => setTicketFilterStatus(e.target.value)}
-                  style={{ width: '100%', padding: '0.5rem', backgroundColor: 'var(--bg-secondary)' }}
-                >
-                  <option value="All">All Statuses</option>
-                  <option value="Open">Open</option>
-                  <option value="In Progress">In Progress</option>
-                  <option value="Resolved">Resolved</option>
-                </select>
-              </div>
-
-              {/* Table list */}
-              <table className="table" style={{ marginTop: '0.75rem' }}>
-                <thead>
-                  <tr>
-                    <th>Seq Code</th>
-                    <th>Customer Hospital</th>
-                    <th>Issue Title</th>
-                    <th>Priority</th>
-                    <th>Assigned Operator</th>
-                    <th>Resolution Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredTickets.map(ticket => (
-                    <tr key={ticket.id}>
-                      <td style={{ fontFamily: 'monospace', fontWeight: 800, color: 'var(--primary)' }}>{ticket.sequenceCode}</td>
-                      <td style={{ fontWeight: 'bold' }}>{ticket.clientName}</td>
-                      <td>
-                        <div style={{ fontWeight: 600 }}>{ticket.title}</div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', maxWidth: '300px' }}>{ticket.description}</div>
-                      </td>
-                      <td>
-                        <span className={`badge ${ticket.priority === 'High' ? 'badge-danger' : ticket.priority === 'Medium' ? 'badge-warning' : 'badge-neutral'}`} style={{ fontSize: '0.65rem' }}>
-                          {ticket.priority}
+              {/* TICKET DETAILS DEDICATED CASE PAGE */}
+              {selectedTicket && targetTicketDetails ? (
+                <div className="card flex flex-col gap-4" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                  
+                  {/* Case Header */}
+                  <div className="flex justify-between align-center" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+                    <div className="flex align-center gap-2">
+                      <button 
+                        onClick={() => setSelectedTicket(null)}
+                        className="btn btn-secondary flex align-center gap-1"
+                        style={{ padding: '0.45rem 0.8rem', cursor: 'pointer', borderRadius: '8px', fontSize: '0.8rem' }}
+                      >
+                        <ArrowLeft size={14} /> <span>Back to Troubleshoot Queue</span>
+                      </button>
+                      <div style={{ height: '20px', width: '1px', backgroundColor: 'var(--border-color)', margin: '0 0.5rem' }}></div>
+                      <div>
+                        <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: 'var(--primary)' }}>
+                          Case File: {targetTicketDetails.sequenceCode}
+                        </h3>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
+                          Logged: {targetTicketDetails.createdAt}
                         </span>
-                      </td>
-                      <td style={{ fontSize: '0.8rem' }}><strong>{ticket.assignedOperator}</strong></td>
-                      <td>
-                        <span className={`badge ${ticket.status === 'Resolved' ? 'badge-success' : 'badge-warning'}`} style={{ fontSize: '0.65rem' }}>
-                          {ticket.status}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="flex gap-1">
-                          <button 
-                            onClick={() => updateTicketStatus(ticket.id, 'In Progress')} 
-                            className="btn btn-secondary" 
-                            style={{ padding: '0.25rem 0.5rem', fontSize: '0.65rem', cursor: 'pointer' }}
-                            disabled={ticket.status === 'Resolved'}
-                          >
-                            In Progress
-                          </button>
-                          <button 
-                            onClick={() => updateTicketStatus(ticket.id, 'Resolved')} 
-                            className="btn btn-secondary" 
-                            style={{ padding: '0.25rem 0.5rem', fontSize: '0.65rem', color: 'var(--color-success)', borderColor: 'var(--color-success)', cursor: 'pointer' }}
-                            disabled={ticket.status === 'Resolved'}
-                          >
-                            Resolve
-                          </button>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-1">
+                      <span className={`badge ${targetTicketDetails.priority === 'High' ? 'badge-danger' : targetTicketDetails.priority === 'Medium' ? 'badge-warning' : 'badge-neutral'}`} style={{ fontSize: '0.75rem' }}>
+                        {targetTicketDetails.priority} Priority
+                      </span>
+                      <span className={`badge ${targetTicketDetails.status === 'Resolved' ? 'badge-success' : 'badge-warning'}`} style={{ fontSize: '0.75rem' }}>
+                        {targetTicketDetails.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Case Details grid */}
+                  <div className="grid" style={{ gridTemplateColumns: '1.5fr 1fr', gap: '1.5rem' }}>
+                    
+                    {/* Case Core Information */}
+                    <div className="flex flex-col gap-3">
+                      <div style={{ backgroundColor: 'var(--bg-tertiary)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '0.25rem' }}>
+                          Client Hospital Profile
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {filteredTickets.length === 0 && (
-                    <tr>
-                      <td colSpan="7" style={{ textAlign: 'center', color: 'var(--text-tertiary)', padding: '2rem' }}>
-                        No support tickets match the selected filter query criteria.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                        <strong style={{ fontSize: '0.95rem' }}>{targetTicketDetails.clientName}</strong>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Filer ID: {targetTicketDetails.clientId}</div>
+                      </div>
+
+                      <div style={{ backgroundColor: 'var(--bg-tertiary)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+                          Issue Summary
+                        </div>
+                        <h4 style={{ fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '0.5rem' }}>{targetTicketDetails.title}</h4>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
+                          {targetTicketDetails.description}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Troubleshooting Action Station */}
+                    <div className="card" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '10px', height: 'fit-content' }}>
+                      <h4 style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                        Troubleshooting Action Station
+                      </h4>
+
+                      {ticketSaveSuccess && (
+                        <div style={{ backgroundColor: 'var(--bg-success)', color: 'var(--color-success)', padding: '0.5rem', borderRadius: '8px', fontSize: '0.75rem', marginBottom: '1rem' }}>
+                          Actions committed. Returning to dispatch queue...
+                        </div>
+                      )}
+
+                      <form onSubmit={handleSaveTicketDetails} className="flex flex-col gap-3">
+                        <div className="form-group">
+                          <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Set Case Status</label>
+                          <select 
+                            className="form-control"
+                            value={ticketStatusInput}
+                            onChange={(e) => setTicketStatusInput(e.target.value)}
+                            style={{ width: '100%', padding: '0.45rem', backgroundColor: 'var(--bg-secondary)' }}
+                          >
+                            <option value="Open">Open (Pending Dispatch)</option>
+                            <option value="In Progress">In Progress (Investigation)</option>
+                            <option value="Resolved">Resolved (Close Case)</option>
+                          </select>
+                        </div>
+
+                        <div className="form-group">
+                          <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Assign Dispatch Operator</label>
+                          <select 
+                            className="form-control"
+                            value={ticketAssigneeInput}
+                            onChange={(e) => setTicketAssigneeInput(e.target.value)}
+                            style={{ width: '100%', padding: '0.45rem', backgroundColor: 'var(--bg-secondary)' }}
+                          >
+                            <option value="Aarav Sharma">Aarav Sharma (Support Supervisor)</option>
+                            <option value="Priya Nair">Priya Nair (Billing Manager)</option>
+                            {vendorEmployees.map(emp => (
+                              <option key={emp.id} value={emp.name}>{emp.name} ({emp.role})</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="form-group">
+                          <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Resolution/Comments Log</label>
+                          <textarea 
+                            className="form-control"
+                            placeholder="Add fix details or diagnostic comments to push to notifications logs..."
+                            value={ticketResolutionNotes}
+                            onChange={(e) => setTicketResolutionNotes(e.target.value)}
+                            style={{ width: '100%', minHeight: '80px', fontSize: '0.8rem', padding: '0.5rem' }}
+                          />
+                        </div>
+
+                        <button 
+                          type="submit" 
+                          className="btn btn-primary"
+                          style={{ padding: '0.5rem', fontWeight: 'bold', cursor: 'pointer', marginTop: '0.5rem' }}
+                        >
+                          Commit Case Action
+                        </button>
+                      </form>
+                    </div>
+
+                  </div>
+
+                </div>
+              ) : (
+                // TICKET QUEUE LIST TABLE (ROOT SCREEN)
+                <div className="card flex flex-col gap-3" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                  
+                  <div className="flex justify-between align-center" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', marginBottom: '0.5rem' }}>
+                    <div>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <ShieldAlert size={18} /> <span>Software Error Routing Queue</span>
+                      </h3>
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>High priority tickets automatically routed to supervisor Aarav Sharma. Medium/Low priority routed to Priya Nair.</p>
+                    </div>
+                    
+                    {/* Active queues status counter */}
+                    <div className="flex gap-2">
+                      <span className="badge" style={{ backgroundColor: 'var(--bg-danger)', color: 'var(--color-danger)', fontSize: '0.75rem' }}>
+                        Aarav Queue (High): {supportTickets.filter(t => t.assignedOperator === 'Aarav Sharma' && t.status !== 'Resolved').length} Open
+                      </span>
+                      <span className="badge" style={{ backgroundColor: 'var(--primary-light)', color: 'var(--primary)', fontSize: '0.75rem' }}>
+                        Priya Queue (Med/Low): {supportTickets.filter(t => t.assignedOperator === 'Priya Nair' && t.status !== 'Resolved').length} Open
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Filters grid */}
+                  <div className="grid" style={{ gridTemplateColumns: '2fr 1fr 1fr', gap: '1rem' }}>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      placeholder="Search tickets by title, customer hospital, or sequence code (TS-xxxx)..." 
+                      value={ticketSearch}
+                      onChange={(e) => setTicketSearch(e.target.value)}
+                      style={{ width: '100%', padding: '0.5rem' }}
+                    />
+                    
+                    <select 
+                      className="form-control" 
+                      value={ticketFilterPriority} 
+                      onChange={(e) => setTicketFilterPriority(e.target.value)}
+                      style={{ width: '100%', padding: '0.5rem', backgroundColor: 'var(--bg-secondary)' }}
+                    >
+                      <option value="All">All Priorities</option>
+                      <option value="High">High Priority</option>
+                      <option value="Medium">Medium Priority</option>
+                      <option value="Low">Low Priority</option>
+                    </select>
+
+                    <select 
+                      className="form-control" 
+                      value={ticketFilterStatus} 
+                      onChange={(e) => setTicketFilterStatus(e.target.value)}
+                      style={{ width: '100%', padding: '0.5rem', backgroundColor: 'var(--bg-secondary)' }}
+                    >
+                      <option value="All">All Statuses</option>
+                      <option value="Open">Open</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Resolved">Resolved</option>
+                    </select>
+                  </div>
+
+                  {/* Table list */}
+                  <table className="table" style={{ marginTop: '0.75rem' }}>
+                    <thead>
+                      <tr>
+                        <th>Seq Code</th>
+                        <th>Customer Hospital</th>
+                        <th>Issue Title</th>
+                        <th>Priority</th>
+                        <th>Assigned Operator</th>
+                        <th>Resolution Status</th>
+                        <th style={{ textAlign: 'right' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredTickets.map(ticket => (
+                        <tr key={ticket.id}>
+                          <td style={{ fontFamily: 'monospace', fontWeight: 800, color: 'var(--primary)' }}>{ticket.sequenceCode}</td>
+                          <td style={{ fontWeight: 'bold' }}>{ticket.clientName}</td>
+                          <td>
+                            <div style={{ fontWeight: 600 }}>{ticket.title}</div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', maxWidth: '300px' }}>{ticket.description.substring(0, 70)}...</div>
+                          </td>
+                          <td>
+                            <span className={`badge ${ticket.priority === 'High' ? 'badge-danger' : ticket.priority === 'Medium' ? 'badge-warning' : 'badge-neutral'}`} style={{ fontSize: '0.65rem' }}>
+                              {ticket.priority}
+                            </span>
+                          </td>
+                          <td style={{ fontSize: '0.8rem' }}><strong>{ticket.assignedOperator}</strong></td>
+                          <td>
+                            <span className={`badge ${ticket.status === 'Resolved' ? 'badge-success' : 'badge-warning'}`} style={{ fontSize: '0.65rem' }}>
+                              {ticket.status}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <button 
+                              onClick={() => setSelectedTicket(ticket.id)} 
+                              className="btn btn-secondary flex align-center gap-1" 
+                              style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', borderRadius: '6px' }}
+                            >
+                              <FolderOpen size={12} /> <span>Expand Case</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {filteredTickets.length === 0 && (
+                        <tr>
+                          <td colSpan="7" style={{ textAlign: 'center', color: 'var(--text-tertiary)', padding: '2rem' }}>
+                            No support tickets match the selected filter query criteria.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+
+                </div>
+              )}
 
             </div>
           ))}
