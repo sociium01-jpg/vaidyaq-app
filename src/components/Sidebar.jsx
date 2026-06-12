@@ -40,7 +40,8 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
     { label: 'Documents', path: '/app/documents', icon: FileText },
     { label: 'Tasks', path: '/app/tasks', icon: ListTodo },
     { label: 'Reports', path: '/app/reports', icon: BarChart3 },
-    { label: 'Hospital Settings', path: '/app/profile', icon: Settings }
+    { label: 'Hospital Settings', path: '/app/profile', icon: Settings },
+    { label: 'Help & Support', path: '/app/support', icon: ShieldAlert }
   ];
 
   const handleRoleChange = (e) => {

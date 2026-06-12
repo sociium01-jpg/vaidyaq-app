@@ -18,6 +18,7 @@ import Reports from './pages/Reports';
 import AdminModule from './pages/AdminModule';
 import ProfileSettings from './pages/ProfileSettings';
 import VendorAdminConsole from './pages/VendorAdminConsole';
+import SupportCenter from './pages/SupportCenter';
 
 function AppContent() {
   const { 
@@ -136,6 +137,8 @@ function AppContent() {
                 return <AdminModule />;
               case '/app/profile':
                 return <ProfileSettings />;
+              case '/app/support':
+                return <SupportCenter />;
               default:
                 return <Dashboard />;
             }

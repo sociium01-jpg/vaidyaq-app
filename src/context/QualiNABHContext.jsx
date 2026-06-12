@@ -192,8 +192,27 @@ export const QualiNABHProvider = ({ children }) => {
   // SaaS Multi-tenant & Vendor Admin States
   const [clientsList, setClientsList] = useState(() => {
     const saved = localStorage.getItem('qn_clients_list');
+    const signup = new Date(Date.now() - 3*24*60*60*1000).toISOString();
+    const expiry = new Date(Date.now() + 4*24*60*60*1000).toISOString();
     return saved ? JSON.parse(saved) : [
-      { hospitalId: "demo-hosp", hospitalName: "City Central Metro Hospital", email: "quality.head@hospital.org", beds: 120, trialStartDate: new Date(Date.now() - 3*24*60*60*1000).toISOString(), isSubscribed: false, status: "Active Trial", address: "Sector 4, Dwarka, New Delhi", regId: "REG-99201" }
+      { 
+        hospitalId: "demo-hosp", 
+        hospitalName: "City Central Metro Hospital", 
+        email: "quality.head@hospital.org", 
+        beds: 120, 
+        trialStartDate: signup, 
+        signupDate: signup,
+        planExpiryDate: expiry,
+        isSubscribed: false, 
+        status: "Active Trial", 
+        address: "Sector 4, Dwarka, New Delhi", 
+        regId: "REG-99201",
+        govId: "07AAAAA1111A1Z1",
+        govIdType: "GSTIN",
+        govIdStatus: "Approved",
+        storageUsed: 3145728,
+        bounced: false
+      }
     ];
   });
 
@@ -231,10 +250,42 @@ export const QualiNABHProvider = ({ children }) => {
   const [vendorEmployees, setVendorEmployees] = useState(() => {
     const saved = localStorage.getItem('qn_vendor_employees');
     return saved ? JSON.parse(saved) : [
-      { id: "emp-1", name: "Aarav Sharma", email: "aarav@vaidyaq.com", role: "Support Agent", assignedClients: ["demo-hosp"] },
-      { id: "emp-2", name: "Priya Nair", email: "priya@vaidyaq.com", role: "Billing Manager", assignedClients: ["demo-hosp"] }
+      { id: "emp-1", name: "Aarav Sharma", email: "aarav@vaidyaq.com", role: "Support Agent", assignedClients: ["demo-hosp"], username: "aarav", password: "123", permissions: ["view_crm", "resolve_tickets"] },
+      { id: "emp-2", name: "Priya Nair", email: "priya@vaidyaq.com", role: "Billing Manager", assignedClients: ["demo-hosp"], username: "priya", password: "123", permissions: ["view_crm", "manage_finance"] }
     ];
   });
+
+  // Support Tickets Workspace
+  const [supportTickets, setSupportTickets] = useState(() => {
+    const saved = localStorage.getItem('qn_support_tickets');
+    return saved ? JSON.parse(saved) : [
+      { id: "tick-1", clientId: "demo-hosp", clientName: "City Central Metro Hospital", title: "Gemini SOP generation slow responses", description: "SOP generation takes longer than 15s to draft. Please verify API rate limits.", priority: "Medium", status: "Open", assignedOperator: "Aarav Sharma", createdAt: "2026-06-11 09:12", sequenceCode: "TS-1002" },
+      { id: "tick-2", clientId: "demo-hosp", clientName: "City Central Metro Hospital", title: "Indian GST billing checkout failed", description: "Attempted to pay using simulation button but page returned an empty alert box.", priority: "High", status: "Open", assignedOperator: "Aarav Sharma", createdAt: "2026-06-12 11:30", sequenceCode: "TS-1003" }
+    ];
+  });
+
+  // Simulated Email Notification Archive
+  const [emailLogs, setEmailLogs] = useState(() => {
+    const saved = localStorage.getItem('qn_email_logs');
+    return saved ? JSON.parse(saved) : [
+      { id: "mail-1", recipient: "quality.head@hospital.org", subject: "Welcome to VaidyaQ - 7-Day Free Trial", body: "Hello Dr. Sarah Paul, thank you for signing up to VaidyaQ. Your 7-day trial is now active.", sentAt: "2026-06-09 10:15", category: "Signup" }
+    ];
+  });
+
+  // Simulated Payment Transactions Registry
+  const [transactions, setTransactions] = useState(() => {
+    const saved = localStorage.getItem('qn_transactions');
+    return saved ? JSON.parse(saved) : [
+      { id: "trans-1", clientId: "demo-hosp", hospitalName: "City Central Metro Hospital", amount: 129999, gst: 23399.82, date: "2026-05-15", status: "Successful", billingCycle: "H1 2026" },
+      { id: "trans-2", clientId: "demo-hosp", hospitalName: "City Central Metro Hospital", amount: 55999, gst: 10079.82, date: "2026-06-01", status: "Successful", billingCycle: "H1 2026" }
+    ];
+  });
+
+  // Vendor Admin Co-pilot API key
+  const [vendorGeminiKey, setVendorGeminiKey] = useState(() => {
+    return localStorage.getItem('qn_vendor_gemini_key') || '';
+  });
+
 
 
   const [documents, setDocuments] = useState(() => {
@@ -379,6 +430,22 @@ export const QualiNABHProvider = ({ children }) => {
     localStorage.setItem('qn_vendor_employees', JSON.stringify(vendorEmployees));
   }, [vendorEmployees]);
 
+  useEffect(() => {
+    localStorage.setItem('qn_support_tickets', JSON.stringify(supportTickets));
+  }, [supportTickets]);
+
+  useEffect(() => {
+    localStorage.setItem('qn_email_logs', JSON.stringify(emailLogs));
+  }, [emailLogs]);
+
+  useEffect(() => {
+    localStorage.setItem('qn_transactions', JSON.stringify(transactions));
+  }, [transactions]);
+
+  useEffect(() => {
+    localStorage.setItem('qn_vendor_gemini_key', vendorGeminiKey);
+  }, [vendorGeminiKey]);
+
 
   // Log Security Activity helper
   const logActivity = (action) => {
@@ -430,18 +497,98 @@ export const QualiNABHProvider = ({ children }) => {
   };
 
   // SignUp a new Client
+  // Helper to send transactional emails and save copy to office folder
+  const sendSimulatedEmail = (recipient, subject, body, category) => {
+    const newMail = {
+      id: `mail-${Date.now()}`,
+      recipient,
+      subject,
+      body,
+      sentAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
+      category
+    };
+    setEmailLogs(prev => [newMail, ...prev]);
+    logActivity(`Simulated email sent to ${recipient}: ${subject}`);
+  };
+
+  // Support ticket filing desk
+  const addSupportTicket = (title, description, priority, category) => {
+    const ticketId = `tick-${Date.now()}`;
+    const seqNum = `TS-${Math.floor(1000 + Math.random() * 9000)}`;
+    const assignedOperator = priority === 'High' ? "Aarav Sharma" : "Priya Nair";
+
+    const newTicket = {
+      id: ticketId,
+      clientId: hospitalName,
+      clientName: hospitalName,
+      title,
+      description,
+      priority,
+      category,
+      status: "Open",
+      assignedOperator,
+      createdAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
+      sequenceCode: seqNum
+    };
+    
+    setSupportTickets(prev => [newTicket, ...prev]);
+    logActivity(`Support ticket logged: ${seqNum} - ${title}`);
+
+    // Notify client
+    sendSimulatedEmail(
+      currentUser.email,
+      `VaidyaQ Support Ticket Filed - ${seqNum}`,
+      `Hello, we have received your troubleshooting request ${seqNum} regarding "${title}". Support engineer ${assignedOperator} has been assigned.`,
+      "Ticket"
+    );
+
+    // Copy to internal office folder
+    sendSimulatedEmail(
+      "support-desk@vaidyaq.com",
+      `[OFFICE COPY] Ticket Filed - ${seqNum} - ${hospitalName}`,
+      `Client ${hospitalName} filed ticket ${seqNum}. Category: ${category}. Description: ${description}`,
+      "Ticket"
+    );
+  };
+
+  // Log client file download security check
+  const logSimulatedDownload = (docName) => {
+    logActivity(`Downloaded clinical audit document: ${docName}`);
+    sendSimulatedEmail(
+      currentUser.email,
+      `Security Alert: Vault Document Downloaded`,
+      `User ${currentUser.name} (${currentUser.role}) has downloaded the document "${docName}" from the secure compliance folder.`,
+      "Download"
+    );
+  };
+
+  const saveVendorGeminiKey = (key) => {
+    setVendorGeminiKey(key);
+    logActivity("Configured custom Vendor Co-pilot Gemini API Token.");
+  };
+
+  // SignUp a new Client
   const signUpClient = (email, password, hospitalNameInput, bedsInput) => {
     const newHospitalId = `hosp-${Date.now()}`;
+    const signup = new Date().toISOString();
+    const expiry = new Date(Date.now() + 7*24*60*60*1000).toISOString();
     const newClient = {
       hospitalId: newHospitalId,
       hospitalName: hospitalNameInput,
       email: email,
       beds: Number(bedsInput),
-      trialStartDate: new Date().toISOString(),
+      trialStartDate: signup,
+      signupDate: signup,
+      planExpiryDate: expiry,
       isSubscribed: false,
       status: "Active Trial",
       address: "Enter address...",
-      regId: `REG-${Math.floor(100000 + Math.random() * 900000)}`
+      regId: `REG-${Math.floor(100000 + Math.random() * 900000)}`,
+      govId: "PENDING_INPUT",
+      govIdType: "GSTIN",
+      govIdStatus: "Pending",
+      storageUsed: 1048576,
+      bounced: true
     };
 
     setClientsList(prev => [newClient, ...prev]);
@@ -449,7 +596,7 @@ export const QualiNABHProvider = ({ children }) => {
     // Set as active client context settings
     setHospitalName(hospitalNameInput);
     setHospitalBeds(String(bedsInput));
-    setTrialStartDate(newClient.trialStartDate);
+    setTrialStartDate(signup);
     setIsSubscribed(false);
     setHospitalLogo('🛡️');
     setHospitalTier(Number(bedsInput) <= 20 ? 'Tier A: Clinics' : Number(bedsInput) <= 150 ? 'Tier B: Secondary Care' : 'Tier C: Tertiary Chains');
@@ -470,17 +617,48 @@ export const QualiNABHProvider = ({ children }) => {
     
     setCurrentRoute('/app/dashboard');
     logActivity(`Signed up new client hospital: ${hospitalNameInput} (Beds: ${bedsInput}) with first user as Super Admin.`);
+
+    // Send Welcome Email
+    sendSimulatedEmail(
+      email,
+      "Welcome to VaidyaQ - 7-Day Free Trial",
+      `Hello! Thank you for registering ${hospitalNameInput} with VaidyaQ. Your 7-day trial period is now active. Log in at any time to complete your digital accreditation onboarding.`,
+      "Signup"
+    );
   };
 
   const purchaseSubscription = () => {
     setIsSubscribed(true);
+    const priceAmount = Number(hospitalBeds) <= 20 ? 55999 : Number(hospitalBeds) <= 150 ? 129999 : 249999;
+    const gstVal = Math.round(priceAmount * 0.18 * 100) / 100;
+    
+    const newTrans = {
+      id: `trans-${Date.now()}`,
+      clientId: currentUser.email,
+      hospitalName: hospitalName,
+      amount: priceAmount,
+      gst: gstVal,
+      date: new Date().toISOString().slice(0, 10),
+      status: "Successful",
+      billingCycle: "H1 2026"
+    };
+    setTransactions(prev => [newTrans, ...prev]);
+
     setClientsList(prev => prev.map(c => {
       if (c.hospitalName === hospitalName || c.email === currentUser.email) {
-        return { ...c, isSubscribed: true, status: "Paid" };
+        return { ...c, isSubscribed: true, status: "Paid", planExpiryDate: new Date(Date.now() + 365*24*60*60*1000).toISOString() };
       }
       return c;
     }));
-    logActivity(`Subscription payment of ₹${Number(hospitalBeds) <= 20 ? '55,999' : Number(hospitalBeds) <= 150 ? '1,29,999' : '2,49,999'} processed successfully.`);
+    logActivity(`Subscription payment of ₹${priceAmount.toLocaleString()} processed successfully.`);
+
+    // Send payment confirmation email
+    sendSimulatedEmail(
+      currentUser.email,
+      "VaidyaQ Subscription Active - Payment Received",
+      `Hello, we have successfully received your payment of ₹${priceAmount.toLocaleString()} + ₹${gstVal.toLocaleString()} GST. Your subscription is active until ${new Date(Date.now() + 365*24*60*60*1000).toLocaleDateString()}.`,
+      "Payment"
+    );
   };
 
   const updateHospitalProfile = (logo, name, beds, address, regId) => {
@@ -873,6 +1051,12 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
       signUpClient, purchaseSubscription,
       updateHospitalProfile, saveGeminiKey, inviteTeamMember,
       setClientStatusOverride,
+      supportTickets, setSupportTickets,
+      emailLogs, setEmailLogs,
+      transactions, setTransactions,
+      vendorGeminiKey, setVendorGeminiKey,
+      sendSimulatedEmail, addSupportTicket, logSimulatedDownload,
+      saveVendorGeminiKey,
       // Computed stats
       readinessScore,
       evidenceUploadedCount,
