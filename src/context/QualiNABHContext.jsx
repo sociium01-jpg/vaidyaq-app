@@ -976,6 +976,217 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
     logActivity("Imported official NABH 6th Edition Templates & Policies");
   };
 
+  // Compliance Knowledge Base rules for standard verification
+  const complianceKnowledgeBase = {
+    "AAC.1.a": {
+      name: "OPD Registration Process",
+      formats: [".pdf", ".docx"],
+      mandatoryKeywords: ["registration", "opd", "out-patient"],
+      partialKeywords: ["queue", "demographics", "checklist", "patient", "policy"],
+      gaps: {
+        format: "OPD Registration standard requires a formal PDF or Word Document (.pdf, .docx).",
+        mandatory: "Missing registration flow descriptions or OPD policy outline.",
+        partial: "Lacks OPD audit check frequency schedules or queuing protocol details."
+      }
+    },
+    "AAC.2.b": {
+      name: "Admission Criteria & Protocols",
+      formats: [".pdf", ".docx"],
+      mandatoryKeywords: ["admission", "criteria", "clinical criteria"],
+      partialKeywords: ["protocol", "inpatient", "triage", "consent"],
+      gaps: {
+        format: "Admission Protocols standard requires a formal PDF or Word Document (.pdf, .docx).",
+        mandatory: "Missing clinical admission threshold criteria or inpatient classification rules.",
+        partial: "Lacks referral transfer guidelines or emergency admission override protocols."
+      }
+    },
+    "AAC.3.a": {
+      name: "Discharge & Referral Summary",
+      formats: [".pdf", ".docx"],
+      mandatoryKeywords: ["discharge", "referral", "summary"],
+      partialKeywords: ["sop", "follow-up", "medication instructions", "dossier"],
+      gaps: {
+        format: "Discharge & Referral standard requires a formal PDF or Word Document (.pdf, .docx).",
+        mandatory: "Missing structured discharge summary template or standard referral forms.",
+        partial: "Lacks emergency contact detail guidelines or discharge medication advice sections."
+      }
+    },
+    "COP.1.a": {
+      name: "General Care Guidelines",
+      formats: [".pdf", ".docx"],
+      mandatoryKeywords: ["care manual", "general care", "patient care"],
+      partialKeywords: ["nursing", "standard of care", "vitals", "guidelines"],
+      gaps: {
+        format: "General Patient Care standard requires a PDF or Word Document (.pdf, .docx).",
+        mandatory: "Missing overall clinical patient care manual or standard nursing protocols.",
+        partial: "Lacks frequency definitions for vital signs monitoring or daily nursing sheets."
+      }
+    },
+    "COP.2.b": {
+      name: "Emergency Care Protocols",
+      formats: [".pdf", ".docx"],
+      mandatoryKeywords: ["cpr", "triage", "emergency"],
+      partialKeywords: ["cardiac arrest", "resuscitation", "trauma", "crash cart"],
+      gaps: {
+        format: "Emergency Care standard requires a PDF or Word Document (.pdf, .docx).",
+        mandatory: "Missing standard CPR/resuscitation algorithms or emergency triage codes.",
+        partial: "Lacks crash cart inventory checks or trauma activation protocol documentation."
+      }
+    },
+    "COP.5.c": {
+      name: "ICU Management & Admission",
+      formats: [".pdf", ".docx"],
+      mandatoryKeywords: ["icu", "critical care", "admission criteria"],
+      partialKeywords: ["discharge criteria", "intensive care", "ventilator", "nurse ratio"],
+      gaps: {
+        format: "ICU Management standard requires a PDF or Word Document (.pdf, .docx).",
+        mandatory: "Missing ICU admission/discharge score thresholds or critical care protocols.",
+        partial: "Lacks ICU safety guidelines or ventilator-associated pneumonia (VAP) prevention SOPs."
+      }
+    },
+    "MOM.1.a": {
+      name: "Medication Formulary",
+      formats: [".pdf", ".docx"],
+      mandatoryKeywords: ["formulary", "medication list", "drugs"],
+      partialKeywords: ["essential medicines", "dosage", "generic name", "substitution"],
+      gaps: {
+        format: "Medication Formulary standard requires a PDF or Word Document (.pdf, .docx).",
+        mandatory: "Missing the official approved hospital formulary drug list.",
+        partial: "Lacks automatic generic substitution rules or look-alike medication flags."
+      }
+    },
+    "MOM.2.c": {
+      name: "High-Alert Medication Safety",
+      formats: [".xlsx", ".pdf"],
+      mandatoryKeywords: ["high-alert", "lasa", "double-check"],
+      partialKeywords: ["narcotic", "audit log", "storage", "locked", "concentrated"],
+      gaps: {
+        format: "High-Alert Medications standard requires a spreadsheet audit log or PDF (.xlsx, .pdf).",
+        mandatory: "Missing high-alert drug lists (LASA medications) and double-verification audit protocols.",
+        partial: "Lacks lockbox audit signatures or temperature storage registers for high-alert drugs."
+      }
+    },
+    "MOM.3.a": {
+      name: "Medication Expiry Auditing",
+      formats: [".xlsx", ".pdf", ".docx"],
+      mandatoryKeywords: ["expiry", "expired drugs", "disposal"],
+      partialKeywords: ["segregation", "register", "waste", "write-off"],
+      gaps: {
+        format: "Medication Expiry Auditing requires a Spreadsheet register or PDF/DOCX policy (.xlsx, .pdf, .docx).",
+        mandatory: "Missing drug expiry inspection schedule or expired drug disposal procedures.",
+        partial: "Lacks chemical waste disposal registration details or pharmacy segregation records."
+      }
+    },
+    "FMS.1.d": {
+      name: "Emergency & Fire Preparedness",
+      formats: [".pdf", ".docx"],
+      mandatoryKeywords: ["fire drill", "evacuation", "attendance"],
+      partialKeywords: ["extinguisher", "smoke", "alarm", "mock drill"],
+      gaps: {
+        format: "Fire Safety standard requires a PDF or Word Document drill record (.pdf, .docx).",
+        mandatory: "Missing fire mock drill report or evacuation exercise certificates.",
+        partial: "Lacks staff attendance logs representing housekeeping safety drills."
+      }
+    },
+    "FMS.2.a": {
+      name: "Hazardous Materials Control",
+      formats: [".xlsx", ".pdf", ".docx"],
+      mandatoryKeywords: ["hazmat", "hazardous", "waste log"],
+      partialKeywords: ["segregation", "pollution", "biomedical waste", "spill kit"],
+      gaps: {
+        format: "Hazardous Materials standard requires an audit log sheet or PDF (.xlsx, .pdf, .docx).",
+        mandatory: "Missing biomedical waste category log sheets or hazardous spill control manuals.",
+        partial: "Lacks the State Pollution Board authorized signature seal or manifest numbers."
+      }
+    },
+    "HRM.1.a": {
+      name: "Credentialing of Professionals",
+      formats: [".pdf", ".docx"],
+      mandatoryKeywords: ["credentials", "license", "verification"],
+      partialKeywords: ["nursing council", "qualification", "medical council", "audit"],
+      gaps: {
+        format: "Credentialing standard requires a PDF or Word Document registry (.pdf, .docx).",
+        mandatory: "Missing doctor/nurse qualification checks or registry board verification files.",
+        partial: "Lacks primary source verification certificates or background registration logs."
+      }
+    },
+    "HRM.2.b": {
+      name: "Infection Control Training",
+      formats: [".pdf", ".docx", ".xlsx"],
+      mandatoryKeywords: ["infection", "hand hygiene", "training"],
+      partialKeywords: ["quiz", "scrubbing", "attendance", "evaluation"],
+      gaps: {
+        format: "Infection Control standard requires a PDF, Word, or Excel spreadsheet document (.pdf, .docx, .xlsx).",
+        mandatory: "Missing clinical hand hygiene training records or basic infection protocols.",
+        partial: "Lacks staff evaluation quiz results or hand scrubbing audit checklist files."
+      }
+    }
+  };
+
+  const analyzeEvidenceFile = (fileName, fileContent = "", standardId) => {
+    const rule = complianceKnowledgeBase[standardId];
+    if (!rule) {
+      return {
+        success: false,
+        score: 0,
+        status: "Not Met",
+        gaps: ["Standard ID not found in compliance matrix."],
+        message: "Unrecognized Standard ID."
+      };
+    }
+
+    // Check file format (case-insensitive extension check)
+    const fileExt = "." + fileName.split('.').pop().toLowerCase();
+    if (!rule.formats.includes(fileExt)) {
+      return {
+        success: false,
+        score: 0,
+        status: "Not Met",
+        gaps: [rule.gaps.format],
+        message: `Invalid file format. This standard expects: ${rule.formats.join(', ')}`
+      };
+    }
+
+    // Combine filename and file content for parsing
+    const searchSpace = `${fileName} ${fileContent}`.toLowerCase();
+
+    // Check mandatory keywords
+    const missingMandatory = rule.mandatoryKeywords.filter(kw => !searchSpace.includes(kw));
+
+    if (missingMandatory.length > 0) {
+      return {
+        success: false,
+        score: 0,
+        status: "Not Met",
+        gaps: [rule.gaps.mandatory, `Missing required keywords: ${missingMandatory.join(', ')}`],
+        message: "Compliance scan rejected. File content does not match standard requirements."
+      };
+    }
+
+    // Check partial keywords to decide between Fully Met (10) and Partially Met (5)
+    const missingPartial = rule.partialKeywords.filter(kw => !searchSpace.includes(kw));
+
+    if (missingPartial.length > 0) {
+      return {
+        success: true,
+        score: 5,
+        status: "Partially Met",
+        gaps: [rule.gaps.partial, `Notice: missing keywords for full score: ${missingPartial.join(', ')}`],
+        message: "Compliance scan partially approved. The file meets standard requirements but has document gaps.",
+        advice: `To upgrade to Fully Met (10 pts), make sure the file references: ${missingPartial.join(', ')}`
+      };
+    }
+
+    return {
+      success: true,
+      score: 10,
+      status: "Fully Met",
+      gaps: [],
+      message: "Compliance scan approved! Document fully meets standard requirements.",
+      advice: "Ready for audit verification."
+    };
+  };
+
   // State Linked Operations
   const updateStandardScore = (standardId, score) => {
     const statuses = { 10: "Fully Met", 5: "Partially Met", 0: "Not Met" };
@@ -995,12 +1206,18 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
     
     if (newDoc.mappedStandards && newDoc.mappedStandards.length > 0) {
       newDoc.mappedStandards.forEach(stdId => {
-        setStandards(prev => prev.map(s => {
-          if (s.id === stdId && s.score === 0) {
-            return { ...s, score: 5, status: "Partially Met" };
-          }
-          return s;
-        }));
+        // Run compliance check on the document details
+        const scan = analyzeEvidenceFile(newDoc.title, newDoc.content || "", stdId);
+        if (scan.success) {
+          setStandards(prev => prev.map(s => {
+            if (s.id === stdId) {
+              const newScore = Math.max(s.score, scan.score);
+              const statuses = { 10: "Fully Met", 5: "Partially Met", 0: "Not Met" };
+              return { ...s, score: newScore, status: statuses[newScore] };
+            }
+            return s;
+          }));
+        }
       });
     }
 
@@ -1249,6 +1466,8 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
       pendingAuditsCount,
       incidentsThisMonthCount,
       approveSOPDraft,
+      complianceKnowledgeBase,
+      analyzeEvidenceFile,
       trialDaysLeft,
       subscriptionDaysLeft,
       isAppLocked,

@@ -25,7 +25,11 @@ export default function AIInsightsModule() {
     standards,
     documents,
     approveSOPDraft,
-    logActivity
+    logActivity,
+    analyzeEvidenceFile,
+    complianceKnowledgeBase,
+    addDocument,
+    updateStandardScore
   } = useContext(QualiNABHContext);
 
   const [activeSubTab, setActiveSubTab] = useState('copilot'); // 'copilot', 'sop', 'gap', 'ceo'
@@ -55,6 +59,8 @@ export default function AIInsightsModule() {
   // 3. Gap Checker States
   const [uploadChecking, setUploadChecking] = useState(false);
   const [gapCheckResult, setGapCheckResult] = useState(null);
+  const [selectedGapFile, setSelectedGapFile] = useState(null);
+  const [gapFileContent, setGapFileContent] = useState('');
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -167,24 +173,106 @@ This SOP is subject to audit every 6 months. Revision 1.0.`;
     }, 4000);
   };
 
-  // AI Gap Checker simulation
-  const handleGapCheckUpload = () => {
+  // AI Gap Checker scanner
+  const handleGapFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setSelectedGapFile(file);
     setUploadChecking(true);
-    setTimeout(() => {
-      setGapCheckResult({
-        docName: 'Biomedical Waste Log May 2026.pdf',
-        chapter: 'FMS.2.a (Hazardous Materials)',
-        strength: 'Medium',
-        status: 'Partially Approved',
-        gaps: [
-          'Document lists quantity disposed of, but lacks the State Pollution Board authorized signature seal.',
-          'Missing staff attendance list representing housekeeping safety drills.'
-        ],
-        advice: 'Upgrade standard FMS.2.a from Partially Met to Fully Met by attaching the safety drill attendance certificate.'
-      });
-      setUploadChecking(false);
-      logActivity("Conducted AI Gap Check on mock file");
-    }, 1200);
+    setGapCheckResult(null);
+
+    // Read file contents
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const content = evt.target.result;
+      setGapFileContent(content);
+
+      // Analyze file and find matching standard based on content and filename keywords
+      setTimeout(() => {
+        const searchSpace = `${file.name} ${content}`.toLowerCase();
+        
+        // Find best matching standard ID
+        let matchedStdId = "AAC.1.a"; // default fallback
+        
+        const standardMappings = [
+          { std: "AAC.1.a", kws: ["registration", "opd", "out-patient"] },
+          { std: "AAC.2.b", kws: ["admission", "inpatient", "triage", "consent"] },
+          { std: "AAC.3.a", kws: ["discharge", "referral", "summary"] },
+          { std: "COP.1.a", kws: ["care manual", "general care", "patient care"] },
+          { std: "COP.2.b", kws: ["cpr", "triage", "emergency", "cardiac arrest"] },
+          { std: "COP.5.c", kws: ["icu", "critical care", "intensive care"] },
+          { std: "MOM.1.a", kws: ["formulary", "medication list"] },
+          { std: "MOM.2.c", kws: ["high-alert", "lasa", "narcotic", "locked"] },
+          { std: "MOM.3.a", kws: ["expiry", "expired", "disposal"] },
+          { std: "FMS.1.d", kws: ["fire", "drill", "evacuation", "mock drill"] },
+          { std: "FMS.2.a", kws: ["hazmat", "hazardous", "waste log", "pollution"] },
+          { std: "HRM.1.a", kws: ["credential", "qualification", "license"] },
+          { std: "HRM.2.b", kws: ["infection", "hygiene", "scrub", "handwash"] }
+        ];
+
+        // Scoring standards for match strength
+        let maxMatchCount = -1;
+        standardMappings.forEach(mapping => {
+          const matchCount = mapping.kws.filter(kw => searchSpace.includes(kw)).length;
+          if (matchCount > maxMatchCount && matchCount > 0) {
+            maxMatchCount = matchCount;
+            matchedStdId = mapping.std;
+          }
+        });
+
+        // Run compliance scan
+        const scan = analyzeEvidenceFile(file.name, content, matchedStdId);
+        const standardName = standards.find(s => s.id === matchedStdId)?.title || "Standard Element";
+
+        setGapCheckResult({
+          docName: file.name,
+          standardId: matchedStdId,
+          chapter: `${matchedStdId} (${standardName})`,
+          strength: scan.score === 10 ? "Strong" : scan.score === 5 ? "Medium" : "Weak",
+          status: scan.status,
+          success: scan.success,
+          score: scan.score,
+          gaps: scan.gaps.length > 0 ? scan.gaps : ["None! All compliance keywords found."],
+          advice: scan.success 
+            ? `Successfully scanned. Map this document to standard ${matchedStdId}. It meets the core requirements.`
+            : `Scan rejected. To approve this file under ${matchedStdId}, please include: ${complianceKnowledgeBase[matchedStdId]?.mandatoryKeywords.join(', ')}`
+        });
+        
+        setUploadChecking(false);
+        logActivity(`Analyzed document ${file.name} for AI Gap Check`);
+      }, 1200);
+    };
+    reader.readAsText(file.slice(0, 50000));
+  };
+
+  const handleApplyGapRecommendation = () => {
+    if (!gapCheckResult || !selectedGapFile) return;
+
+    const matchedStdId = gapCheckResult.standardId;
+    const docTitle = selectedGapFile.name.split('.').slice(0, -1).join('.') || selectedGapFile.name;
+    const standardObj = standards.find(s => s.id === matchedStdId);
+
+    // Save document to vault
+    addDocument({
+      title: docTitle,
+      type: "Report",
+      department: standardObj ? standardObj.department : "Quality",
+      version: "1.0",
+      status: gapCheckResult.score === 10 ? "Approved" : "Pending Review",
+      author: "AI Gap Scan",
+      approvedBy: gapCheckResult.score === 10 ? "AI Auto-Verification" : "Pending review sign-off",
+      lastReviewed: new Date().toISOString().slice(0, 10),
+      nextReview: new Date(Date.now() + 365*24*60*60*1000).toISOString().slice(0, 10),
+      mappedStandards: [matchedStdId],
+      content: `Evidence uploaded via AI Gap Checker. Matches standard ${matchedStdId}.`
+    });
+
+    // Update score
+    updateStandardScore(matchedStdId, gapCheckResult.score);
+
+    // Clear state
+    setGapCheckResult(null);
+    setSelectedGapFile(null);
   };
 
   return (
@@ -519,25 +607,36 @@ This SOP is subject to audit every 6 months. Revision 1.0.`;
               Upload an evidence document (e.g. fire drill records or calibration reports). The AI will cross-verify file strength, check for signature gaps, and suggest standard mappings.
             </p>
 
-            <div className="upload-zone" onClick={handleGapCheckUpload}>
+            <div 
+              className="upload-zone" 
+              onClick={() => document.getElementById('ai-gap-file-input').click()}
+            >
+              <input 
+                type="file" 
+                id="ai-gap-file-input" 
+                style={{ display: 'none' }}
+                onChange={handleGapFileChange}
+              />
               {uploadChecking ? (
                 <div className="flex flex-col align-center gap-2">
-                  <Clock size={32} className="text-gradient" style={{ animation: 'spin 2s linear infinite' }} />
+                  <RefreshCw size={32} color="var(--primary)" style={{ animation: 'spin 1.5s linear infinite' }} />
                   <p style={{ fontWeight: 600 }}>Analyzing uploaded document structure...</p>
                 </div>
               ) : (
                 <div className="flex flex-col align-center gap-2">
-                  <CheckSquare size={32} color="var(--primary)" />
-                  <p style={{ fontWeight: 600 }}>Simulate uploading evidence file for Gap Check</p>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>Click to test with: <strong>Biomedical Waste Log May 2026.pdf</strong></p>
+                  <Upload size={32} color="var(--primary)" />
+                  <p style={{ fontWeight: 600 }}>Upload evidence file for Gap Check & Verification</p>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
+                    {selectedGapFile ? `Selected: ${selectedGapFile.name}` : "Click to select a file (PDF, DOCX, XLSX). The AI will auto-map it."}
+                  </p>
                 </div>
               )}
             </div>
 
             {/* Gap Check Result */}
             {gapCheckResult && (
-              <div className="card" style={{ marginTop: '1.5rem', borderLeft: '5px solid var(--color-warning)' }}>
-                <h4 style={{ fontWeight: 700, color: 'var(--color-warning)', fontSize: '0.95rem', display: 'flex', alignContent: 'center', gap: '0.5rem' }}>
+              <div className="card" style={{ marginTop: '1.5rem', borderLeft: `5px solid ${gapCheckResult.success ? 'var(--color-success)' : 'var(--color-warning)'}` }}>
+                <h4 style={{ fontWeight: 700, color: gapCheckResult.success ? 'var(--color-success)' : 'var(--color-warning)', fontSize: '0.95rem', display: 'flex', alignContent: 'center', gap: '0.5rem' }}>
                   <AlertCircle size={16} />
                   <span>Validation Result: {gapCheckResult.docName}</span>
                 </h4>
@@ -547,7 +646,7 @@ This SOP is subject to audit every 6 months. Revision 1.0.`;
                     <strong>Suggested Chapter Map:</strong> <span className="badge badge-neutral">{gapCheckResult.chapter}</span>
                   </div>
                   <div>
-                    <strong>Audit Evidence Strength:</strong> <span className="badge badge-warning">{gapCheckResult.strength}</span>
+                    <strong>Audit Evidence Strength:</strong> <span className={`badge ${gapCheckResult.strength === 'Strong' ? 'badge-success' : gapCheckResult.strength === 'Medium' ? 'badge-warning' : 'badge-danger'}`}>{gapCheckResult.strength}</span>
                   </div>
                   <div>
                     <strong>Detected Document Gaps:</strong>
@@ -560,6 +659,16 @@ This SOP is subject to audit every 6 months. Revision 1.0.`;
                   <div style={{ padding: '0.5rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '6px', border: '1px dashed var(--border-color)', marginTop: '0.5rem' }}>
                     💡 <strong>AI Recommendations:</strong> {gapCheckResult.advice}
                   </div>
+                  {gapCheckResult.success && (
+                    <button 
+                      onClick={handleApplyGapRecommendation} 
+                      className="btn btn-primary"
+                      style={{ marginTop: '1rem', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                    >
+                      <CheckSquare size={16} />
+                      Accept AI Mapping & Update Score
+                    </button>
+                  )}
                 </div>
               </div>
             )}

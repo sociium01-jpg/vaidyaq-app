@@ -10,7 +10,12 @@ import {
   HelpCircle,
   AlertTriangle,
   Upload,
-  Brain
+  Brain,
+  File,
+  AlertCircle,
+  Check,
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 
 export default function AccreditationModule() {
@@ -22,11 +27,22 @@ export default function AccreditationModule() {
     evidenceUploadedCount,
     missingEvidenceCount,
     openCapasCount,
-    logActivity
+    logActivity,
+    complianceKnowledgeBase,
+    analyzeEvidenceFile,
+    addDocument
   } = useContext(QualiNABHContext);
 
   const [activeSubTab, setActiveSubTab] = useState('assessment'); // 'assessment', 'gap', 'matrix'
   const [evidenceFileAlert, setEvidenceFileAlert] = useState(null);
+
+  // Evidence upload modal states
+  const [uploadModalStdId, setUploadModalStdId] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [fileContent, setFileContent] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [validationResult, setValidationResult] = useState(null);
+  const [showResultScreen, setShowResultScreen] = useState(false);
 
   // Group by chapter helper
   const getChapterData = () => {
@@ -61,17 +77,61 @@ export default function AccreditationModule() {
     updateStandardScore(stdId, score);
   };
 
-  const handleSimulateEvidenceUpload = (stdId) => {
-    setEvidenceFileAlert(`Successfully mapped mock evidence to standard element: ${stdId}. Score upgraded to Partially Met!`);
-    setTimeout(() => {
-      setEvidenceFileAlert(null);
-    }, 4000);
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setSelectedFile(file);
+    setValidationResult(null);
+    setShowResultScreen(false);
+
+    // Try reading text content to check keywords
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      setFileContent(evt.target.result);
+    };
+    reader.readAsText(file.slice(0, 50000));
+  };
+
+  const handleRunScan = () => {
+    if (!selectedFile || !uploadModalStdId) return;
+    setUploading(true);
     
-    // Automatically improve standard score to Partially Met if it was Not Met
-    const stdObj = standards.find(s => s.id === stdId);
-    if (stdObj && stdObj.score === 0) {
-      updateStandardScore(stdId, 5);
-    }
+    // Simulate parsing delay to make the UX feel premium and advanced
+    setTimeout(() => {
+      const scan = analyzeEvidenceFile(selectedFile.name, fileContent, uploadModalStdId);
+      setValidationResult(scan);
+      setUploading(false);
+      setShowResultScreen(true);
+      
+      if (scan.success) {
+        // Automatically save document to vault
+        const standardObj = standards.find(s => s.id === uploadModalStdId);
+        const docTitle = selectedFile.name.split('.').slice(0, -1).join('.') || selectedFile.name;
+        
+        // Add to document vault
+        addDocument({
+          title: docTitle,
+          type: "Report",
+          department: standardObj ? standardObj.department : "Quality",
+          version: "1.0",
+          status: scan.score === 10 ? "Approved" : "Pending Review",
+          author: "Hospital Quality System",
+          approvedBy: scan.score === 10 ? "System Auto-Verification" : "Pending review sign-off",
+          lastReviewed: new Date().toISOString().slice(0, 10),
+          nextReview: new Date(Date.now() + 365*24*60*60*1000).toISOString().slice(0, 10),
+          mappedStandards: [uploadModalStdId],
+          content: `Evidence uploaded for standard ${uploadModalStdId}. Keywords checked. Scan message: ${scan.message}`
+        });
+
+        // Update score in standard
+        updateStandardScore(uploadModalStdId, scan.score);
+
+        setEvidenceFileAlert(`Successfully uploaded and validated evidence for: ${uploadModalStdId}. Points updated!`);
+        setTimeout(() => {
+          setEvidenceFileAlert(null);
+        }, 5000);
+      }
+    }, 1200);
   };
 
   return (
@@ -172,7 +232,13 @@ export default function AccreditationModule() {
                     </div>
 
                     <button
-                      onClick={() => handleSimulateEvidenceUpload(std.id)}
+                      onClick={() => {
+                        setUploadModalStdId(std.id);
+                        setSelectedFile(null);
+                        setFileContent('');
+                        setValidationResult(null);
+                        setShowResultScreen(false);
+                      }}
                       className="btn btn-secondary"
                       style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', width: '100%', marginTop: '0.25rem' }}
                     >
@@ -319,6 +385,216 @@ export default function AccreditationModule() {
                 })}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+      {/* Evidence Upload & Compliance Check Modal */}
+      {uploadModalStdId && (
+        <div className="modal-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000 }}>
+          <div className="modal-content" style={{ maxWidth: '600px', width: '90%', backgroundColor: 'var(--bg-secondary)', borderRadius: '12px', overflow: 'hidden' }}>
+            <div className="modal-header" style={{ padding: '1.25rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }} className="flex align-center gap-2">
+                <ShieldCheck size={20} color="var(--primary)" />
+                <span>Validate & Upload Evidence: {uploadModalStdId}</span>
+              </h3>
+              <button 
+                onClick={() => {
+                  setUploadModalStdId(null);
+                  setSelectedFile(null);
+                  setValidationResult(null);
+                  setShowResultScreen(false);
+                  setFileContent('');
+                }}
+                style={{ fontSize: '1.2rem', fontWeight: 700, background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="modal-body" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {/* Standard details card */}
+              <div style={{ padding: '1rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <span className="badge badge-neutral" style={{ fontWeight: 700 }}>{uploadModalStdId}</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
+                    Requires: <strong>{complianceKnowledgeBase[uploadModalStdId]?.formats.join(', ')}</strong>
+                  </span>
+                </div>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                  {standards.find(s => s.id === uploadModalStdId)?.title}
+                </h4>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  {standards.find(s => s.id === uploadModalStdId)?.description}
+                </p>
+
+                <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px dashed var(--border-color)', fontSize: '0.8rem' }}>
+                  <div style={{ color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>
+                    <strong>Mandatory content keywords:</strong> {complianceKnowledgeBase[uploadModalStdId]?.mandatoryKeywords.map(kw => `"${kw}"`).join(', ')}
+                  </div>
+                  <div style={{ color: 'var(--text-tertiary)' }}>
+                    <strong>Secondary criteria (for full points):</strong> {complianceKnowledgeBase[uploadModalStdId]?.partialKeywords.map(kw => `"${kw}"`).join(', ')}
+                  </div>
+                </div>
+              </div>
+
+              {!showResultScreen ? (
+                // Upload and Select Screen
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontWeight: 600, marginBottom: '0.5rem', display: 'block' }}>
+                      Select Compliance Document File
+                    </label>
+                    <div 
+                      className="upload-zone"
+                      style={{
+                        border: '2.5px dashed var(--border-color)',
+                        borderRadius: '10px',
+                        padding: '2.5rem 1.5rem',
+                        textAlign: 'center',
+                        backgroundColor: 'var(--bg-primary)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onClick={() => document.getElementById('evidence-file-input').click()}
+                    >
+                      <input 
+                        type="file" 
+                        id="evidence-file-input" 
+                        style={{ display: 'none' }} 
+                        accept={complianceKnowledgeBase[uploadModalStdId]?.formats.join(',')}
+                        onChange={handleFileChange}
+                      />
+                      <Upload size={32} color="var(--primary)" style={{ margin: '0 auto 0.75rem' }} />
+                      <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        {selectedFile ? `Selected: ${selectedFile.name}` : "Click to browse files or drag and drop here"}
+                      </p>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.25rem' }}>
+                        Accepted formats: {complianceKnowledgeBase[uploadModalStdId]?.formats.join(', ')} (Max size: 10MB)
+                      </p>
+                    </div>
+                  </div>
+
+                  {selectedFile && (
+                    <div style={{ padding: '0.75rem', backgroundColor: 'var(--primary-light)', borderRadius: '8px', border: '1px solid var(--primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ fontSize: '0.8rem' }}>
+                        <strong>File:</strong> {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
+                      </div>
+                      <button 
+                        type="button" 
+                        className="btn btn-secondary" 
+                        style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                        onClick={() => setSelectedFile(null)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // Scan Result Screen
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div 
+                    style={{ 
+                      padding: '1.25rem', 
+                      borderRadius: '8px', 
+                      backgroundColor: validationResult.success ? 'var(--bg-success)' : 'var(--bg-danger)', 
+                      border: `1px solid ${validationResult.success ? 'var(--color-success)' : 'var(--color-danger)'}`,
+                      color: validationResult.success ? 'var(--color-success)' : 'var(--color-danger)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      {validationResult.success ? <CheckCircle2 size={20} /> : <AlertTriangle size={20} />}
+                      <strong style={{ fontSize: '0.95rem' }}>
+                        {validationResult.success ? "Scan Approved & Saved" : "Scan Rejected - Compliance Gaps Found"}
+                      </strong>
+                    </div>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                      {validationResult.message}
+                    </p>
+                  </div>
+
+                  {/* Score update badge */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Assigned Compliance Status:</span>
+                    <div style={{ textAlign: 'right' }}>
+                      <span className={`badge ${validationResult.score === 10 ? 'badge-success' : validationResult.score === 5 ? 'badge-warning' : 'badge-danger'}`} style={{ fontSize: '0.8rem', padding: '0.25rem 0.6rem' }}>
+                        {validationResult.status} ({validationResult.score}/10 points)
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Detected Gaps List */}
+                  {validationResult.gaps && validationResult.gaps.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Detected Document Gaps:</span>
+                      <ul style={{ listStyleType: 'disc', paddingLeft: '1.25rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        {validationResult.gaps.map((gap, gIdx) => (
+                          <li key={gIdx} style={{ marginBottom: '0.25rem' }}>{gap}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Recommendations / Advice */}
+                  {validationResult.advice && (
+                    <div style={{ padding: '0.75rem', backgroundColor: 'var(--primary-light)', borderRadius: '8px', border: '1px dashed var(--primary)', fontSize: '0.8rem' }}>
+                      💡 <strong>Actionable Recommendation:</strong> {validationResult.advice}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="modal-footer" style={{ padding: '1.25rem', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', backgroundColor: 'var(--bg-tertiary)' }}>
+              {!showResultScreen ? (
+                <>
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    onClick={() => {
+                      setUploadModalStdId(null);
+                      setSelectedFile(null);
+                      setFileContent('');
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn btn-primary" 
+                    disabled={!selectedFile || uploading}
+                    onClick={handleRunScan}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                  >
+                    {uploading ? (
+                      <>
+                        <RefreshCw size={14} style={{ animation: 'spin 1.5s linear infinite' }} />
+                        Analyzing File...
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck size={14} />
+                        Run Compliance Scan
+                      </>
+                    )}
+                  </button>
+                </>
+              ) : (
+                <button 
+                  type="button" 
+                  className="btn btn-primary" 
+                  onClick={() => {
+                    setUploadModalStdId(null);
+                    setSelectedFile(null);
+                    setValidationResult(null);
+                    setShowResultScreen(false);
+                    setFileContent('');
+                  }}
+                >
+                  Close Window
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

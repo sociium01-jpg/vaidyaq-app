@@ -26,7 +26,8 @@ export default function Documents() {
     standards,
     setStandards,
     logActivity,
-    currentUser
+    currentUser,
+    addDocument
   } = useContext(QualiNABHContext);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -194,39 +195,68 @@ export default function Documents() {
     logActivity(`Deleted compliance document: ${docToDelete.title}`);
   };
 
+  const [uploadedFile, setUploadedFile] = useState(null);
+
+  const handleVaultFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploadedFile(file);
+    
+    // Auto fill Title
+    const docTitle = file.name.split('.').slice(0, -1).join('.') || file.name;
+    
+    // Suggest standard mapping based on name
+    const fileNameLower = file.name.toLowerCase();
+    let suggestedStandards = [];
+    
+    const standardMappings = [
+      { std: "AAC.1.a", kws: ["registration", "opd", "out-patient"] },
+      { std: "AAC.2.b", kws: ["admission", "inpatient", "triage", "consent"] },
+      { std: "AAC.3.a", kws: ["discharge", "referral", "summary"] },
+      { std: "COP.1.a", kws: ["care manual", "general care", "patient care"] },
+      { std: "COP.2.b", kws: ["cpr", "triage", "emergency", "cardiac arrest"] },
+      { std: "COP.5.c", kws: ["icu", "critical care", "intensive care"] },
+      { std: "MOM.1.a", kws: ["formulary", "medication list"] },
+      { std: "MOM.2.c", kws: ["high-alert", "lasa", "narcotic", "locked"] },
+      { std: "MOM.3.a", kws: ["expiry", "expired", "disposal"] },
+      { std: "FMS.1.d", kws: ["fire", "drill", "evacuation", "mock drill"] },
+      { std: "FMS.2.a", kws: ["hazmat", "hazardous", "waste log", "pollution"] },
+      { std: "HRM.1.a", kws: ["credential", "qualification", "license"] },
+      { std: "HRM.2.b", kws: ["infection", "hygiene", "scrub", "handwash"] }
+    ];
+
+    standardMappings.forEach(mapping => {
+      if (mapping.kws.some(kw => fileNameLower.includes(kw))) {
+        suggestedStandards.push(mapping.std);
+      }
+    });
+
+    setNewDocForm(prev => ({
+      ...prev,
+      title: docTitle,
+      mappedStandards: suggestedStandards
+    }));
+  };
+
   const handleUploadSubmit = (e) => {
     e.preventDefault();
-    const newDocId = `doc-${Date.now()}`;
-    const newDoc = {
-      id: newDocId,
+    
+    addDocument({
       title: newDocForm.title,
       type: newDocForm.type,
       department: newDocForm.department,
       version: newDocForm.version,
-      status: 'Pending Review', // default to pending review
+      status: 'Pending Review',
       author: currentUser.name,
       approvedBy: 'Pending review sign-off',
       lastReviewed: new Date().toISOString().slice(0, 10),
       nextReview: new Date(Date.now() + 365*24*60*60*1000).toISOString().slice(0, 10),
       mappedStandards: newDocForm.mappedStandards,
-      content: newDocForm.content || `STANDARD OPERATING PROCEDURE: ${newDocForm.title}\n=====================================\nDEPARTMENT: ${newDocForm.department}\nMAPPED STANDARDS: ${newDocForm.mappedStandards.join(', ')}\n\n1. PURPOSE:\nDescribe the purpose here...\n\n2. WORKFLOW:\nDescribe workflow here...\n\n3. REVIEW CYCLE:\nAnnual.`,
-      isEncrypted: true
-    };
+      content: newDocForm.content || `STANDARD OPERATING PROCEDURE: ${newDocForm.title}\n=====================================\nDEPARTMENT: ${newDocForm.department}\nMAPPED STANDARDS: ${newDocForm.mappedStandards.join(', ')}\n\n1. PURPOSE:\nDescribe the purpose here...\n\n2. WORKFLOW:\nDescribe workflow here...\n\n3. REVIEW CYCLE:\nAnnual.`
+    });
 
-    setDocuments(prev => [newDoc, ...prev]);
-
-    // Map to standards as Partially Met (5) since it starts as Pending Review
-    if (newDocForm.mappedStandards && newDocForm.mappedStandards.length > 0) {
-      setStandards(prevStds => prevStds.map(std => {
-        if (newDocForm.mappedStandards.includes(std.id) && std.score === 0) {
-          return { ...std, score: 5, status: "Partially Met" };
-        }
-        return std;
-      }));
-    }
-
-    logActivity(`Uploaded compliance document draft: ${newDocForm.title} (Pending review)`);
     setNewDocForm({ title: '', type: 'Policy', department: 'Quality', version: '1.0', mappedStandards: [], content: '' });
+    setUploadedFile(null);
     setShowDocUploadModal(false);
   };
 
@@ -508,10 +538,32 @@ export default function Documents() {
           <div className="modal-content" style={{ maxWidth: '600px', backgroundColor: 'var(--bg-secondary)' }}>
             <div className="modal-header">
               <h3 style={{ fontSize: '1.1rem' }}>Upload Compliance Document</h3>
-              <button onClick={() => setShowDocUploadModal(false)} style={{ fontSize: '1.2rem', fontWeight: 700 }}>✕</button>
+              <button onClick={() => { setShowDocUploadModal(false); setUploadedFile(null); }} style={{ fontSize: '1.2rem', fontWeight: 700 }}>✕</button>
             </div>
             <form onSubmit={handleUploadSubmit}>
               <div className="modal-body flex flex-col gap-2" style={{ padding: '1.25rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Select Document File</label>
+                  <div 
+                    className="upload-zone" 
+                    style={{ padding: '1.5rem', border: '2px dashed var(--border-color)', borderRadius: '8px', cursor: 'pointer', textAlign: 'center', backgroundColor: 'var(--bg-primary)' }}
+                    onClick={() => document.getElementById('vault-file-input').click()}
+                  >
+                    <input 
+                      type="file" 
+                      id="vault-file-input" 
+                      style={{ display: 'none' }}
+                      accept=".pdf,.docx,.xlsx"
+                      onChange={handleVaultFileChange}
+                    />
+                    <Upload size={20} color="var(--primary)" style={{ margin: '0 auto 0.5rem' }} />
+                    <p style={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                      {uploadedFile ? `Selected: ${uploadedFile.name}` : "Click to select a file (PDF, DOCX, XLSX)"}
+                    </p>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>Selecting a file will auto-suggest standard mappings</p>
+                  </div>
+                </div>
+
                 <div className="form-group">
                   <label className="form-label">Document Title / Name</label>
                   <input

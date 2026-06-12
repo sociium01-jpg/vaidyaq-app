@@ -23,7 +23,8 @@ export default function ComplianceModule() {
     addDocument,
     licenses,
     setLicenses,
-    logActivity
+    logActivity,
+    analyzeEvidenceFile
   } = useContext(QualiNABHContext);
 
   const [activeSubTab, setActiveSubTab] = useState('standards'); // 'standards', 'docs', 'licenses'
@@ -35,6 +36,12 @@ export default function ComplianceModule() {
   const [renewingLicenseId, setRenewingLicenseId] = useState(null);
   const [renewalDate, setRenewalDate] = useState('');
 
+  // License upload states
+  const [licenseFile, setLicenseFile] = useState(null);
+  const [licenseScanning, setLicenseScanning] = useState(false);
+  const [licenseScanError, setLicenseScanError] = useState('');
+  const [licenseScanSuccess, setLicenseScanSuccess] = useState(false);
+
   // New Document upload state
   const [showDocUploadModal, setShowDocUploadModal] = useState(false);
   const [newDocForm, setNewDocForm] = useState({
@@ -45,6 +52,10 @@ export default function ComplianceModule() {
     mappedStandards: []
   });
 
+  // SOP upload states
+  const [sopFile, setSopFile] = useState(null);
+  const [sopScanError, setSopScanError] = useState('');
+
   // Calculate days remaining helper
   const getDaysRemaining = (expiryStr) => {
     const expiry = new Date(expiryStr);
@@ -54,11 +65,103 @@ export default function ComplianceModule() {
     return diffDays;
   };
 
+  const handleLicenseFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setLicenseFile(file);
+    setLicenseScanError('');
+    setLicenseScanSuccess(false);
+    setLicenseScanning(true);
+
+    setTimeout(() => {
+      const fileNameLower = file.name.toLowerCase();
+      
+      // Check file extension
+      const fileExt = "." + file.name.split('.').pop().toLowerCase();
+      const allowedExts = [".pdf", ".png", ".jpg", ".jpeg"];
+      if (!allowedExts.includes(fileExt)) {
+        setLicenseScanError("Invalid format. Licenses must be uploaded as PDF or Image files (.pdf, .png, .jpg).");
+        setLicenseScanning(false);
+        return;
+      }
+
+      // Check key validation terms based on the license being renewed
+      const targetLicense = licenses.find(l => l.id === renewingLicenseId);
+      if (!targetLicense) {
+        setLicenseScanError("Could not identify the license to renew.");
+        setLicenseScanning(false);
+        return;
+      }
+
+      let keywords = [];
+      if (targetLicense.id === "lic-1") {
+        keywords = ["pollution", "waste", "board", "authorisation", "authorization", "noc"];
+      } else if (targetLicense.id === "lic-2") {
+        keywords = ["narcotic", "drugs", "pharmacy", "controller", "storage", "license"];
+      } else if (targetLicense.id === "lic-3") {
+        keywords = ["fire", "safety", "noc", "certificate", "no objection"];
+      } else if (targetLicense.id === "lic-4") {
+        keywords = ["aerb", "atomic", "radiation", "x-ray", "xray", "certification"];
+      }
+
+      const match = keywords.some(kw => fileNameLower.includes(kw));
+      if (!match) {
+        setLicenseScanError(`License scan mismatch: The uploaded file "${file.name}" does not seem to contain mandatory keywords for "${targetLicense.name}" (Expected reference to: ${keywords.slice(0, 3).join(', ')}).`);
+        setLicenseScanning(false);
+        return;
+      }
+
+      setLicenseScanSuccess(true);
+      setLicenseScanning(false);
+    }, 1000);
+  };
+
+  const handleCloseRenewModal = () => {
+    setRenewingLicenseId(null);
+    setRenewalDate('');
+    setLicenseFile(null);
+    setLicenseScanError('');
+    setLicenseScanSuccess(false);
+  };
+
+  const handleSopFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setSopFile(file);
+    setSopScanError('');
+    
+    // Auto fill title if empty
+    if (!newDocForm.title) {
+      const docTitle = file.name.split('.').slice(0, -1).join('.') || file.name;
+      setNewDocForm(prev => ({ ...prev, title: docTitle }));
+    }
+  };
+
   const handleRenewLicense = (e) => {
     e.preventDefault();
+    if (!licenseScanSuccess) {
+      alert("Please upload and scan a valid statutory certificate before confirming renewal.");
+      return;
+    }
     setLicenses(prev => prev.map(l => {
       if (l.id === renewingLicenseId) {
         logActivity(`Renewed license: ${l.name}. New expiry: ${renewalDate}`);
+        
+        // Also save license document to the vault
+        addDocument({
+          title: `Renewed statutory license: ${l.name}`,
+          type: "Manual",
+          department: l.id === "lic-2" ? "Pharmacy" : l.id === "lic-4" ? "Quality" : "Housekeeping",
+          version: "1.0",
+          status: "Approved",
+          author: "Licensing Board Office",
+          approvedBy: "Col. Roy (COO)",
+          lastReviewed: new Date().toISOString().slice(0, 10),
+          nextReview: renewalDate,
+          mappedStandards: l.id === "lic-2" ? ["MOM.2.c"] : l.id === "lic-3" ? ["FMS.1.d"] : l.id === "lic-1" ? ["FMS.2.a"] : [],
+          content: `Renewed license document. Expiry date: ${renewalDate}.`
+        });
+
         return {
           ...l,
           expiryDate: renewalDate,
@@ -69,10 +172,25 @@ export default function ComplianceModule() {
     }));
     setRenewingLicenseId(null);
     setRenewalDate('');
+    setLicenseFile(null);
+    setLicenseScanSuccess(false);
   };
 
   const handleUploadDocSubmit = (e) => {
     e.preventDefault();
+    setSopScanError('');
+
+    if (sopFile && newDocForm.mappedStandards.length > 0) {
+      // Validate the uploaded file against each checked standard
+      for (const stdId of newDocForm.mappedStandards) {
+        const check = analyzeEvidenceFile(sopFile.name, "", stdId);
+        if (!check.success) {
+          setSopScanError(`Validation Failed for ${stdId}: ${check.message}`);
+          return;
+        }
+      }
+    }
+
     addDocument({
       title: newDocForm.title,
       type: newDocForm.type,
@@ -87,6 +205,8 @@ export default function ComplianceModule() {
       content: `This document contains the policy and operational procedures for ${newDocForm.title}. It has been compiled in compliance with NABH 6th Edition requirements.`
     });
     setNewDocForm({ title: '', type: 'Policy', department: 'Quality', version: '1.0', mappedStandards: [] });
+    setSopFile(null);
+    setSopScanError('');
     setShowDocUploadModal(false);
   };
 
@@ -389,10 +509,37 @@ export default function ComplianceModule() {
           <div className="modal-content" style={{ maxWidth: '600px' }}>
             <div className="modal-header">
               <h3 style={{ fontSize: '1.1rem' }}>Upload Compliance Document</h3>
-              <button onClick={() => setShowDocUploadModal(false)} style={{ fontSize: '1.2rem', fontWeight: 700 }}>✕</button>
+              <button onClick={() => { setShowDocUploadModal(false); setSopFile(null); setSopScanError(''); }} style={{ fontSize: '1.2rem', fontWeight: 700 }}>✕</button>
             </div>
             <form onSubmit={handleUploadDocSubmit}>
               <div className="modal-body flex flex-col gap-2">
+                <div className="form-group">
+                  <label className="form-label">Attach SOP / Policy Document File</label>
+                  <div 
+                    className="upload-zone" 
+                    style={{ padding: '1.5rem', border: '2px dashed var(--border-color)', borderRadius: '8px', cursor: 'pointer', textAlign: 'center', backgroundColor: 'var(--bg-primary)' }}
+                    onClick={() => document.getElementById('sop-file-input').click()}
+                  >
+                    <input 
+                      type="file" 
+                      id="sop-file-input" 
+                      style={{ display: 'none' }}
+                      accept=".pdf,.docx,.xlsx"
+                      onChange={handleSopFileChange}
+                    />
+                    <Upload size={20} color="var(--primary)" style={{ margin: '0 auto 0.5rem' }} />
+                    <p style={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                      {sopFile ? `Selected: ${sopFile.name}` : "Click to select SOP, Policy or Checklist file"}
+                    </p>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>Accepted formats: PDF, DOCX, XLSX</p>
+                  </div>
+                  {sopScanError && (
+                    <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--color-danger)', padding: '0.5rem', backgroundColor: 'var(--bg-danger)', borderRadius: '6px' }}>
+                      ⚠️ {sopScanError}
+                    </div>
+                  )}
+                </div>
+
                 <div className="form-group">
                   <label className="form-label">Document Title / Name</label>
                   <input
@@ -466,7 +613,7 @@ export default function ComplianceModule() {
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" onClick={() => setShowDocUploadModal(false)} className="btn btn-secondary">Cancel</button>
+                <button type="button" onClick={() => { setShowDocUploadModal(false); setSopFile(null); setSopScanError(''); }} className="btn btn-secondary">Cancel</button>
                 <button type="submit" className="btn btn-primary">Upload & Parse Evidence</button>
               </div>
             </form>
@@ -480,7 +627,7 @@ export default function ComplianceModule() {
           <div className="modal-content">
             <div className="modal-header">
               <h3 style={{ fontSize: '1.1rem' }}>Renew License / Authorization</h3>
-              <button onClick={() => setRenewingLicenseId(null)} style={{ fontSize: '1.2rem', fontWeight: 700 }}>✕</button>
+              <button onClick={handleCloseRenewModal} style={{ fontSize: '1.2rem', fontWeight: 700 }}>✕</button>
             </div>
             <form onSubmit={handleRenewLicense}>
               <div className="modal-body flex flex-col gap-2">
@@ -489,11 +636,42 @@ export default function ComplianceModule() {
                 </p>
                 
                 <div className="form-group" style={{ marginTop: '0.5rem' }}>
-                  <label className="form-label">Upload Scanned License (Simulated)</label>
-                  <div className="upload-zone" style={{ padding: '2rem 1rem' }}>
-                    <RefreshCw size={32} color="var(--primary)" style={{ margin: '0 auto 0.5rem' }} />
-                    <p style={{ fontSize: '0.8rem', fontWeight: 600 }}>Click to select certificate image or PDF</p>
+                  <label className="form-label">Upload Scanned License Certificate (PDF or Image)</label>
+                  <div 
+                    className="upload-zone" 
+                    style={{ padding: '2rem 1rem', position: 'relative' }}
+                    onClick={() => document.getElementById('renew-license-input').click()}
+                  >
+                    <input 
+                      type="file" 
+                      id="renew-license-input" 
+                      style={{ display: 'none' }}
+                      accept=".pdf,.png,.jpg,.jpeg"
+                      onChange={handleLicenseFileChange}
+                    />
+                    {licenseScanning ? (
+                      <div>
+                        <RefreshCw size={24} style={{ animation: 'spin 1.5s linear infinite', margin: '0 auto 0.5rem' }} />
+                        <p style={{ fontSize: '0.8rem', fontWeight: 600 }}>Analyzing certificate headers...</p>
+                      </div>
+                    ) : licenseScanSuccess ? (
+                      <div>
+                        <CheckCircle2 size={24} color="var(--color-success)" style={{ margin: '0 auto 0.5rem' }} />
+                        <p style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-success)' }}>Certificate Verified: {licenseFile?.name}</p>
+                      </div>
+                    ) : (
+                      <div>
+                        <Upload size={24} color="var(--primary)" style={{ margin: '0 auto 0.5rem' }} />
+                        <p style={{ fontSize: '0.8rem', fontWeight: 600 }}>Click to browse certificate image or PDF</p>
+                        <p style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>Expected formats: PDF, PNG, JPG</p>
+                      </div>
+                    )}
                   </div>
+                  {licenseScanError && (
+                    <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--color-danger)', padding: '0.5rem', backgroundColor: 'var(--bg-danger)', borderRadius: '6px' }}>
+                      ⚠️ {licenseScanError}
+                    </div>
+                  )}
                 </div>
 
                 <div className="form-group">
@@ -508,8 +686,8 @@ export default function ComplianceModule() {
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" onClick={() => setRenewingLicenseId(null)} className="btn btn-secondary">Cancel</button>
-                <button type="submit" className="btn btn-primary">Confirm Renewal</button>
+                <button type="button" onClick={handleCloseRenewModal} className="btn btn-secondary">Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={licenseScanning || !licenseScanSuccess}>Confirm Renewal</button>
               </div>
             </form>
           </div>
