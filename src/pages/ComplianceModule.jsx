@@ -15,7 +15,8 @@ import {
   Clock,
   Sparkles,
   CheckCircle2,
-  Upload
+  Upload,
+  Compass
 } from 'lucide-react';
 
 export default function ComplianceModule() {
@@ -395,7 +396,7 @@ export default function ComplianceModule() {
   return (
     <div className="flex flex-col gap-3">
       {/* Sub Tabs */}
-      <div className="flex justify-between align-center" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.25rem' }}>
+      <div className="sub-tabs-header">
         <div className="tabs-container" style={{ margin: 0, border: 'none' }}>
           <button onClick={() => setActiveSubTab('standards')} className={`tab-btn ${activeSubTab === 'standards' ? 'active' : ''}`}>
             Standards Library ({standards.length})
@@ -421,7 +422,7 @@ export default function ComplianceModule() {
       {/* 1. STANDARDS LIBRARY VIEW */}
       {activeSubTab === 'standards' && (
         <div className="flex flex-col gap-3">
-          <div style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', padding: '1rem', borderRadius: '12px' }} className="flex align-center justify-between">
+          <div className="standards-header">
             <div>
               <h3 style={{ fontSize: '1rem' }}>NABH 6th Edition Digital Registry</h3>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.1rem' }}>
@@ -503,7 +504,7 @@ export default function ComplianceModule() {
 
       {/* 2. POLICIES & SOPs LIBRARY VIEW */}
       {activeSubTab === 'docs' && (
-        <div className="sop-generator-split" style={{ gridTemplateColumns: selectedDoc ? '1.2fr 0.8fr' : '1fr' }}>
+        <div className={`sop-generator-split ${selectedDoc ? 'has-selected-doc' : 'no-selected-doc'}`}>
           
           {/* Documents Table */}
           <div className="table-container" style={{ height: '100%', overflowY: 'auto' }}>
@@ -607,7 +608,7 @@ export default function ComplianceModule() {
       {/* 3. LICENSE TRACKER VIEW */}
       {activeSubTab === 'licenses' && (
         <div className="flex flex-col gap-3">
-          <div className="flex justify-between align-center" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', padding: '1rem', borderRadius: '12px' }}>
+          <div className="licenses-header">
             <div>
               <h3 style={{ fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <Clock size={16} color="var(--primary)" />
@@ -780,7 +781,7 @@ export default function ComplianceModule() {
                   />
                 </div>
 
-                <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="responsive-grid-2">
                   <div className="form-group">
                     <label className="form-label">Document Type</label>
                     <select
@@ -924,13 +925,13 @@ export default function ComplianceModule() {
 
       {/* 4. ACCREDITATION LIFECYCLE FLOW TRACKER */}
       {activeSubTab === 'flow' && (
-        <div className="grid" style={{ gridTemplateColumns: '300px 1fr', gap: '1.5rem', marginTop: '1rem' }}>
+        <div className="compliance-flow-layout">
           {/* Left Policy List */}
-          <div style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1rem', height: 'fit-content' }}>
-            <h4 style={{ fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
+          <div className="flow-sidebar">
+            <h4 className="flow-sidebar-title">
               Mandatory Policies
             </h4>
-            <div className="flex flex-col gap-1.5" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+            <div className="flow-policy-list">
               {complianceFlows && complianceFlows.map(flow => {
                 const stagesList = Object.values(flow.stages || {});
                 const completedCount = stagesList.filter(s => s === 'Completed').length;
@@ -973,7 +974,7 @@ export default function ComplianceModule() {
 
           {/* Right flow panel */}
           {(() => {
-            const currentFlow = complianceFlows.find(f => f.id === selectedFlowId);
+            const currentFlow = complianceFlows.find(f => f.id === selectedFlowId) || complianceFlows[0];
             if (!currentFlow) return <div style={{ color: 'var(--text-secondary)' }}>Select a policy flow to track.</div>;
 
             return (
@@ -994,17 +995,7 @@ export default function ComplianceModule() {
                 </div>
 
                 {/* Smart File Uploader */}
-                <div 
-                  style={{ 
-                    border: '2px dashed var(--border-color)', 
-                    borderRadius: '10px', 
-                    padding: '1.5rem', 
-                    textAlign: 'center', 
-                    cursor: 'pointer',
-                    backgroundColor: 'rgba(99, 102, 241, 0.03)'
-                  }}
-                  className="hover-fade"
-                >
+                <div className="smart-uploader-zone hover-fade">
                   <label htmlFor="flow-file-input" style={{ cursor: 'pointer' }} className="flex flex-col align-center gap-1.5">
                     <Upload size={24} className="text-primary animate-pulse" />
                     <span style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Drag and Drop Policy / SOP File</span>
@@ -1031,7 +1022,7 @@ export default function ComplianceModule() {
                     <Compass size={14} /> Accreditation Lifecycle Journey (11 Stages)
                   </h4>
                   
-                  <div className="flex flex-col gap-2.5">
+                  <div className="timeline-container">
                     {Object.entries(currentFlow.stages || {}).map(([stage, status], index) => {
                       const stageLabels = {
                         policy: "1. Policy Standard Drafted",
@@ -1069,35 +1060,19 @@ export default function ComplianceModule() {
                       return (
                         <div 
                           key={stage} 
+                          className="timeline-item"
                           style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'space-between',
-                            padding: '0.6rem 0.85rem', 
-                            backgroundColor: 'var(--bg-tertiary)', 
-                            borderRadius: '8px',
                             borderLeft: `4px solid ${status === 'Completed' ? 'var(--color-success)' : status === 'Pending' ? '#f59e0b' : 'var(--border-color)'}`
                           }}
                         >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span style={{ 
-                              width: '20px', 
-                              height: '20px', 
-                              borderRadius: '50%', 
-                              backgroundColor: status === 'Completed' ? 'rgba(16, 185, 129, 0.15)' : 'var(--border-color)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: '0.65rem',
-                              fontWeight: 'bold',
-                              color: status === 'Completed' ? 'var(--color-success)' : 'var(--text-secondary)'
-                            }}>
-                              {index + 1}
+                          <div className="timeline-content-left">
+                            <span className={`timeline-node ${status === 'Completed' ? 'completed' : status === 'Pending' ? 'pending' : ''}`}>
+                              {status === 'Completed' ? '✓' : index + 1}
                             </span>
-                            <span style={{ fontSize: '0.75rem', fontWeight: 'semibold' }}>{stageLabels[stage]}</span>
+                            <span className="timeline-label">{stageLabels[stage]}</span>
                           </div>
 
-                          <div className="flex align-center gap-2">
+                          <div className="timeline-actions">
                             {statusBadge}
                             
                             <button
@@ -1106,15 +1081,7 @@ export default function ComplianceModule() {
                                 updateComplianceFlowStage(currentFlow.id, stage, nextStatus);
                                 logActivity(`Manually updated ${currentFlow.id} stage "${stage}" to ${nextStatus}`);
                               }}
-                              className="btn-link"
-                              style={{
-                                fontSize: '0.65rem',
-                                padding: '2px 6px',
-                                border: '1px solid var(--border-color)',
-                                borderRadius: '4px',
-                                background: 'transparent',
-                                cursor: 'pointer'
-                              }}
+                              className="btn-toggle-status"
                             >
                               Toggle
                             </button>
@@ -1126,7 +1093,7 @@ export default function ComplianceModule() {
                 </div>
 
                 {/* Linked Assets */}
-                <div style={{ marginTop: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }} className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="responsive-grid-2" style={{ marginTop: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
                   <div>
                     <h5 style={{ fontSize: '0.7rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Linked Documents & SOPs</h5>
                     <ul style={{ listStyleType: 'disc', paddingLeft: '1rem', color: 'var(--text-secondary)', fontSize: '0.65rem' }}>
@@ -1229,7 +1196,7 @@ export default function ComplianceModule() {
                   />
                 </div>
 
-                <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="responsive-grid-2">
                   <div className="form-group">
                     <label className="form-label">Issue Date</label>
                     <input
