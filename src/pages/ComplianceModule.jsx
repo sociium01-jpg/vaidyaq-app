@@ -28,10 +28,15 @@ export default function ComplianceModule() {
     logActivity,
     analyzeEvidenceFile,
     isStandardActive,
-    emailLogs
+    emailLogs,
+    complianceFlows,
+    updateComplianceFlowStage,
+    currentUser
   } = useContext(QualiNABHContext);
 
-  const [activeSubTab, setActiveSubTab] = useState('standards'); // 'standards', 'docs', 'licenses'
+  const [activeSubTab, setActiveSubTab] = useState('standards'); // 'standards', 'docs', 'licenses', 'flow'
+  const [selectedFlowId, setSelectedFlowId] = useState('PSP');
+  const [flowScanMessage, setFlowScanMessage] = useState('');
   
   // Document viewer state
   const [selectedDoc, setSelectedDoc] = useState(null);
@@ -330,6 +335,63 @@ export default function ComplianceModule() {
     });
   };
 
+  const handleFlowFileScan = (e, flowId) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setFlowScanMessage("Scanning document content...");
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const content = evt.target.result || "";
+      const text = `${file.name} ${content}`.toLowerCase();
+
+      setTimeout(() => {
+        let matchedId = flowId;
+        let matchedName = "";
+        
+        if (text.includes("infection") || text.includes("hand hygiene") || text.includes("hygiene")) {
+          matchedId = "IPC";
+        } else if (text.includes("medication") || text.includes("narcotic") || text.includes("drug")) {
+          matchedId = "MSP";
+        } else if (text.includes("fire") || text.includes("egress") || text.includes("drill")) {
+          matchedId = "FSP";
+        } else if (text.includes("waste") || text.includes("segregation") || text.includes("biomedical")) {
+          matchedId = "BWM";
+        } else if (text.includes("privacy") || text.includes("data") || text.includes("security")) {
+          matchedId = "DPI";
+        } else if (text.includes("consent") || text.includes("right")) {
+          matchedId = "PCP";
+        } else if (text.includes("incident") || text.includes("miss")) {
+          matchedId = "IRP";
+        }
+
+        const matchedFlow = complianceFlows.find(f => f.id === matchedId);
+        matchedName = matchedFlow ? matchedFlow.name : matchedId;
+
+        let docType = "Evidence";
+        if (file.name.toLowerCase().includes("policy")) docType = "Policy";
+        else if (file.name.toLowerCase().includes("sop")) docType = "SOP";
+
+        const newDoc = {
+          title: file.name.split('.').slice(0, -1).join(' ').replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+          type: docType,
+          department: matchedFlow ? matchedFlow.department : "Quality",
+          version: "1.0",
+          status: "Approved",
+          author: currentUser?.name || "Quality Officer",
+          content: content,
+          mappedPolicyId: matchedId
+        };
+        addDocument(newDoc);
+
+        setSelectedFlowId(matchedId);
+        setFlowScanMessage(`✓ Matched & uploaded to: ${matchedName} (${docType} stage marked Completed).`);
+        setTimeout(() => setFlowScanMessage(""), 5000);
+      }, 1500);
+    };
+    reader.readAsText(file);
+  };
+
   return (
     <div className="flex flex-col gap-3">
       {/* Sub Tabs */}
@@ -343,6 +405,9 @@ export default function ComplianceModule() {
           </button>
           <button onClick={() => setActiveSubTab('licenses')} className={`tab-btn ${activeSubTab === 'licenses' ? 'active' : ''}`}>
             License Tracker ({licenses.length})
+          </button>
+          <button onClick={() => setActiveSubTab('flow')} className={`tab-btn ${activeSubTab === 'flow' ? 'active' : ''}`}>
+            Lifecycle Flow Tracker
           </button>
         </div>
 
@@ -854,6 +919,243 @@ export default function ComplianceModule() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* 4. ACCREDITATION LIFECYCLE FLOW TRACKER */}
+      {activeSubTab === 'flow' && (
+        <div className="grid" style={{ gridTemplateColumns: '300px 1fr', gap: '1.5rem', marginTop: '1rem' }}>
+          {/* Left Policy List */}
+          <div style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1rem', height: 'fit-content' }}>
+            <h4 style={{ fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
+              Mandatory Policies
+            </h4>
+            <div className="flex flex-col gap-1.5" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+              {complianceFlows && complianceFlows.map(flow => {
+                const stagesList = Object.values(flow.stages || {});
+                const completedCount = stagesList.filter(s => s === 'Completed').length;
+                const percent = Math.round((completedCount / 11) * 100);
+                
+                return (
+                  <button
+                    key={flow.id}
+                    onClick={() => setSelectedFlowId(flow.id)}
+                    className="flex justify-between align-center p-2.5 text-left hover-fade"
+                    style={{
+                      width: '100%',
+                      borderRadius: '8px',
+                      fontSize: '0.75rem',
+                      border: 'none',
+                      backgroundColor: selectedFlowId === flow.id ? 'var(--primary-color)' : 'transparent',
+                      color: selectedFlowId === flow.id ? '#fff' : 'var(--text-primary)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <div style={{ maxWidth: '190px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <span style={{ fontWeight: 'bold', marginRight: '4px' }}>[{flow.id}]</span>
+                      {flow.name}
+                    </div>
+                    <span style={{
+                      fontSize: '0.7rem',
+                      padding: '2px 6px',
+                      borderRadius: '12px',
+                      backgroundColor: selectedFlowId === flow.id ? 'rgba(255,255,255,0.2)' : 'var(--bg-tertiary)',
+                      color: selectedFlowId === flow.id ? '#fff' : 'var(--text-secondary)',
+                      fontWeight: 'bold'
+                    }}>
+                      {percent}%
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Right flow panel */}
+          {(() => {
+            const currentFlow = complianceFlows.find(f => f.id === selectedFlowId);
+            if (!currentFlow) return <div style={{ color: 'var(--text-secondary)' }}>Select a policy flow to track.</div>;
+
+            return (
+              <div style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1.5rem' }} className="flex flex-col gap-4">
+                <div className="flex justify-between align-center border-b pb-3" style={{ borderColor: 'var(--border-color)' }}>
+                  <div>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{currentFlow.name}</h3>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                      Owner: <strong>{currentFlow.owner}</strong> | Dept: {currentFlow.department} | Version: {currentFlow.version}
+                    </p>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Approver: <strong>{currentFlow.approver}</strong></span>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.1rem' }}>
+                      Effective: {currentFlow.effectiveDate} | Review: {currentFlow.reviewDate}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Smart File Uploader */}
+                <div 
+                  style={{ 
+                    border: '2px dashed var(--border-color)', 
+                    borderRadius: '10px', 
+                    padding: '1.5rem', 
+                    textAlign: 'center', 
+                    cursor: 'pointer',
+                    backgroundColor: 'rgba(99, 102, 241, 0.03)'
+                  }}
+                  className="hover-fade"
+                >
+                  <label htmlFor="flow-file-input" style={{ cursor: 'pointer' }} className="flex flex-col align-center gap-1.5">
+                    <Upload size={24} className="text-primary animate-pulse" />
+                    <span style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Drag and Drop Policy / SOP File</span>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                      Scans keywords, auto-matches standard section, and updates the compliance lifecycle score.
+                    </span>
+                    <input 
+                      id="flow-file-input" 
+                      type="file" 
+                      style={{ display: 'none' }} 
+                      onChange={(e) => handleFlowFileScan(e, currentFlow.id)} 
+                    />
+                  </label>
+                  {flowScanMessage && (
+                    <div style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: 'var(--color-success)', fontWeight: 'bold', padding: '0.5rem', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '6px' }}>
+                      {flowScanMessage}
+                    </div>
+                  )}
+                </div>
+
+                {/* 11-Stage flowchart timeline */}
+                <div>
+                  <h4 style={{ fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.75rem' }} className="flex align-center gap-1">
+                    <Compass size={14} /> Accreditation Lifecycle Journey (11 Stages)
+                  </h4>
+                  
+                  <div className="flex flex-col gap-2.5">
+                    {Object.entries(currentFlow.stages || {}).map(([stage, status], index) => {
+                      const stageLabels = {
+                        policy: "1. Policy Standard Drafted",
+                        sop: "2. Standard Operating Procedures (SOP)",
+                        training: "3. Role-Wise Staff Training",
+                        implementation: "4. Practical On-ground Implementation",
+                        documentation: "5. Documentation & Incident Checklists",
+                        audit: "6. Internal Audit Inspections",
+                        findings: "7. Recorded Audit Gaps",
+                        capa: "8. CAPA Corrective Measures",
+                        review: "9. Management Review Board",
+                        improvement: "10. Quality Improvement Tracking",
+                        updates: "11. Policy / SOP revisions"
+                      };
+
+                      let statusBadge = (
+                        <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '12px', backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
+                          Not Started
+                        </span>
+                      );
+                      if (status === 'Completed') {
+                        statusBadge = (
+                          <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '12px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: 'var(--color-success)', fontWeight: 'bold' }}>
+                            ✓ Completed
+                          </span>
+                        );
+                      } else if (status === 'Pending') {
+                        statusBadge = (
+                          <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '12px', backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', fontWeight: 'bold' }}>
+                            ⚠ Pending
+                          </span>
+                        );
+                      }
+
+                      return (
+                        <div 
+                          key={stage} 
+                          style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'space-between',
+                            padding: '0.6rem 0.85rem', 
+                            backgroundColor: 'var(--bg-tertiary)', 
+                            borderRadius: '8px',
+                            borderLeft: `4px solid ${status === 'Completed' ? 'var(--color-success)' : status === 'Pending' ? '#f59e0b' : 'var(--border-color)'}`
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span style={{ 
+                              width: '20px', 
+                              height: '20px', 
+                              borderRadius: '50%', 
+                              backgroundColor: status === 'Completed' ? 'rgba(16, 185, 129, 0.15)' : 'var(--border-color)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '0.65rem',
+                              fontWeight: 'bold',
+                              color: status === 'Completed' ? 'var(--color-success)' : 'var(--text-secondary)'
+                            }}>
+                              {index + 1}
+                            </span>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 'semibold' }}>{stageLabels[stage]}</span>
+                          </div>
+
+                          <div className="flex align-center gap-2">
+                            {statusBadge}
+                            
+                            <button
+                              onClick={() => {
+                                const nextStatus = status === 'Completed' ? 'Not Started' : 'Completed';
+                                updateComplianceFlowStage(currentFlow.id, stage, nextStatus);
+                                logActivity(`Manually updated ${currentFlow.id} stage "${stage}" to ${nextStatus}`);
+                              }}
+                              className="btn-link"
+                              style={{
+                                fontSize: '0.65rem',
+                                padding: '2px 6px',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '4px',
+                                background: 'transparent',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Toggle
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Linked Assets */}
+                <div style={{ marginTop: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }} className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <h5 style={{ fontSize: '0.7rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Linked Documents & SOPs</h5>
+                    <ul style={{ listStyleType: 'disc', paddingLeft: '1rem', color: 'var(--text-secondary)', fontSize: '0.65rem' }}>
+                      {(currentFlow.linkedSops || []).length === 0 ? (
+                        <li>No SOPs linked yet.</li>
+                      ) : (
+                        (currentFlow.linkedSops || []).map((id, i) => {
+                          const doc = documents.find(d => d.id === id);
+                          return <li key={i}>{doc ? doc.title : id}</li>;
+                        })
+                      )}
+                    </ul>
+                  </div>
+                  <div>
+                    <h5 style={{ fontSize: '0.7rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Linked Training Assessments</h5>
+                    <ul style={{ listStyleType: 'disc', paddingLeft: '1rem', color: 'var(--text-secondary)', fontSize: '0.65rem' }}>
+                      {(currentFlow.linkedTraining || []).length === 0 ? (
+                        <li>No training sessions linked.</li>
+                      ) : (
+                        (currentFlow.linkedTraining || []).map((id, i) => (
+                          <li key={i}>Session Code: {id}</li>
+                        ))
+                      )}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 

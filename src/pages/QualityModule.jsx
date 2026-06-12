@@ -25,11 +25,14 @@ export default function QualityModule() {
     closeCapa,
     linkFindingToCapa,
     incidents,
+    setIncidents,
     addIncident,
     qualityIndicators,
     setQualityIndicators,
     logActivity,
-    activeDepts
+    activeDepts,
+    risks,
+    addRiskRegisterItem
   } = useContext(QualiNABHContext);
 
   const defaultDept = activeDepts && activeDepts.length > 0 ? activeDepts[0] : 'Quality Control';
@@ -45,10 +48,16 @@ export default function QualityModule() {
   // Forms states
   const [newAuditForm, setNewAuditForm] = useState({ title: '', department: defaultDept, date: '', checklistItem: '', checklist: [] });
   const [newCapaForm, setNewCapaForm] = useState({ source: '', department: defaultDept, responsible: '', dueDate: '', priority: 'High', rootCause: '', correctiveAction: '', preventiveAction: '' });
-  const [newIncidentForm, setNewIncidentForm] = useState({ type: 'Medication Error', department: defaultDept, severity: 'Medium', description: '', immediateAction: '', investigator: '' });
+  const [newIncidentForm, setNewIncidentForm] = useState({ type: 'Medication Error', department: defaultDept, severity: 'Medium', description: '', immediateAction: '', investigator: '', shift: 'Morning', deidentified: true });
   
   const [selectedCapaToClose, setSelectedCapaToClose] = useState(null);
   const [closureEvidence, setClosureEvidence] = useState('');
+
+  const [showRiskModal, setShowRiskModal] = useState(false);
+  const [newRiskForm, setNewRiskForm] = useState({ category: 'Medication Safety', description: '', department: defaultDept, impact: 'High', likelihood: 'Medium', rating: 'Red', correctiveAction: '' });
+
+  const [selectedIncidentToInvestigate, setSelectedIncidentToInvestigate] = useState(null);
+  const [investigationForm, setInvestigationForm] = useState({ investigator: '', rootCause: '', capaId: '' });
 
   // AI Assistant Draft Statuses
   const [aiDraftLoading, setAiDraftLoading] = useState(false);
@@ -115,8 +124,33 @@ export default function QualityModule() {
   const handleCreateIncident = (e) => {
     e.preventDefault();
     addIncident(newIncidentForm);
-    setNewIncidentForm({ type: 'Medication Error', department: defaultDept, severity: 'Medium', description: '', immediateAction: '', investigator: '' });
+    setNewIncidentForm({ type: 'Medication Error', department: defaultDept, severity: 'Medium', description: '', immediateAction: '', investigator: '', shift: 'Morning', deidentified: true });
     setShowIncidentModal(false);
+  };
+
+  const handleCreateRisk = (e) => {
+    e.preventDefault();
+    addRiskRegisterItem(newRiskForm);
+    setNewRiskForm({ category: 'Medication Safety', description: '', department: defaultDept, impact: 'High', likelihood: 'Medium', rating: 'Red', correctiveAction: '' });
+    setShowRiskModal(false);
+  };
+
+  const handleSaveInvestigation = (e) => {
+    e.preventDefault();
+    setIncidents(prev => prev.map(inc => {
+      if (inc.id === selectedIncidentToInvestigate.id) {
+        return {
+          ...inc,
+          status: "Closed",
+          investigator: investigationForm.investigator,
+          rootCause: investigationForm.rootCause,
+          capaId: investigationForm.capaId
+        };
+      }
+      return inc;
+    }));
+    logActivity(`Closed investigation on incident ${selectedIncidentToInvestigate.id}. RCA logged.`);
+    setSelectedIncidentToInvestigate(null);
   };
 
   const handleCloseCapaSubmit = (e) => {
@@ -369,57 +403,202 @@ export default function QualityModule() {
         </div>
       )}
 
-      {/* 3. INCIDENT DESK VIEW */}
+      {/* 3. INCIDENT & RISK DESK VIEW */}
       {activeSubTab === 'incidents' && (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
+          {/* Privacy Disclaimer Card */}
           <div style={{ padding: '0.75rem', backgroundColor: 'var(--bg-warning)', color: 'var(--color-warning)', border: '1px solid var(--color-warning)', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600 }}>
-            🔒 <strong>ABDM Patient Privacy Guard:</strong> Patient Names and exact ID records are scrubbed. Incident logs utilize generic Incident IDs, department names, and general descriptions.
+            🔒 <strong>ABDM Patient Privacy Guard:</strong> Patient Names and Aadhaar numbers are scrubbed. Incident logs utilize generic Incident IDs, department names, and de-identified details.
           </div>
 
-          <div className="table-container">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Incident ID</th>
-                  <th>Incident Type</th>
-                  <th>Department</th>
-                  <th>Date & Time</th>
-                  <th>Severity</th>
-                  <th>Description & Immediate Action</th>
-                  <th>Assigned Investigator</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {incidents.map((inc, idx) => (
-                  <tr key={idx}>
-                    <td style={{ fontWeight: 700 }}>{inc.id.substring(0, 8)}</td>
-                    <td>
-                      <strong>{inc.type}</strong>
-                    </td>
-                    <td>{inc.department}</td>
-                    <td style={{ whiteSpace: 'nowrap' }}>{inc.dateTime}</td>
-                    <td>
-                      <span className={`badge ${inc.severity === 'High' ? 'badge-danger' : inc.severity === 'Medium' ? 'badge-warning' : 'badge-neutral'}`}>
-                        {inc.severity}
-                      </span>
-                    </td>
-                    <td>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 500 }}>{inc.description}</div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--color-success)', marginTop: '0.25rem' }}>
-                        <strong>Immediate action:</strong> {inc.immediateAction}
-                      </div>
-                    </td>
-                    <td>{inc.investigator}</td>
-                    <td>
-                      <span className={`badge ${inc.status === 'Closed' ? 'badge-success' : 'badge-warning'}`}>
-                        {inc.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid" style={{ gridTemplateColumns: '1fr 320px', gap: '1.5rem' }}>
+            {/* Left Column: Incidents Table */}
+            <div className="flex flex-col gap-3">
+              <div className="table-container">
+                <div style={{ padding: '1rem', borderBottom: '1px solid var(--border-color)' }} className="flex justify-between align-center">
+                  <h3 style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>Incident Logs Register</h3>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Total reported: {incidents.length}</span>
+                </div>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Incident ID</th>
+                      <th>Type</th>
+                      <th>Dept & Shift</th>
+                      <th>Date</th>
+                      <th>Severity</th>
+                      <th>RCA & CAPA</th>
+                      <th>Status</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {incidents.map((inc, idx) => (
+                      <tr key={idx}>
+                        <td style={{ fontWeight: 700 }}>{inc.id.substring(0, 8)}</td>
+                        <td>
+                          <strong>{inc.type}</strong>
+                        </td>
+                        <td>
+                          <div>{inc.department}</div>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600 }}>{inc.shift || 'Morning'} Shift</span>
+                        </td>
+                        <td style={{ whiteSpace: 'nowrap' }}>{inc.dateTime}</td>
+                        <td>
+                          <span className={`badge ${inc.severity === 'High' ? 'badge-danger' : inc.severity === 'Medium' ? 'badge-warning' : 'badge-neutral'}`}>
+                            {inc.severity}
+                          </span>
+                        </td>
+                        <td>
+                          {inc.status === 'Closed' ? (
+                            <div style={{ fontSize: '0.75rem' }}>
+                              <div>🔍 RCA: {inc.rootCause ? inc.rootCause.substring(0, 30) : 'Done'}...</div>
+                              {inc.capaId && <div style={{ color: 'var(--primary-color)', fontSize: '0.7rem' }}>🔗 CAPA: {inc.capaId.substring(0, 10)}</div>}
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', italic: true }}>Awaiting RCA</span>
+                          )}
+                        </td>
+                        <td>
+                          <span className={`badge ${inc.status === 'Closed' ? 'badge-success' : 'badge-warning'}`}>
+                            {inc.status}
+                          </span>
+                        </td>
+                        <td>
+                          {inc.status !== 'Closed' ? (
+                            <button
+                              onClick={() => {
+                                setSelectedIncidentToInvestigate(inc);
+                                setInvestigationForm({ investigator: inc.investigator || '', rootCause: '', capaId: '' });
+                              }}
+                              className="btn btn-secondary"
+                              style={{ padding: '2px 8px', fontSize: '0.7rem' }}
+                            >
+                              Investigate
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: '0.7rem', color: 'var(--color-success)', fontWeight: 'bold' }}>Resolved</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Quality & Accreditation Risk Register Card */}
+              <div className="card" style={{ padding: '1.25rem' }}>
+                <div className="flex justify-between align-center mb-3">
+                  <h3 style={{ fontSize: '0.95rem', fontWeight: 'bold' }}>Accreditation Risk Register (Proactive Management)</h3>
+                  <button onClick={() => setShowRiskModal(true)} className="btn btn-primary" style={{ padding: '4px 10px', fontSize: '0.75rem' }}>
+                    <Plus size={12} /> Log Risk Item
+                  </button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="table" style={{ fontSize: '0.75rem' }}>
+                    <thead>
+                      <tr>
+                        <th>Category</th>
+                        <th>Risk Description</th>
+                        <th>Department</th>
+                        <th>Rating</th>
+                        <th>Corrective / Mitigation Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {risks && risks.map((risk, idx) => (
+                        <tr key={idx}>
+                          <td style={{ fontWeight: 'bold' }}>{risk.category}</td>
+                          <td>{risk.description}</td>
+                          <td>{risk.department}</td>
+                          <td>
+                            <span style={{
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontWeight: 'bold',
+                              fontSize: '0.65rem',
+                              backgroundColor: risk.rating === 'Red' ? 'rgba(220, 38, 38, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                              color: risk.rating === 'Red' ? 'var(--color-danger)' : '#f59e0b'
+                            }}>
+                              {risk.rating} ({risk.impact}/{risk.likelihood})
+                            </span>
+                          </td>
+                          <td style={{ color: 'var(--text-secondary)' }}>{risk.correctiveAction}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: Trend Dashboards */}
+            <div className="flex flex-col gap-4">
+              <div className="card" style={{ padding: '1rem' }}>
+                <h4 style={{ fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
+                  Incidents by Shift
+                </h4>
+                {(() => {
+                  const shiftCounts = { Morning: 0, Evening: 0, Night: 0 };
+                  incidents.forEach(inc => {
+                    const s = inc.shift || "Morning";
+                    if (shiftCounts[s] !== undefined) shiftCounts[s]++;
+                  });
+                  const total = Math.max(1, incidents.length);
+                  return (
+                    <div className="flex flex-col gap-2.5">
+                      {Object.entries(shiftCounts).map(([shift, count]) => {
+                        const pct = Math.round((count / total) * 100);
+                        return (
+                          <div key={shift} style={{ fontSize: '0.75rem' }}>
+                            <div className="flex justify-between" style={{ marginBottom: '2px' }}>
+                              <span>{shift} Shift</span>
+                              <strong>{count} ({pct}%)</strong>
+                            </div>
+                            <div style={{ width: '100%', height: '6px', backgroundColor: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
+                              <div style={{ height: '100%', width: `${pct}%`, backgroundColor: 'var(--primary-color)', borderRadius: '3px' }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              <div className="card" style={{ padding: '1rem' }}>
+                <h4 style={{ fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
+                  Incidents Severity
+                </h4>
+                {(() => {
+                  const severityCounts = { Low: 0, Medium: 0, High: 0 };
+                  incidents.forEach(inc => {
+                    const s = inc.severity || "Medium";
+                    if (severityCounts[s] !== undefined) severityCounts[s]++;
+                  });
+                  const total = Math.max(1, incidents.length);
+                  return (
+                    <div className="flex flex-col gap-2.5">
+                      {Object.entries(severityCounts).map(([sev, count]) => {
+                        const pct = Math.round((count / total) * 100);
+                        const color = sev === 'High' ? 'var(--color-danger)' : sev === 'Medium' ? '#f59e0b' : 'var(--color-success)';
+                        return (
+                          <div key={sev} style={{ fontSize: '0.75rem' }}>
+                            <div className="flex justify-between" style={{ marginBottom: '2px' }}>
+                              <span>{sev} Severity</span>
+                              <strong>{count} ({pct}%)</strong>
+                            </div>
+                            <div style={{ width: '100%', height: '6px', backgroundColor: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
+                              <div style={{ height: '100%', width: `${pct}%`, backgroundColor: color, borderRadius: '3px' }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -800,6 +979,19 @@ export default function QualityModule() {
                 </div>
 
                 <div className="form-group">
+                  <label className="form-label">Shift Parameter</label>
+                  <select
+                    className="form-control"
+                    value={newIncidentForm.shift}
+                    onChange={(e) => setNewIncidentForm({ ...newIncidentForm, shift: e.target.value })}
+                  >
+                    <option value="Morning">Morning Shift</option>
+                    <option value="Evening">Evening Shift</option>
+                    <option value="Night">Night Shift</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
                   <label className="form-label">Assigned Investigator</label>
                   <input
                     type="text"
@@ -809,10 +1001,183 @@ export default function QualityModule() {
                     onChange={(e) => setNewIncidentForm({ ...newIncidentForm, investigator: e.target.value })}
                   />
                 </div>
+
+                <div className="form-group flex align-center gap-2" style={{ marginTop: '0.5rem' }}>
+                  <input
+                    type="checkbox"
+                    id="deidentified-chk"
+                    checked={newIncidentForm.deidentified}
+                    onChange={(e) => setNewIncidentForm({ ...newIncidentForm, deidentified: e.target.checked })}
+                  />
+                  <label htmlFor="deidentified-chk" style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-secondary)' }}>
+                    Confirm De-identification: Patient Names or records are NOT entered. (Mandatory under privacy rules)
+                  </label>
+                </div>
               </div>
               <div className="modal-footer">
                 <button type="button" onClick={() => setShowIncidentModal(false)} className="btn btn-secondary">Cancel</button>
-                <button type="submit" className="btn btn-primary">File Incident</button>
+                <button type="submit" className="btn btn-primary" disabled={!newIncidentForm.deidentified}>File Incident</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Investigation / RCA Board Modal */}
+      {selectedIncidentToInvestigate && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '500px' }}>
+            <div className="modal-header">
+              <h3 style={{ fontSize: '1.1rem' }}>Incident Investigation & RCA Desk</h3>
+              <button onClick={() => setSelectedIncidentToInvestigate(null)} style={{ fontSize: '1.2rem', fontWeight: 700 }}>✕</button>
+            </div>
+            <form onSubmit={handleSaveInvestigation}>
+              <div className="modal-body flex flex-col gap-2">
+                <div style={{ fontSize: '0.75rem', backgroundColor: 'var(--bg-tertiary)', padding: '0.75rem', borderRadius: '8px' }}>
+                  <strong>Incident ID:</strong> {selectedIncidentToInvestigate.id.substring(0, 10)}
+                  <div style={{ marginTop: '0.2rem' }}><strong>Type:</strong> {selectedIncidentToInvestigate.type} | <strong>Dept:</strong> {selectedIncidentToInvestigate.department}</div>
+                  <div style={{ marginTop: '0.2rem', color: 'var(--text-secondary)' }}>{selectedIncidentToInvestigate.description}</div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Assigned Investigator *</label>
+                  <input
+                    type="text"
+                    required
+                    className="form-control"
+                    value={investigationForm.investigator}
+                    onChange={(e) => setInvestigationForm({ ...investigationForm, investigator: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Root Cause Analysis (RCA) *</label>
+                  <textarea
+                    rows="4"
+                    required
+                    className="form-control"
+                    placeholder="Log RCA findings (gaps, training lapses, environment hazards)..."
+                    value={investigationForm.rootCause}
+                    onChange={(e) => setInvestigationForm({ ...investigationForm, rootCause: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Link to Corrective Action (CAPA)</label>
+                  <select
+                    className="form-control"
+                    value={investigationForm.capaId}
+                    onChange={(e) => setInvestigationForm({ ...investigationForm, capaId: e.target.value })}
+                  >
+                    <option value="">-- No CAPA Link --</option>
+                    {capaItems.map(c => (
+                      <option key={c.id} value={c.id}>[{c.id.substring(0, 8)}] {c.correctiveAction.substring(0, 35)}...</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" onClick={() => setSelectedIncidentToInvestigate(null)} className="btn btn-secondary">Cancel</button>
+                <button type="submit" className="btn btn-primary">Save Findings & Close Incident</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Risk Register Modal */}
+      {showRiskModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '500px' }}>
+            <div className="modal-header">
+              <h3 style={{ fontSize: '1.1rem' }}>Log Risk to Register</h3>
+              <button onClick={() => setShowRiskModal(false)} style={{ fontSize: '1.2rem', fontWeight: 700 }}>✕</button>
+            </div>
+            <form onSubmit={handleCreateRisk}>
+              <div className="modal-body flex flex-col gap-2">
+                <div className="form-group">
+                  <label className="form-label">Risk Category</label>
+                  <select
+                    className="form-control"
+                    value={newRiskForm.category}
+                    onChange={(e) => setNewRiskForm({ ...newRiskForm, category: e.target.value })}
+                  >
+                    <option value="Medication Safety">Medication Safety</option>
+                    <option value="Infection Control">Infection Control</option>
+                    <option value="Facility Fire Safety">Facility Fire Safety</option>
+                    <option value="Radiation Safety">Radiation Safety</option>
+                    <option value="Patient Identification">Patient Identification</option>
+                    <option value="Equipment Failure">Equipment Failure</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Risk Description *</label>
+                  <textarea
+                    rows="3"
+                    required
+                    className="form-control"
+                    placeholder="Describe the clinical or operational risk..."
+                    value={newRiskForm.description}
+                    onChange={(e) => setNewRiskForm({ ...newRiskForm, description: e.target.value })}
+                  />
+                </div>
+
+                <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div className="form-group">
+                    <label className="form-label">Impact (High/Medium/Low)</label>
+                    <select
+                      className="form-control"
+                      value={newRiskForm.impact}
+                      onChange={(e) => setNewRiskForm({ ...newRiskForm, impact: e.target.value })}
+                    >
+                      <option value="High">High</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Low">Low</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Likelihood (High/Medium/Low)</label>
+                    <select
+                      className="form-control"
+                      value={newRiskForm.likelihood}
+                      onChange={(e) => setNewRiskForm({ ...newRiskForm, likelihood: e.target.value })}
+                    >
+                      <option value="High">High</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Low">Low</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Rating Color</label>
+                  <select
+                    className="form-control"
+                    value={newRiskForm.rating}
+                    onChange={(e) => setNewRiskForm({ ...newRiskForm, rating: e.target.value })}
+                  >
+                    <option value="Red">Red (Immediate Action Required)</option>
+                    <option value="Orange">Orange (High Priority)</option>
+                    <option value="Yellow">Yellow (Monitoring Required)</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Mitigation / Corrective Action *</label>
+                  <input
+                    type="text"
+                    required
+                    className="form-control"
+                    placeholder="Mitigation or preventive measures..."
+                    value={newRiskForm.correctiveAction}
+                    onChange={(e) => setNewRiskForm({ ...newRiskForm, correctiveAction: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" onClick={() => setShowRiskModal(false)} className="btn btn-secondary">Cancel</button>
+                <button type="submit" className="btn btn-primary">Save to Register</button>
               </div>
             </form>
           </div>

@@ -5,6 +5,7 @@ import {
   Activity,
   ShieldAlert,
   GraduationCap,
+  BookOpen,
   Brain,
   FileText,
   ListTodo,
@@ -33,7 +34,9 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
     openCapasCount,
     complianceFeed,
     feedNotifications,
-    checkForComplianceUpdates
+    checkForComplianceUpdates,
+    hospitalMode,
+    switchHospitalMode
   } = useContext(QualiNABHContext);
 
   const [newsCollapsed, setNewsCollapsed] = useState(true);
@@ -46,6 +49,8 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
     { label: 'Quality Management', path: '/app/quality', icon: Activity },
     { label: 'Compliance Management', path: '/app/compliance', icon: ShieldAlert },
     { label: 'Accreditation Readiness', path: '/app/accreditation', icon: ShieldCheck },
+    { label: 'Committee Meetings', path: '/app/committees', icon: BookOpen },
+    { label: 'Staff Training', path: '/app/training', icon: GraduationCap },
     { label: 'AI Insights', path: '/app/ai', icon: Brain }
   ];
 

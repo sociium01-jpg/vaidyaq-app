@@ -541,6 +541,24 @@ This SOP is subject to audit every 6 months. Revision 1.0.`;
 
   return (
     <div className="flex flex-col gap-3">
+      {/* Visual AI Guardrails Disclaimer Card */}
+      <div style={{
+        padding: '1rem',
+        backgroundColor: 'rgba(239, 68, 68, 0.05)',
+        border: '1px solid #ef4444',
+        borderRadius: '12px',
+        fontSize: '0.8rem',
+        color: 'var(--text-primary)',
+        boxShadow: 'var(--shadow-sm)'
+      }} className="flex flex-col gap-1.5">
+        <h4 style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#ef4444', margin: 0 }}>
+          ⚠️ AI Clinical Guardrails & Data Policy Disclaimer
+        </h4>
+        <p style={{ margin: 0, fontSize: '0.75rem', lineHeight: '1.4', color: 'var(--text-secondary)' }}>
+          AI recommendations are strictly advisory templates. Authorized human-in-the-loop validation is mandatory before approving or executing any policies, SOPs, MOM minutes, or CAPAs (authorized clinical signature PIN: <strong>1234</strong>). Source citations are matched against the preloaded <strong>NABH 6th Edition</strong> guidelines. No patient-identifiable data or Aadhaar records are processed, satisfying strict ABDM privacy guardrails.
+        </p>
+      </div>
+
       {/* Sub navigation */}
       <div className="tabs-container">
         <button onClick={() => setActiveSubTab('copilot')} className={`tab-btn ${activeSubTab === 'copilot' ? 'active' : ''}`}>
@@ -721,7 +739,37 @@ This SOP is subject to audit every 6 months. Revision 1.0.`;
 
           {/* Quick Prompts Panel */}
           <div className="copilot-help-pane">
-            <h4 style={{ fontWeight: 700, marginBottom: '1rem', fontSize: '0.9rem' }}>Suggested Readiness Prompts</h4>
+            <h4 style={{ fontWeight: 700, marginBottom: '0.75rem', fontSize: '0.95rem' }}>Readiness Helper Templates</h4>
+            <button
+              onClick={() => { setChatInput("AI CAPA Assistant: Draft root cause and CAPA corrective measures for an audit gap where ICU crash carts had expired medicines."); }}
+              className="preset-prompt-card"
+              style={{ borderLeft: '3.5px solid var(--primary)', paddingLeft: '8px', textAlign: 'left', width: '100%', marginBottom: '0.5rem' }}
+            >
+              🛠️ AI CAPA Assistant
+            </button>
+            <button
+              onClick={() => { setChatInput("AI Audit Assistant: Create a custom department audit checklist for Otis elevators and patient transfer safety."); }}
+              className="preset-prompt-card"
+              style={{ borderLeft: '3.5px solid var(--primary)', paddingLeft: '8px', textAlign: 'left', width: '100%', marginBottom: '0.5rem' }}
+            >
+              📋 AI Audit Checklist Creator
+            </button>
+            <button
+              onClick={() => { setChatInput("AI MOM Assistant: Format raw committee notes: 'Pharmacy committee met June 10th. Discussed narcotic keys custodian double locks. Gracy to enforce double keys. Due June 20th.'"); }}
+              className="preset-prompt-card"
+              style={{ borderLeft: '3.5px solid var(--primary)', paddingLeft: '8px', textAlign: 'left', width: '100%', marginBottom: '0.5rem' }}
+            >
+              ✍️ AI MOM Minutes Formatter
+            </button>
+            <button
+              onClick={() => { setChatInput("AI Evidence Grader: Evaluate the quality score of document 'Bio-Medical Waste Segregation SOP' against NABH BWM requirements."); }}
+              className="preset-prompt-card"
+              style={{ borderLeft: '3.5px solid var(--primary)', paddingLeft: '8px', textAlign: 'left', width: '100%', marginBottom: '0.5rem' }}
+            >
+              ⭐ Evidence Quality Grader
+            </button>
+
+            <h4 style={{ fontWeight: 700, marginTop: '1.5rem', marginBottom: '0.75rem', fontSize: '0.9rem' }}>Readiness Prompts</h4>
             <button
               onClick={() => { setChatInput("Show me all missing evidence related to accreditation."); }}
               className="preset-prompt-card"
@@ -747,7 +795,7 @@ This SOP is subject to audit every 6 months. Revision 1.0.`;
               List overdue CAPAs & deadlines
             </button>
 
-            <div style={{ marginTop: '2rem', padding: '0.75rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '10px', fontSize: '0.75rem', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
+            <div style={{ marginTop: '1.5rem', padding: '0.75rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '10px', fontSize: '0.75rem', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
               🔒 <strong>Audit Privacy Sandbox:</strong> Copilot answers are generated strictly from local parameters. No medical patient charts are accessed.
             </div>
           </div>

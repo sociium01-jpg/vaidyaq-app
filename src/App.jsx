@@ -19,6 +19,8 @@ import AdminModule from './pages/AdminModule';
 import ProfileSettings from './pages/ProfileSettings';
 import VendorAdminConsole from './pages/VendorAdminConsole';
 import SupportCenter from './pages/SupportCenter';
+import CommitteeModule from './pages/CommitteeModule';
+import TrainingModule from './pages/TrainingModule';
 
 function AppContent() {
   const { 
@@ -195,6 +197,10 @@ function AppContent() {
                 return <Reports />;
               case '/app/admin':
                 return <AdminModule />;
+              case '/app/committees':
+                return <CommitteeModule />;
+              case '/app/training':
+                return <TrainingModule />;
               case '/app/profile':
                 return <ProfileSettings />;
               case '/app/support':

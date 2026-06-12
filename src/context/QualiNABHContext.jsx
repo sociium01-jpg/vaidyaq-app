@@ -146,6 +146,46 @@ const defaultComplianceFeed = [
   { id: "feed-3", date: "2026-06-02", title: "NABH 6th Edition Medication Storage Amendments", category: "NABH Notice", content: "High-alert medication locks must be checked at every shift change. Dual-custody signatures are mandated for narcotic withdrawals.", source: "NABH constitutive board", isNew: false }
 ];
 
+const defaultComplianceFlows = [
+  { id: "PSP", name: "Patient Safety Policy", department: "Quality Control", owner: "Dr. Sarah Paul", version: "1.2", effectiveDate: "2026-01-10", reviewDate: "2027-01-10", approver: "Dr. Mehta (Medical Director)", stages: { policy: "Completed", sop: "Completed", training: "Completed", implementation: "Completed", documentation: "Completed", audit: "Completed", findings: "Completed", capa: "Completed", review: "Pending", improvement: "Not Started", updates: "Not Started" }, linkedSops: ["doc-1"], linkedForms: ["incident-reporting"], linkedTraining: [], linkedAudits: ["audit-2"], linkedCapas: [], linkedIncidents: [] },
+  { id: "IPC", name: "Infection Prevention & Control Policy", department: "Quality Control", owner: "Dr. Sarah Paul", version: "1.0", effectiveDate: "2026-02-15", reviewDate: "2027-02-15", approver: "Col. Roy (COO)", stages: { policy: "Completed", sop: "Completed", training: "Completed", implementation: "Completed", documentation: "Completed", audit: "Pending", findings: "Not Started", capa: "Not Started", review: "Not Started", improvement: "Not Started", updates: "Not Started" }, linkedSops: ["doc-2"], linkedForms: [], linkedTraining: [], linkedAudits: [], linkedCapas: [], linkedIncidents: [] },
+  { id: "MSP", name: "Medication Safety Policy", department: "Pharmacy", owner: "Dr. Sen", version: "2.0", effectiveDate: "2025-12-01", reviewDate: "2026-12-01", approver: "Dr. Mehta (Medical Director)", stages: { policy: "Completed", sop: "Completed", training: "Completed", implementation: "Completed", documentation: "Completed", audit: "Completed", findings: "Completed", capa: "Completed", review: "Completed", improvement: "Completed", updates: "Pending" }, linkedSops: ["doc-3", "doc-4"], linkedForms: [], linkedTraining: [], linkedAudits: ["audit-3"], linkedCapas: ["capa-1"], linkedIncidents: ["inc-1"] },
+  { id: "AMS", name: "Antimicrobial Stewardship Policy", department: "Pharmacy", owner: "Dr. Sen", version: "1.0", effectiveDate: "2026-04-01", reviewDate: "2027-04-01", approver: "Dr. Mehta (Medical Director)", stages: { policy: "Completed", sop: "Pending", training: "Not Started", implementation: "Not Started", documentation: "Not Started", audit: "Not Started", findings: "Not Started", capa: "Not Started", review: "Not Started", improvement: "Not Started", updates: "Not Started" }, linkedSops: [], linkedForms: [], linkedTraining: [], linkedAudits: [], linkedCapas: [], linkedIncidents: [] },
+  { id: "IRP", name: "Incident Reporting Policy", department: "Quality Control", owner: "Dr. Sarah Paul", version: "1.1", effectiveDate: "2026-03-01", reviewDate: "2027-03-01", approver: "Col. Roy (COO)", stages: { policy: "Completed", sop: "Completed", training: "Completed", implementation: "Completed", documentation: "Completed", audit: "Completed", findings: "Completed", capa: "Completed", review: "Completed", improvement: "Completed", updates: "Completed" }, linkedSops: [], linkedForms: ["incident-reporting"], linkedTraining: [], linkedAudits: [], linkedCapas: [], linkedIncidents: ["inc-2"] },
+  { id: "PCP", name: "Patient Consent Policy", department: "OPD", owner: "Dr. Rita", version: "1.0", effectiveDate: "2026-01-15", reviewDate: "2027-01-15", approver: "Dr. Mehta (Medical Director)", stages: { policy: "Completed", sop: "Completed", training: "Completed", implementation: "Completed", documentation: "Completed", audit: "Pending", findings: "Not Started", capa: "Not Started", review: "Not Started", improvement: "Not Started", updates: "Not Started" }, linkedSops: [], linkedForms: [], linkedTraining: [], linkedAudits: [], linkedCapas: [], linkedIncidents: [] },
+  { id: "MRP", name: "Medical Record Policy", department: "Medical Records", owner: "Dr. Sarah Paul", version: "1.0", effectiveDate: "2026-01-05", reviewDate: "2027-01-05", approver: "Col. Roy (COO)", stages: { policy: "Completed", sop: "Completed", training: "Completed", implementation: "Pending", documentation: "Not Started", audit: "Not Started", findings: "Not Started", capa: "Not Started", review: "Not Started", improvement: "Not Started", updates: "Not Started" }, linkedSops: [], linkedForms: [], linkedTraining: [], linkedAudits: [], linkedCapas: [], linkedIncidents: [] },
+  { id: "BWM", name: "Biomedical Waste Management Policy", department: "Housekeeping", owner: "Mr. Verma", version: "1.1", effectiveDate: "2026-02-18", reviewDate: "2027-02-18", approver: "Col. Roy (COO)", stages: { policy: "Completed", sop: "Completed", training: "Completed", implementation: "Completed", documentation: "Completed", audit: "Completed", findings: "Pending", capa: "Not Started", review: "Not Started", improvement: "Not Started", updates: "Not Started" }, linkedSops: ["doc-6"], linkedForms: [], linkedTraining: [], linkedAudits: [], linkedCapas: [], linkedIncidents: [] },
+  { id: "FSP", name: "Fire and Safety Policy", department: "Security & Facility", owner: "Col. Roy", version: "1.2", effectiveDate: "2026-02-18", reviewDate: "2027-02-18", approver: "Col. Roy (COO)", stages: { policy: "Completed", sop: "Completed", training: "Completed", implementation: "Completed", documentation: "Completed", audit: "Completed", findings: "Completed", capa: "Pending", review: "Not Started", improvement: "Not Started", updates: "Not Started" }, linkedSops: ["doc-5"], linkedForms: [], linkedTraining: [], linkedAudits: [], linkedCapas: [], linkedIncidents: [] },
+  { id: "STC", name: "Staff Training and Competency Policy", department: "HR", owner: "Dr. Sarah Paul", version: "1.0", effectiveDate: "2026-01-10", reviewDate: "2027-01-10", approver: "Dr. Mehta (Medical Director)", stages: { policy: "Completed", sop: "Completed", training: "Completed", implementation: "Completed", documentation: "Completed", audit: "Completed", findings: "Completed", capa: "Completed", review: "Completed", improvement: "Completed", updates: "Completed" }, linkedSops: [], linkedForms: [], linkedTraining: [], linkedAudits: [], linkedCapas: [], linkedIncidents: [] },
+  { id: "HRP", name: "Human Resource Policy", department: "HR", owner: "Dr. Sarah Paul", version: "1.0", effectiveDate: "2026-01-10", reviewDate: "2027-01-10", approver: "Col. Roy (COO)", stages: { policy: "Completed", sop: "Completed", training: "Completed", implementation: "Pending", documentation: "Not Started", audit: "Not Started", findings: "Not Started", capa: "Not Started", review: "Not Started", improvement: "Not Started", updates: "Not Started" }, linkedSops: [], linkedForms: [], linkedTraining: [], linkedAudits: [], linkedCapas: [], linkedIncidents: [] },
+  { id: "DPI", name: "Data Privacy and Information Security Policy", department: "Quality Control", owner: "Col. Roy", version: "1.0", effectiveDate: "2026-05-15", reviewDate: "2027-05-15", approver: "Col. Roy (COO)", stages: { policy: "Completed", sop: "Completed", training: "Pending", implementation: "Not Started", documentation: "Not Started", audit: "Not Started", findings: "Not Started", capa: "Not Started", review: "Not Started", improvement: "Not Started", updates: "Not Started" }, linkedSops: [], linkedForms: [], linkedTraining: [], linkedAudits: [], linkedCapas: [], linkedIncidents: [] },
+  { id: "VEM", name: "Vendor and Equipment Maintenance Policy", department: "ICU", owner: "Mr. Dave", version: "1.0", effectiveDate: "2026-03-01", reviewDate: "2027-03-01", approver: "Dr. Mehta (Medical Director)", stages: { policy: "Completed", sop: "Completed", training: "Completed", implementation: "Completed", documentation: "Completed", audit: "Pending", findings: "Not Started", capa: "Not Started", review: "Not Started", improvement: "Not Started", updates: "Not Started" }, linkedSops: [], linkedForms: [], linkedTraining: [], linkedAudits: [], linkedCapas: [], linkedIncidents: [] },
+  { id: "QIP", name: "Quality Improvement Policy", department: "Quality Control", owner: "Dr. Sarah Paul", version: "1.1", effectiveDate: "2026-01-10", reviewDate: "2027-01-10", approver: "Dr. Mehta (Medical Director)", stages: { policy: "Completed", sop: "Completed", training: "Completed", implementation: "Completed", documentation: "Completed", audit: "Completed", findings: "Completed", capa: "Completed", review: "Completed", improvement: "Completed", updates: "Completed" }, linkedSops: [], linkedForms: [], linkedTraining: [], linkedAudits: [], linkedCapas: [], linkedIncidents: [] }
+];
+
+const defaultCommittees = [
+  { id: "comm-1", name: "Quality Assurance Committee", department: "Quality Control", chair: "Dr. Sarah Paul", frequency: "Monthly", meetings: [
+    { date: "2026-05-10", attendees: ["Dr. Sarah Paul", "Col. Roy", "Dr. Sen"], agenda: "Review ICU CRASH cart audit findings & resolve CAPA-1.", minutes: "Discussed expired saline syringes in ICU cart. Replaced syringes. Nursing handover daily checklists introduced. Signed off.", actionItems: [{ id: "act-1", task: "Introduce daily ICU crash cart check log sheet", assignedTo: "Sister Gracy", dueDate: "2026-05-15", status: "Completed" }] },
+    { date: "2026-06-08", attendees: ["Dr. Sarah Paul", "Col. Roy", "Dr. Rita"], agenda: "NABH 6th Edition Readiness scoring review and documentation gaps check.", minutes: "Audited standard scores. Calculated 68% readiness. Flagged missing SOP for MOM.3.a. Tasks assigned to Pharmacy Head.", actionItems: [{ id: "act-2", task: "Draft expired drug disposal SOP (MOM.3.a)", assignedTo: "Dr. Sen", dueDate: "2026-06-15", status: "Pending" }] }
+  ] },
+  { id: "comm-2", name: "Infection Control Committee", department: "Quality Control", chair: "Dr. Sarah Paul", frequency: "Monthly", meetings: [
+    { date: "2026-05-18", attendees: ["Dr. Sarah Paul", "Sister Gracy", "Mr. Verma"], agenda: "Biomedical waste segregation bags checking and staff hygiene training logs review.", minutes: "Evaluated yellow/red bag weights. Hand hygiene quiz completion checked at 88%. Scheduled audit.", actionItems: [] }
+  ] },
+  { id: "comm-3", name: "Pharmacy Committee", department: "Pharmacy", chair: "Dr. Sen", frequency: "Bi-Monthly", meetings: [
+    { date: "2026-06-01", attendees: ["Dr. Sen", "Dr. Sarah Paul", "Dr. Mehta"], agenda: "Medication safety errors, high-alert drug lockbox audits.", minutes: "Reviewed prescription handwriting ambiguities. Intercepted double dose paracetamol. Instructed pharmacy staff to check double signatures.", actionItems: [] }
+  ] }
+];
+
+const defaultTrainings = [
+  { id: "train-1", topic: "Clinical Hand Hygiene (WHO 5 Moments)", department: "Quality Control", role: "Nurse", date: "2026-05-12", attendees: ["Sister Gracy", "Priya Sharma", "Aarav Sharma"], quizRef: "QZ-HH-091", passRate: "90", status: "Active" },
+  { id: "train-2", topic: "Basic Life Support (BLS) Certification", department: "Emergency", role: "Doctor", date: "2026-04-10", attendees: ["Dr. Sen", "Dr. Rita", "Dr. Sarah Paul"], quizRef: "QZ-BLS-112", passRate: "100", status: "Active" }
+];
+
+const defaultRisks = [
+  { id: "risk-1", category: "Medication Safety", description: "Prescription handwriting ambiguity leading to dosage dispensation errors.", department: "Pharmacy", impact: "High", likelihood: "Medium", rating: "Red", correctiveAction: "Transitioning to 100% electronic HIMS prescription entries." },
+  { id: "risk-2", category: "Facility Fire Safety", description: "Obstructed emergency egress pathways in OPD consulting wings due to backup furniture storage.", department: "Security & Facility", impact: "High", likelihood: "Low", rating: "Orange", correctiveAction: "Cleared corridors and arranged basement storage." }
+];
+
 export const QualiNABHProvider = ({ children }) => {
   // Get namespaced key loader helper
   const loadNamespacedState = (key, defaultValue) => {
@@ -191,6 +231,36 @@ export const QualiNABHProvider = ({ children }) => {
           expiryDate: '',
           responsible: l.responsible.includes('(') ? l.responsible.substring(l.responsible.indexOf('(') + 1, l.responsible.length - 1) : l.responsible,
           status: 'Expired'
+        }));
+      }
+      if (key === 'qn_compliance_flows') {
+        return defaultComplianceFlows.map(flow => ({
+          ...flow,
+          stages: {
+            policy: "Not Started",
+            sop: "Not Started",
+            training: "Not Started",
+            implementation: "Not Started",
+            documentation: "Not Started",
+            audit: "Not Started",
+            findings: "Not Started",
+            capa: "Not Started",
+            review: "Not Started",
+            improvement: "Not Started",
+            updates: "Not Started"
+          },
+          linkedSops: [],
+          linkedForms: [],
+          linkedTraining: [],
+          linkedAudits: [],
+          linkedCapas: [],
+          linkedIncidents: []
+        }));
+      }
+      if (key === 'qn_committees') {
+        return defaultCommittees.map(c => ({
+          ...c,
+          meetings: []
         }));
       }
       return Array.isArray(defaultValue) ? [] : typeof defaultValue === 'object' ? {} : defaultValue;
@@ -379,6 +449,22 @@ export const QualiNABHProvider = ({ children }) => {
     return loadNamespacedState('qn_incidents', defaultIncidents);
   });
 
+  const [complianceFlows, setComplianceFlows] = useState(() => {
+    return loadNamespacedState('qn_compliance_flows', defaultComplianceFlows);
+  });
+
+  const [committees, setCommittees] = useState(() => {
+    return loadNamespacedState('qn_committees', defaultCommittees);
+  });
+
+  const [trainings, setTrainings] = useState(() => {
+    return loadNamespacedState('qn_trainings', defaultTrainings);
+  });
+
+  const [risks, setRisks] = useState(() => {
+    return loadNamespacedState('qn_risks', defaultRisks);
+  });
+
   const [licenses, setLicenses] = useState(() => {
     return loadNamespacedState('qn_licenses', defaultLicenses);
   });
@@ -480,6 +566,30 @@ export const QualiNABHProvider = ({ children }) => {
       localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_incidents`, JSON.stringify(incidents));
     }
   }, [incidents, currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_compliance_flows`, JSON.stringify(complianceFlows));
+    }
+  }, [complianceFlows, currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_committees`, JSON.stringify(committees));
+    }
+  }, [committees, currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_trainings`, JSON.stringify(trainings));
+    }
+  }, [trainings, currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_risks`, JSON.stringify(risks));
+    }
+  }, [risks, currentUser]);
 
   useEffect(() => {
     if (currentUser) {
@@ -1560,6 +1670,36 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
       });
     }
 
+    // Connect to complianceFlows
+    if (newDoc.mappedPolicyId) {
+      setComplianceFlows(prev => prev.map(flow => {
+        if (flow.id === newDoc.mappedPolicyId) {
+          const updatedStages = { ...flow.stages };
+          const type = newDoc.type.toLowerCase();
+          
+          if (type === "policy") {
+            updatedStages.policy = "Completed";
+          } else if (type === "sop") {
+            updatedStages.sop = "Completed";
+            const updatedSops = [...(flow.linkedSops || [])];
+            if (!updatedSops.includes(docId)) updatedSops.push(docId);
+            return { ...flow, stages: updatedStages, linkedSops: updatedSops };
+          } else if (type === "form" || type === "checklist" || type === "register") {
+            updatedStages.implementation = "Completed";
+            updatedStages.documentation = "Completed";
+            const updatedForms = [...(flow.linkedForms || [])];
+            if (!updatedForms.includes(docId)) updatedForms.push(docId);
+            return { ...flow, stages: updatedStages, linkedForms: updatedForms };
+          } else if (type === "evidence") {
+            updatedStages.documentation = "Completed";
+          }
+          
+          return { ...flow, stages: updatedStages };
+        }
+        return flow;
+      }));
+    }
+
     logActivity(`Uploaded document: ${newDoc.title} (${newDoc.type})`);
     return docId;
   };
@@ -1609,6 +1749,19 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
     };
     setTasks(prev => [taskObj, ...prev]);
 
+    // Link to policy flow if mappedPolicyId is present
+    if (newCapa.mappedPolicyId) {
+      setComplianceFlows(prev => prev.map(flow => {
+        if (flow.id === newCapa.mappedPolicyId) {
+          const updatedCapas = [...(flow.linkedCapas || [])];
+          if (!updatedCapas.includes(capaId)) updatedCapas.push(capaId);
+          const updatedStages = { ...flow.stages, capa: "Pending" };
+          return { ...flow, linkedCapas: updatedCapas, stages: updatedStages };
+        }
+        return flow;
+      }));
+    }
+
     logActivity(`Created CAPA ${capaId} assigned to ${newCapa.responsible}`);
     return capaId;
   };
@@ -1625,10 +1778,24 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
       immediateAction: newInc.immediateAction,
       investigator: newInc.investigator || "Assigned Quality Officer",
       status: "Under Investigation",
-      capaId: null
+      capaId: null,
+      shift: newInc.shift || "Morning"
     };
     setIncidents(prev => [incidentObj, ...prev]);
+
+    // Auto-link to Incident Reporting Policy (IRP)
+    setComplianceFlows(prev => prev.map(flow => {
+      if (flow.id === "IRP") {
+        const updatedIncidents = [...(flow.linkedIncidents || [])];
+        if (!updatedIncidents.includes(incId)) updatedIncidents.push(incId);
+        const updatedStages = { ...flow.stages, findings: "Completed" };
+        return { ...flow, linkedIncidents: updatedIncidents, stages: updatedStages };
+      }
+      return flow;
+    }));
+
     logActivity(`Reported incident ${incId} in ${newInc.department} (${newInc.type})`);
+    return incId;
   };
 
   const closeCapa = (capaId, approverName) => {
@@ -1638,6 +1805,21 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
         return { ...c, status: "Closed", closureApprovedBy: approverName };
       }
       return c;
+    }));
+
+    // Auto-update compliance flow stage 'capa' to Completed, and move review/improvement to Completed or Pending
+    setComplianceFlows(prev => prev.map(flow => {
+      if (flow.linkedCapas && flow.linkedCapas.includes(capaId)) {
+        const updatedStages = {
+          ...flow.stages,
+          capa: "Completed",
+          review: "Completed",
+          improvement: "Completed",
+          updates: "Pending" // ready to trigger updates
+        };
+        return { ...flow, stages: updatedStages };
+      }
+      return flow;
     }));
   };
 
@@ -1654,6 +1836,147 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
       }
       return a;
     }));
+  };
+
+  const addCommitteeMeeting = (committeeId, meeting) => {
+    const meetingWithId = {
+      ...meeting,
+      id: `meet-${Date.now()}`
+    };
+    
+    setCommittees(prev => prev.map(c => {
+      if (c.id === committeeId) {
+        return {
+          ...c,
+          meetings: [meetingWithId, ...(c.meetings || [])]
+        };
+      }
+      return c;
+    }));
+
+    if (meeting.actionItems && meeting.actionItems.length > 0) {
+      const newTasks = meeting.actionItems.map(item => ({
+        id: item.id || `task-meet-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        title: `Committee Action: ${item.task}`,
+        assignedTo: item.assignedTo,
+        dueDate: item.dueDate,
+        status: item.status || "Pending",
+        priority: "Medium",
+        source: "Committee Meeting"
+      }));
+      setTasks(prev => [...newTasks, ...prev]);
+    }
+
+    logActivity(`Logged meeting for committee ${committeeId}`);
+  };
+
+  const addTrainingSession = (session) => {
+    const sessionWithId = {
+      ...session,
+      id: `train-${Date.now()}`
+    };
+    setTrainings(prev => [sessionWithId, ...prev]);
+    
+    if (session.mappedPolicyId) {
+      setComplianceFlows(prev => prev.map(flow => {
+        if (flow.id === session.mappedPolicyId) {
+          const updatedStages = { ...flow.stages, training: "Completed" };
+          const updatedLinkedTraining = [...(flow.linkedTraining || [])];
+          if (!updatedLinkedTraining.includes(sessionWithId.id)) {
+            updatedLinkedTraining.push(sessionWithId.id);
+          }
+          return { ...flow, stages: updatedStages, linkedTraining: updatedLinkedTraining };
+        }
+        return flow;
+      }));
+    }
+    
+    logActivity(`Added training session: ${session.topic}`);
+    return sessionWithId.id;
+  };
+
+  const addRiskRegisterItem = (risk) => {
+    const riskWithId = {
+      ...risk,
+      id: `risk-${Date.now()}`
+    };
+    setRisks(prev => [riskWithId, ...prev]);
+    logActivity(`Added risk to register: ${risk.description.substring(0, 30)}...`);
+    return riskWithId.id;
+  };
+
+  const updateComplianceFlowStage = (policyId, stage, status) => {
+    setComplianceFlows(prev => prev.map(flow => {
+      if (flow.id === policyId) {
+        const updatedStages = { ...flow.stages, [stage]: status };
+        return { ...flow, stages: updatedStages };
+      }
+      return flow;
+    }));
+  };
+
+  const generateAIQuiz = (sopTitle) => {
+    return {
+      sopTitle: sopTitle,
+      status: "Draft",
+      questions: [
+        {
+          id: 1,
+          question: `What is the primary objective outlined in the ${sopTitle}?`,
+          options: [
+            "To define standard operating guidelines and ensure clinical safety.",
+            "To record daily attendance logs.",
+            "To review financial billing sheets.",
+            "To schedule committee meetings."
+          ],
+          correctAnswer: 0
+        },
+        {
+          id: 2,
+          question: `According to the ${sopTitle}, who is responsible for initiating corrective actions?`,
+          options: [
+            "Any staff member discovering a gap.",
+            "Only the Chief Operating Officer.",
+            "The Department Head or Quality Officer.",
+            "External audit inspectors."
+          ],
+          correctAnswer: 2
+        },
+        {
+          id: 3,
+          question: `What is the maximum timeline allowed for documenting an incident under the ${sopTitle}?`,
+          options: [
+            "Within 24 hours.",
+            "Immediate (within shift) reporting.",
+            "Within 7 working days.",
+            "By the end of the month."
+          ],
+          correctAnswer: 1
+        },
+        {
+          id: 4,
+          question: `Which of the following is considered a primary audit finding in ${sopTitle} audits?`,
+          options: [
+            "Lack of proper signature or documentation logs.",
+            "Color of the file folders.",
+            "Coffee machine placement.",
+            "Speed of HIMS network connection."
+          ],
+          correctAnswer: 0
+        },
+        {
+          id: 5,
+          question: `How often must compliance indicators for the ${sopTitle} be reviewed?`,
+          options: [
+            "Annually",
+            "Monthly or during committee audits.",
+            "Every shift change.",
+            "Decennially"
+          ],
+          correctAnswer: 1
+        }
+      ]
+    };
   };
 
   const approveSOPDraft = (title, department, mappedStds, content) => {
@@ -1834,7 +2157,17 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
       isAppLocked,
       getLiveCountdownString,
       forcePaymentScreen,
-      setForcePaymentScreen
+      setForcePaymentScreen,
+      // New Phase 3 exports
+      complianceFlows, setComplianceFlows,
+      committees, setCommittees,
+      trainings, setTrainings,
+      risks, setRisks,
+      addCommitteeMeeting,
+      addTrainingSession,
+      addRiskRegisterItem,
+      updateComplianceFlowStage,
+      generateAIQuiz
     }}>
       {children}
     </QualiNABHContext.Provider>
