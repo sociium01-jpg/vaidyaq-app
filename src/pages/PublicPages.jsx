@@ -670,7 +670,7 @@ Key Benefits of the SaaS Model:
 
           {/* Mobile Dropdown Drawer Menu */}
           {mobileMenuOpen && (
-            <div className="mobile-nav-menu">
+            <div className="mobile-nav-menu glassmorphic-menu">
               <ul className="mobile-nav-links">
                 <li><button onClick={() => { navigateToTab('home'); setMobileMenuOpen(false); }} className={`nav-link ${activeTab === 'home' ? 'active' : ''}`}>Home</button></li>
                 <li><button onClick={() => { navigateToTab('solutions'); setMobileMenuOpen(false); }} className={`nav-link ${activeTab === 'solutions' ? 'active' : ''}`}>Solutions</button></li>
@@ -1653,13 +1653,13 @@ Key Benefits of the SaaS Model:
               </div>
 
               {/* Pricing Display Card */}
-              <div className="card" style={{ maxWidth: '500px', margin: '2rem auto', borderTop: `6px solid ${pricingDetails.color}`, padding: '2.5rem' }}>
+              <div className="glow-card pricing-card-responsive" style={{ borderTop: `6px solid ${pricingDetails.color}` }}>
                 <h3 style={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
                   {pricingDetails.tier}
                 </h3>
                 <div style={{ margin: '1rem 0' }}>
                   <span style={{ fontSize: '3rem', fontWeight: 800 }}>{pricingDetails.price}</span>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '1rem' }}>/ year</span>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '1rem' }}> / year</span>
                 </div>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', marginBottom: '1.5rem' }}>
                   * All prices exclude standard local taxes. Software updates are included.
@@ -1673,7 +1673,7 @@ Key Benefits of the SaaS Model:
                     </li>
                   ))}
                 </ul>
-                <button onClick={() => { setActiveTab('login'); setIsSignUp(true); }} className="btn btn-primary glow-premium" style={{ width: '100%', padding: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}>
+                <button onClick={() => { setActiveTab('login'); setIsSignUp(true); }} className="btn btn-primary glow-premium-btn" style={{ width: '100%', padding: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}>
                   Start 7-Day Free Trial
                 </button>
               </div>

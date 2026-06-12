@@ -61,8 +61,8 @@ function AppContent() {
     const activePrice = selectedCycle === 'quarterly' ? quarterlyPrice : annualPrice;
     
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: 'var(--bg-primary)', padding: '2rem', textAlign: 'left' }}>
-        <div className="card shadow-lg" style={{ maxWidth: '600px', width: '100%', padding: '2.5rem', borderRadius: '16px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: 'var(--bg-primary)', padding: '1rem', textAlign: 'left' }}>
+        <div className="glassmorphic-card shadow-lg pricing-card-responsive" style={{ maxWidth: '600px', width: '100%', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           <div style={{ display: 'inline-flex', alignSelf: 'flex-start', padding: '0.8rem', backgroundColor: 'rgba(217, 119, 6, 0.15)', color: 'rgb(217, 119, 6)', borderRadius: '50%' }}>
             <span style={{ fontSize: '1.8rem' }}>🛡️</span>
           </div>

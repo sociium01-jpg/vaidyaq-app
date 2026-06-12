@@ -310,7 +310,7 @@ export default function ProfileSettings() {
 
       {/* A. MY PROFILE & SECURITY */}
       {activeSubTab === 'account' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '1.5rem' }}>
+        <div className="grid-split-responsive-left-heavy">
           {/* User Profile Info Card */}
           <div className="card" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}><User size={18} /> Personal Profile Details</h3>
@@ -468,7 +468,7 @@ export default function ProfileSettings() {
 
       {/* B. PRIVACY & DATA */}
       {activeSubTab === 'privacy' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '1.5rem' }}>
+        <div className="grid-split-responsive-left-heavy">
           {/* Data Controls Card */}
           <div className="card" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}><Lock size={18} /> Data Protection & Encryption</h3>
@@ -641,7 +641,7 @@ export default function ProfileSettings() {
 
       {/* 2. USER ROLES & ACCESS CONTROL */}
       {activeSubTab === 'users' && isSuperAdmin && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '1.5rem' }}>
+        <div className="grid-split-responsive-left-heavy">
           {/* Left: Active Staff Table */}
           <div className="card flex flex-col gap-3" style={{ padding: '1.5rem' }}>
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Users size={18} /> Active Personnel Directory</h3>

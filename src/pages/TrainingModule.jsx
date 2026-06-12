@@ -282,7 +282,7 @@ export default function TrainingModule() {
 
       {/* Tab 2: Log Training / List */}
       {activeSubTab === 'log' && (
-        <div className="grid" style={{ gridTemplateColumns: '1fr 2fr', gap: '1.5rem' }}>
+        <div className="grid-split-1-2">
           {/* Form */}
           <div className="card" style={{ padding: '1.25rem' }}>
             <h3 style={{ fontSize: '0.95rem', fontWeight: 'bold', marginBottom: '1rem' }}>Log Training Session</h3>
@@ -414,7 +414,7 @@ export default function TrainingModule() {
 
       {/* Tab 3: Scorecard */}
       {activeSubTab === 'scorecard' && (
-        <div className="grid" style={{ gridTemplateColumns: '2fr 1fr', gap: '1.5rem' }}>
+        <div className="grid-split-2-1">
           <div className="card" style={{ padding: '1.25rem' }}>
             <h2 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '1.25rem' }}>Departmental Competency Scorecards</h2>
 

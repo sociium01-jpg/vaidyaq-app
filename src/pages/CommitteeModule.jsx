@@ -248,7 +248,7 @@ export default function CommitteeModule() {
 
       {/* Tab 1: Active Committees & Meeting Calendars */}
       {activeSubTab === 'meetings' && (
-        <div className="grid" style={{ gridTemplateColumns: '1fr 320px', gap: '1.5rem' }}>
+        <div className="grid-split-responsive-sidebar-right">
           {/* Left panel: Committees list */}
           <div className="card" style={{ padding: '1.25rem' }}>
             <div className="flex justify-between align-center" style={{ marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
@@ -511,7 +511,7 @@ export default function CommitteeModule() {
 
       {/* Tab 3: AI Minutes Compiler */}
       {activeSubTab === 'ai-minutes' && (
-        <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+        <div className="grid-2col-responsive">
           <div className="card" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 'bold', margin: 0 }} className="flex align-center gap-1">
               <Sparkles size={16} /> Compile AI Minutes from Notes

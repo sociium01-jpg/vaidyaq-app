@@ -8,7 +8,7 @@ import {
   Plus, ShieldAlert, Sparkles, Send, Coins, FileCheck, HelpCircle,
   TrendingUp, HardDrive, Calendar, CreditCard, ChevronRight, ChevronDown, LogOut,
   Sliders, Printer, Mail, MessageSquare, Briefcase, Eye, EyeOff,
-  TrendingDown, Trash2, Filter
+  TrendingDown, Trash2, Filter, Edit2
 } from 'lucide-react';
 
 export default function VendorAdminConsole() {
@@ -173,6 +173,7 @@ export default function VendorAdminConsole() {
   const [empRole, setEmpRole] = useState('Support Agent');
   const [empPermissions, setEmpPermissions] = useState(['view_crm', 'resolve_tickets']);
   const [empSuccess, setEmpSuccess] = useState(false);
+  const [editingEmpId, setEditingEmpId] = useState(null);
 
   // Gemini AI Panel States
   const [aiQuery, setAiQuery] = useState('');
@@ -279,8 +280,8 @@ export default function VendorAdminConsole() {
 
   // Helper to check user permission classes
   const hasPermission = (perm) => {
-    if (!currentOperator) return false;
-    return currentOperator.permissions.includes(perm);
+    if (!currentOperator || !currentOperator.permissions) return false;
+    return Array.isArray(currentOperator.permissions) && currentOperator.permissions.includes(perm);
   };
 
   // Onboarding Progress Mock/Calculation Helper
@@ -1089,30 +1090,81 @@ export default function VendorAdminConsole() {
     }, 1500);
   };
 
-  // Support Staff - Register Operator
+  // Support Staff - Register / Save Operator
   const handleRegisterEmployee = (e) => {
     e.preventDefault();
-    const newEmp = {
-      id: `emp-${Date.now()}`,
-      name: empName,
-      email: empEmail,
-      role: empRole,
-      username: empUsername,
-      password: empPassword,
-      permissions: empPermissions,
-      assignedClients: ['demo-hosp']
-    };
-    setVendorEmployees(prev => [...prev, newEmp]);
+    if (editingEmpId) {
+      // Update existing
+      setVendorEmployees(prev => prev.map(emp => {
+        if (emp.id === editingEmpId) {
+          return {
+            ...emp,
+            name: empName,
+            email: empEmail,
+            role: empRole,
+            username: empUsername,
+            password: empPassword,
+            permissions: empPermissions
+          };
+        }
+        return emp;
+      }));
+      setEditingEmpId(null);
+      setEmpSuccess(true);
+      setTimeout(() => setEmpSuccess(false), 3000);
+    } else {
+      // Create new
+      const newEmp = {
+        id: `emp-${Date.now()}`,
+        name: empName,
+        email: empEmail,
+        role: empRole,
+        username: empUsername,
+        password: empPassword,
+        permissions: empPermissions,
+        assignedClients: ['demo-hosp']
+      };
+      setVendorEmployees(prev => [...prev, newEmp]);
+      setEmpSuccess(true);
+      setTimeout(() => setEmpSuccess(false), 3000);
+    }
+
+    // Reset inputs
     setEmpName('');
     setEmpEmail('');
     setEmpUsername('');
     setEmpPassword('');
-    setEmpSuccess(true);
-    setTimeout(() => setEmpSuccess(false), 3000);
+    setEmpRole('Support Agent');
+    setEmpPermissions(['view_crm', 'resolve_tickets']);
+  };
+
+  // Support Staff - Edit Operator Mode Trigger
+  const handleStartEditEmployee = (emp) => {
+    setEditingEmpId(emp.id);
+    setEmpName(emp.name);
+    setEmpEmail(emp.email);
+    setEmpUsername(emp.username);
+    setEmpPassword(emp.password);
+    setEmpRole(emp.role);
+    setEmpPermissions(emp.permissions || []);
+  };
+
+  // Support Staff - Cancel Edit Mode
+  const handleCancelEditEmployee = () => {
+    setEditingEmpId(null);
+    setEmpName('');
+    setEmpEmail('');
+    setEmpUsername('');
+    setEmpPassword('');
+    setEmpRole('Support Agent');
+    setEmpPermissions(['view_crm', 'resolve_tickets']);
   };
 
   // Support Staff - Delete Operator
   const handleDeleteEmployee = (empId) => {
+    if (editingEmpId === empId) {
+      setEditingEmpId(null);
+    }
     setVendorEmployees(prev => prev.filter(e => e.id !== empId));
   };
 
@@ -4638,19 +4690,22 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
 
                     {/* Employee database rows */}
                     {vendorEmployees.map(emp => (
-                      <tr key={emp.id}>
+                      <tr key={emp.id} style={{ backgroundColor: editingEmpId === emp.id ? 'var(--primary-light)' : 'transparent' }}>
                         <td><strong>{emp.name}</strong><br /><span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{emp.email}</span></td>
                         <td><code>{emp.username}</code> / <code>{emp.password}</code></td>
                         <td><span className="badge badge-success" style={{ fontSize: '0.65rem' }}>{emp.role}</span></td>
                         <td style={{ maxWidth: '200px' }}>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.2rem' }}>
-                            {emp.permissions.map(p => (
+                            {(emp.permissions || []).map(p => (
                               <code key={p} style={{ fontSize: '0.65rem', backgroundColor: 'var(--primary-light)', padding: '0.1rem 0.2rem', borderRadius: '3px' }}>{p}</code>
                             ))}
                           </div>
                         </td>
-                        <td>
-                          <button onClick={() => handleDeleteEmployee(emp.id)} className="btn" style={{ border: 'none', background: 'none', color: 'var(--color-danger)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                        <td style={{ whiteSpace: 'nowrap' }}>
+                          <button onClick={() => handleStartEditEmployee(emp)} className="btn" style={{ border: 'none', background: 'none', color: 'var(--primary)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', padding: '0.2rem', marginRight: '0.4rem' }} title="Edit Operator Profile">
+                            <Edit2 size={14} />
+                          </button>
+                          <button onClick={() => handleDeleteEmployee(emp.id)} className="btn" style={{ border: 'none', background: 'none', color: 'var(--color-danger)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', padding: '0.2rem' }} title="Delete Operator Profile">
                             <Trash size={14} />
                           </button>
                         </td>
@@ -4659,20 +4714,22 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
                   </tbody>
                 </table>
               </div>
-
-              {/* Right Column: Register Form */}
+ 
+              {/* Right Column: Register/Edit Form */}
               <div className="card flex flex-col gap-3" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
                 <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <UserPlus size={18} /> <span>Register Office Account</span>
+                  <UserPlus size={18} /> <span>{editingEmpId ? "Update Office Account" : "Register Office Account"}</span>
                 </h3>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Create restricted operator profiles with custom permission checks.</p>
-
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                  {editingEmpId ? "Modify operator credentials, role, and clearance rights." : "Create restricted operator profiles with custom permission checks."}
+                </p>
+ 
                 {empSuccess && (
                   <div style={{ backgroundColor: 'var(--bg-success)', color: 'var(--color-success)', padding: '0.6rem', borderRadius: '8px', fontSize: '0.75rem' }}>
-                    New VaidyaQ employee registered successfully.
+                    {editingEmpId ? "Operator profile updated successfully." : "New VaidyaQ employee registered successfully."}
                   </div>
                 )}
-
+ 
                 <form onSubmit={handleRegisterEmployee} className="flex flex-col gap-3">
                   <div className="form-group">
                     <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.8rem' }}>Full Name</label>
@@ -4683,7 +4740,7 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
                     <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.8rem' }}>Office Email</label>
                     <input type="email" required className="form-control" value={empEmail} onChange={(e) => setEmpEmail(e.target.value)} style={{ padding: '0.45rem' }} />
                   </div>
-
+ 
                   <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                     <div className="form-group">
                       <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.8rem' }}>Login Username</label>
@@ -4694,7 +4751,7 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
                       <input type="text" required className="form-control" value={empPassword} onChange={(e) => setEmpPassword(e.target.value)} style={{ padding: '0.45rem' }} />
                     </div>
                   </div>
-
+ 
                   <div className="form-group">
                     <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.8rem' }}>Corporate Role Title</label>
                     <select 
@@ -4708,7 +4765,7 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
                       <option value="Platform Administrator">Platform Administrator (Full system access)</option>
                     </select>
                   </div>
-
+ 
                   {/* Permissions Checklist */}
                   <div className="form-group">
                     <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.8rem', display: 'block', marginBottom: '0.3rem' }}>Assign Security Clearances</label>
@@ -4731,10 +4788,17 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
                       </label>
                     </div>
                   </div>
-
-                  <button type="submit" className="btn btn-primary" style={{ padding: '0.6rem', marginTop: '0.5rem', cursor: 'pointer', fontWeight: 700 }}>
-                    Register Employee Account
-                  </button>
+ 
+                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                    <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '0.6rem', cursor: 'pointer', fontWeight: 700 }}>
+                      {editingEmpId ? "Save Changes" : "Register Employee Account"}
+                    </button>
+                    {editingEmpId && (
+                      <button type="button" onClick={handleCancelEditEmployee} className="btn btn-secondary" style={{ padding: '0.6rem', cursor: 'pointer' }}>
+                        Cancel
+                      </button>
+                    )}
+                  </div>
                 </form>
               </div>
 

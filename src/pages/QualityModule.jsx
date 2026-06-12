@@ -411,7 +411,7 @@ export default function QualityModule() {
             🔒 <strong>ABDM Patient Privacy Guard:</strong> Patient Names and Aadhaar numbers are scrubbed. Incident logs utilize generic Incident IDs, department names, and de-identified details.
           </div>
 
-          <div className="grid" style={{ gridTemplateColumns: '1fr 320px', gap: '1.5rem' }}>
+          <div className="grid-split-responsive-sidebar-right">
             {/* Left Column: Incidents Table */}
             <div className="flex flex-col gap-3">
               <div className="table-container">
