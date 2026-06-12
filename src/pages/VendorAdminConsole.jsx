@@ -51,6 +51,44 @@ export default function VendorAdminConsole() {
   const [selectedCrmClient, setSelectedCrmClient] = useState(null);
   const [dossierSubTab, setDossierSubTab] = useState('metadata'); // 'metadata', 'vault', 'tickets', 'payments', 'logs'
   
+  // --- CLIENT DATABASE MANAGEMENT CENTER STATES ---
+  const [crmTab, setCrmTab] = useState('list'); // 'list', 'analytics', 'add-client', 'newsletter'
+  
+  // Register Client Form States
+  const [newClientName, setNewClientName] = useState('');
+  const [newClientEmail, setNewClientEmail] = useState('');
+  const [newClientPassword, setNewClientPassword] = useState('');
+  const [newClientBeds, setNewClientBeds] = useState(50);
+  const [newClientAddress, setNewClientAddress] = useState('');
+  const [newClientGovId, setNewClientGovId] = useState('');
+  const [newClientGovIdType, setNewClientGovIdType] = useState('GSTIN');
+  const [newClientSuccess, setNewClientSuccess] = useState(false);
+
+  // Newsletter Designer & Scheduler States
+  const [newsletterSubject, setNewsletterSubject] = useState('VaidyaQ Bulletin - Operations Update');
+  const [newsletterBody, setNewsletterBody] = useState('Hello {{hospitalName}},\n\nWe have exciting new accreditation tools available under your VaidyaQ secure vault panel!\n\nBest Regards,\nOperations Team');
+  const [newsletterHeaderLogo, setNewsletterHeaderLogo] = useState('VaidyaQ');
+  const [newsletterFooter, setNewsletterFooter] = useState('VaidyaQ Systems • DLF Cyber City, Phase 3, Gurugram');
+  const [newsletterTheme, setNewsletterTheme] = useState('emerald'); // 'emerald', 'ocean', 'navy'
+  const [newsletterSegment, setNewsletterSegment] = useState('all'); // 'all', 'trial', 'paid', 'expired'
+  const [newsletterSendTimeMode, setNewsletterSendTimeMode] = useState('now'); // 'now', 'scheduled'
+  const [newsletterScheduleDate, setNewsletterScheduleDate] = useState(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().slice(0, 16);
+  });
+  const [newsletterSuccess, setNewsletterSuccess] = useState(false);
+  const [newsletterError, setNewsletterError] = useState(false);
+  const [newsletterFeedbackMessage, setNewsletterFeedbackMessage] = useState('');
+  
+  // Scheduled Newsletters Ledger
+  const [scheduledNewsletters, setScheduledNewsletters] = useState(() => {
+    const saved = localStorage.getItem('qn_scheduled_newsletters');
+    return saved ? JSON.parse(saved) : [
+      { id: 'sch-1', subject: 'Monthly NABH Checklist Revision', segment: 'paid', scheduledAt: '2026-07-01T10:00', logoText: 'VaidyaQ', theme: 'navy' }
+    ];
+  });
+  
   // Client Form Details Override States
   const [crmAddress, setCrmAddress] = useState('');
   const [crmBeds, setCrmBeds] = useState(0);
@@ -160,6 +198,10 @@ export default function VendorAdminConsole() {
     localStorage.setItem('qn_finance_google_connected', googleMailConnected ? 'true' : 'false');
     localStorage.setItem('qn_finance_google_account', googleMailAccount);
   }, [googleMailConnected, googleMailAccount]);
+
+  useEffect(() => {
+    localStorage.setItem('qn_scheduled_newsletters', JSON.stringify(scheduledNewsletters));
+  }, [scheduledNewsletters]);
 
   // Prepopulate first client for Finance Invoice builder & expense on load
   useEffect(() => {
@@ -326,6 +368,415 @@ export default function VendorAdminConsole() {
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
     link.setAttribute("download", `VaidyaQ_CRM_Database_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // CRM - Add a new Client from Office end (mimicking signup fields)
+  const handleOfficeAddClient = (e) => {
+    e.preventDefault();
+    if (!newClientName || !newClientEmail) return;
+
+    const newHospitalId = `hosp-${Date.now()}`;
+    const signup = new Date().toISOString();
+    const expiry = new Date(Date.now() + 7*24*60*60*1000).toISOString();
+
+    const newClient = {
+      hospitalId: newHospitalId,
+      hospitalName: newClientName,
+      email: newClientEmail,
+      beds: Number(newClientBeds),
+      trialStartDate: signup,
+      signupDate: signup,
+      planExpiryDate: expiry.slice(0, 10),
+      isSubscribed: false,
+      status: "Active Trial",
+      address: newClientAddress || "Address pending...",
+      regId: `REG-${Math.floor(100000 + Math.random() * 900000)}`,
+      govId: newClientGovId || "PENDING_INPUT",
+      govIdType: newClientGovIdType,
+      govIdStatus: "Pending",
+      storageUsed: 1048576,
+      bounced: false
+    };
+
+    setClientsList(prev => [newClient, ...prev]);
+
+    // Send Welcome newsletter simulated dispatch
+    sendSimulatedEmail(
+      newClientEmail,
+      `Welcome to VaidyaQ - Sandbox Admin Registered`,
+      `Hello ${newClientName},\n\nYour institution has been officially registered in the VaidyaQ accreditation directory by our office administrators. Your 7-day trial starts today.\n\nBest Regards,\nOffice Dispatch Desk`,
+      "Signup"
+    );
+
+    setNewClientName('');
+    setNewClientEmail('');
+    setNewClientPassword('');
+    setNewClientBeds(50);
+    setNewClientAddress('');
+    setNewClientGovId('');
+    setNewClientSuccess(true);
+    setTimeout(() => setNewClientSuccess(false), 3000);
+  };
+
+  // CRM - Delete client account
+  const handleOfficeDeleteClient = (hospId) => {
+    if (window.confirm("Are you sure you want to permanently delete this client account from the VaidyaQ CRM database? This will wipe their directory vaults, support queues, and logs from our console views.")) {
+      setClientsList(prev => prev.filter(c => c.hospitalId !== hospId));
+      if (selectedCrmClient === hospId) {
+        setSelectedCrmClient(null);
+      }
+    }
+  };
+
+  // CRM - Print Crm Registry Database Table
+  const handlePrintCrmDatabase = () => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    let tableRows = "";
+    clientsList.forEach(c => {
+      tableRows += `
+        <tr>
+          <td>${c.hospitalName}</td>
+          <td><code>${c.hospitalId}</code></td>
+          <td>${c.email}</td>
+          <td>${c.beds} Beds</td>
+          <td>${c.signupDate || c.trialStartDate || 'N/A'}</td>
+          <td>${c.planExpiryDate || 'N/A'}</td>
+          <td>${c.status}</td>
+          <td>${c.govIdType}: ${c.govId} (${c.govIdStatus})</td>
+        </tr>
+      `;
+    });
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>VaidyaQ CRM Client Registry Database</title>
+          <style>
+            body { font-family: sans-serif; padding: 20px; color: #333; }
+            h2 { border-bottom: 2px solid #1a73e8; padding-bottom: 8px; color: #1a73e8; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; font-size: 0.8rem; text-align: left; }
+            th { background-color: #f5f5f5; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <h2>VaidyaQ Client Registry Database (${clientsList.length} Active Records)</h2>
+          <p>Export generated on ${new Date().toLocaleString('en-IN')}</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Hospital Name</th>
+                <th>Hospital ID</th>
+                <th>Owner Email</th>
+                <th>Beds</th>
+                <th>Signup Date</th>
+                <th>Plan Expiry</th>
+                <th>Status</th>
+                <th>Gov Verification</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows}
+            </tbody>
+          </table>
+          <script>
+            window.onload = function() { window.print(); window.close(); }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  // CRM - Send Customizable Newsletter Broadcast
+  const handleSendNewsletter = (e) => {
+    if (e) e.preventDefault();
+
+    if (!googleMailConnected) {
+      setNewsletterFeedbackMessage("Error: Google Workspace account connection is required to broadcast newsletter campaigns. Please authorize mail connection first.");
+      setNewsletterError(true);
+      setTimeout(() => setNewsletterError(false), 4000);
+      return;
+    }
+
+    // Filter recipients based on segment selector
+    const targets = clientsList.filter(c => {
+      const billingStatus = resolveClientBillingStatus(c);
+      if (newsletterSegment === 'all') return true;
+      if (newsletterSegment === 'trial') return billingStatus === 'Under Trial';
+      if (newsletterSegment === 'paid') return billingStatus === 'Paid';
+      if (newsletterSegment === 'expired') return billingStatus === 'Expired' || billingStatus === 'Cancelled';
+      return true;
+    });
+
+    if (targets.length === 0) {
+      setNewsletterFeedbackMessage("No client accounts match the selected segment filter.");
+      setNewsletterError(true);
+      setTimeout(() => setNewsletterError(false), 3000);
+      return;
+    }
+
+    // Loop and simulate dispatching
+    targets.forEach(client => {
+      // dynamic token replacements
+      let bodyText = newsletterBody
+        .replace(/\{\{hospitalName\}\}/g, client.hospitalName)
+        .replace(/\{\{email\}\}/g, client.email)
+        .replace(/\{\{beds\}\}/g, String(client.beds));
+
+      sendSimulatedEmail(
+        client.email,
+        newsletterSubject,
+        `[Newsletter Campaign: ${newsletterHeaderLogo}]\n\n${bodyText}\n\n---\n${newsletterFooter}\n[Broadcast via Google Workspace: ${googleMailAccount}]`,
+        "Newsletter"
+      );
+    });
+
+    setNewsletterFeedbackMessage(`Newsletter broadcast sent successfully via Google Workspace to ${targets.length} subscriber mailboxes!`);
+    setNewsletterSuccess(true);
+    setTimeout(() => setNewsletterSuccess(false), 4000);
+  };
+
+  // CRM - Schedule Customizable Newsletter Campaign
+  const handleScheduleNewsletter = (e) => {
+    e.preventDefault();
+
+    if (!googleMailConnected) {
+      setNewsletterFeedbackMessage("Error: Google Workspace account connection is required to schedule newsletter campaigns.");
+      setNewsletterError(true);
+      setTimeout(() => setNewsletterError(false), 4000);
+      return;
+    }
+
+    const newSchedule = {
+      id: `sch-${Date.now()}`,
+      subject: newsletterSubject,
+      body: newsletterBody,
+      segment: newsletterSegment,
+      scheduledAt: newsletterScheduleDate,
+      logoText: newsletterHeaderLogo,
+      footerText: newsletterFooter,
+      theme: newsletterTheme
+    };
+
+    setScheduledNewsletters(prev => [newSchedule, ...prev]);
+    setNewsletterFeedbackMessage(`Newsletter campaign scheduled successfully for ${new Date(newsletterScheduleDate).toLocaleString('en-IN')}`);
+    setNewsletterSuccess(true);
+    setTimeout(() => setNewsletterSuccess(false), 3000);
+  };
+
+  // CRM - Cancel Scheduled Newsletter
+  const handleCancelScheduledNewsletter = (schId) => {
+    setScheduledNewsletters(prev => prev.filter(sch => sch.id !== schId));
+  };
+
+  // CRM - Print Expanded Client Dossier (PDF compilation)
+  const handlePrintClientDossier = (client) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    // Filter payments & support cases for print layout
+    const clientPayments = transactions.filter(t => t.hospitalName === client.hospitalName);
+    const clientTickets = supportTickets.filter(t => t.clientName === client.hospitalName);
+    const clientAudits = auditLogs.filter(log => log.user === client.email || log.action.includes(client.hospitalName));
+
+    let paymentRows = "";
+    clientPayments.forEach(p => {
+      paymentRows += `
+        <tr>
+          <td>${p.date}</td>
+          <td>₹${p.amount.toLocaleString()}</td>
+          <td>₹${p.gst.toLocaleString()}</td>
+          <td>₹${(p.amount + p.gst).toLocaleString()}</td>
+          <td>${p.status}</td>
+        </tr>
+      `;
+    });
+    if (clientPayments.length === 0) {
+      paymentRows = `<tr><td colspan="5" class="text-muted">No subscription payments logged.</td></tr>`;
+    }
+
+    let ticketRows = "";
+    clientTickets.forEach(t => {
+      ticketRows += `
+        <tr>
+          <td><code>${t.sequenceCode}</code></td>
+          <td>${t.title}</td>
+          <td>${t.priority}</td>
+          <td>${t.status}</td>
+          <td>${t.assignedOperator}</td>
+        </tr>
+      `;
+    });
+    if (clientTickets.length === 0) {
+      ticketRows = `<tr><td colspan="5" class="text-muted">No troubleshoot routing cases logged.</td></tr>`;
+    }
+
+    let auditRows = "";
+    clientAudits.forEach(a => {
+      auditRows += `
+        <tr>
+          <td>${a.timestamp}</td>
+          <td>${a.action}</td>
+          <td>${a.user} (${a.role})</td>
+        </tr>
+      `;
+    });
+    if (clientAudits.length === 0) {
+      auditRows = `<tr><td colspan="3" class="text-muted">No security audit activity logged.</td></tr>`;
+    }
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>${client.hospitalName} - Dossier Report</title>
+          <style>
+            body { font-family: sans-serif; padding: 30px; color: #333; line-height: 1.4; }
+            .header { border-bottom: 3px double #1a73e8; padding-bottom: 12px; margin-bottom: 20px; }
+            .title { font-size: 1.8rem; font-weight: 800; color: #1a73e8; margin: 0; }
+            .subtitle { font-size: 0.85rem; color: #666; margin-top: 4px; }
+            .section { margin-top: 25px; }
+            h3 { font-size: 1.1rem; border-bottom: 1px solid #ccc; padding-bottom: 4px; color: #1a73e8; margin-top: 0; }
+            table { width: 100%; border-collapse: collapse; margin-top: 8px; margin-bottom: 15px; }
+            th, td { border: 1px solid #ddd; padding: 6px 8px; font-size: 0.75rem; text-align: left; }
+            th { background-color: #f9f9f9; font-weight: bold; }
+            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+            .meta-item { font-size: 0.8rem; margin: 4px 0; }
+            .text-muted { text-align: center; color: #888; font-style: italic; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="title">🏢 ${client.hospitalName} Dossier Report</div>
+            <div class="subtitle">System Generated Report • Exported on ${new Date().toLocaleString('en-IN')}</div>
+          </div>
+
+          <div class="grid">
+            <div class="section">
+              <h3>Account Credentials Details</h3>
+              <div class="meta-item"><strong>Hospital ID:</strong> <code>${client.hospitalId}</code></div>
+              <div class="meta-item"><strong>Admin Owner Email:</strong> ${client.email}</div>
+              <div class="meta-item"><strong>Bed Size Category:</strong> ${client.beds} Beds</div>
+              <div class="meta-item"><strong>Signup Onboarding Date:</strong> ${client.signupDate || client.trialStartDate || 'N/A'}</div>
+              <div class="meta-item"><strong>Plan Expiry Date:</strong> ${client.planExpiryDate || 'N/A'}</div>
+            </div>
+
+            <div class="section">
+              <h3>Accreditation & Registry Parameters</h3>
+              <div class="meta-item"><strong>Corporate Address:</strong> ${client.address || 'India'}</div>
+              <div class="meta-item"><strong>Accreditation Registry ID:</strong> ${client.regId || 'PENDING'}</div>
+              <div class="meta-item"><strong>Govt Verification:</strong> ${client.govIdType} - ${client.govId} (${client.govIdStatus})</div>
+              <div class="meta-item"><strong>Disk storage quota used:</strong> ${(client.storageUsed / (1024 * 1024)).toFixed(2)} MB of 50.00 MB</div>
+              <div class="meta-item"><strong>Subscription Status:</strong> ${client.status}</div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>💳 Transaction Invoicing Records</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>Billing Date</th>
+                  <th>Base Amount</th>
+                  <th>GST Tax (18%)</th>
+                  <th>Total Due</th>
+                  <th>Payment Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${paymentRows}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="section">
+            <h3>🎟️ Support Case history logs</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>Case Code</th>
+                  <th>Case Summary</th>
+                  <th>Priority</th>
+                  <th>Resolution Status</th>
+                  <th>Assigned Agent</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${ticketRows}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="section">
+            <h3>🛡️ Security Activity logs</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Security Action Description</th>
+                  <th>Trigger Operator</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${auditRows}
+              </tbody>
+            </table>
+          </div>
+
+          <script>
+            window.onload = function() { window.print(); window.close(); }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  // CRM - Download Client Dossier as Excel (CSV format)
+  const handleDownloadClientDossierExcel = (client) => {
+    const clientPayments = transactions.filter(t => t.hospitalName === client.hospitalName);
+    const clientTickets = supportTickets.filter(t => t.clientName === client.hospitalName);
+    
+    let csvString = "";
+    
+    csvString += "=== CLIENT ACCOUNT PROFILE ===\n";
+    csvString += `Hospital Name,${client.hospitalName}\n`;
+    csvString += `Hospital ID,${client.hospitalId}\n`;
+    csvString += `Owner Email,${client.email}\n`;
+    csvString += `Beds Capacity,${client.beds}\n`;
+    csvString += `Address,"${(client.address || '').replace(/"/g, '""')}"\n`;
+    csvString += `Registry ID,${client.regId || 'N/A'}\n`;
+    csvString += `Gov verification,${client.govIdType}: ${client.govId} (${client.govIdStatus})\n`;
+    csvString += `Signup Date,${client.signupDate || client.trialStartDate}\n`;
+    csvString += `Plan Expiry Date,${client.planExpiryDate}\n`;
+    csvString += `Storage Used (MB),${(client.storageUsed / (1024 * 1024)).toFixed(2)}\n`;
+    csvString += `Status,${client.status}\n\n`;
+    
+    csvString += "=== TRANSACTION INVOICES LEDGER ===\n";
+    csvString += "Billing Date,Base Amount,GST (18%),Total Paid,Status\n";
+    clientPayments.forEach(p => {
+      csvString += `${p.date},${p.amount},${p.gst},${p.amount + p.gst},${p.status}\n`;
+    });
+    if (clientPayments.length === 0) csvString += "No transactions logged\n";
+    csvString += "\n";
+    
+    csvString += "=== TROUBLESHOOT ROUTING CASES ===\n";
+    csvString += "Case Code,Title,Priority,Status,Assigned Agent\n";
+    clientTickets.forEach(t => {
+      csvString += `${t.sequenceCode},"${t.title.replace(/"/g, '""')}",${t.priority},${t.status},${t.assignedOperator}\n`;
+    });
+    if (clientTickets.length === 0) csvString += "No cases logged\n";
+
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `VQ_Dossier_${client.hospitalName.replace(/\s+/g, '_')}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1080,6 +1531,141 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
     return <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Active (Expires: {client.planExpiryDate})</span>;
   };
 
+  const renderCrmVisualCharts = () => {
+    const sortedHospitals = [...clientsList].sort((a, b) => b.beds - a.beds);
+    const topHospitals = sortedHospitals.slice(0, 5);
+    const maxBedsVal = Math.max(...topHospitals.map(h => h.beds), 50);
+    const bedsMaxRange = Math.ceil((maxBedsVal * 1.2) / 50) * 50;
+
+    const statusCounts = {
+      'Paid': 0,
+      'Active Trial': 0,
+      'Expired': 0,
+      'Restricted': 0
+    };
+    clientsList.forEach(c => {
+      const status = c.status === 'Active' ? 'Active Trial' : c.status;
+      if (statusCounts[status] !== undefined) {
+        statusCounts[status]++;
+      } else {
+        statusCounts['Active Trial']++;
+      }
+    });
+
+    const totalClientsCount = clientsList.length || 1;
+    const paidPct = Math.round((statusCounts['Paid'] / totalClientsCount) * 100);
+    const trialPct = Math.round((statusCounts['Active Trial'] / totalClientsCount) * 100);
+    const expiredPct = Math.round((statusCounts['Expired'] / totalClientsCount) * 100);
+    const restrictedPct = Math.round((statusCounts['Restricted'] / totalClientsCount) * 100);
+
+    const radius = 40;
+    const circumference = 2 * Math.PI * radius;
+    
+    const colors = {
+      paid: '#22c55e',
+      trial: '#3b82f6',
+      expired: '#ef4444',
+      restricted: '#6b7280'
+    };
+
+    const segments = [
+      { key: 'Paid', count: statusCounts['Paid'], pct: paidPct, color: colors.paid },
+      { key: 'Active Trial', count: statusCounts['Active Trial'], pct: trialPct, color: colors.trial },
+      { key: 'Expired', count: statusCounts['Expired'], pct: expiredPct, color: colors.expired },
+      { key: 'Restricted', count: statusCounts['Restricted'], pct: restrictedPct, color: colors.restricted }
+    ].filter(s => s.count > 0);
+
+    let currentOffset = 0;
+
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '1.5rem', marginBottom: '1rem' }}>
+        
+        <div className="card" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+          <h4 style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.75rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.3rem', margin: 0 }}>
+            <Activity size={14} color="var(--primary)" /> <span>Hospital Beds Size Capacity (Top 5)</span>
+          </h4>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+            {topHospitals.map((hosp, i) => {
+              const pctOfMax = (hosp.beds / bedsMaxRange) * 100;
+              return (
+                <div key={hosp.hospitalId} style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+                    <span style={{ fontWeight: 600 }}>{hosp.hospitalName}</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>{hosp.beds} Beds</span>
+                  </div>
+                  <div style={{ width: '100%', height: '10px', backgroundColor: 'var(--bg-tertiary)', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+                    <div style={{ 
+                      width: `${pctOfMax}%`, 
+                      height: '100%', 
+                      backgroundColor: i === 0 ? 'var(--primary)' : i === 1 ? '#3b82f6' : i === 2 ? '#8b5cf6' : '#ec4899', 
+                      borderRadius: '4px',
+                      transition: 'width 0.5s ease-out'
+                    }}></div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+          <h4 style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.75rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.3rem', margin: 0 }}>
+            <Database size={14} color="var(--primary)" /> <span>Subscription Segment Share</span>
+          </h4>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginTop: '0.5rem' }}>
+            <div style={{ position: 'relative', width: '100px', height: '100px' }}>
+              <svg width="100" height="100" style={{ transform: 'rotate(-90deg)', display: 'block' }}>
+                <circle cx="50" cy="50" r={radius} fill="transparent" stroke="var(--border-color)" strokeWidth="10" />
+                {segments.map((seg, idx) => {
+                  const dashArray = `${(seg.pct / 100) * circumference} ${circumference}`;
+                  const dashOffset = currentOffset;
+                  currentOffset -= (seg.pct / 100) * circumference;
+                  return (
+                    <circle 
+                      key={idx}
+                      cx="50" 
+                      cy="50" 
+                      r={radius} 
+                      fill="transparent" 
+                      stroke={seg.color} 
+                      strokeWidth="10"
+                      strokeDasharray={dashArray}
+                      strokeDashoffset={dashOffset}
+                    />
+                  );
+                })}
+              </svg>
+              <div style={{
+                position: 'absolute',
+                top: 0, left: 0, right: 0, bottom: 0,
+                display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
+                fontSize: '0.75rem', fontWeight: 'bold'
+              }}>
+                <div>{clientsList.length}</div>
+                <div style={{ fontSize: '0.55rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Total</div>
+              </div>
+            </div>
+
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.7rem' }}>
+              {segments.map((seg, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <span style={{ display: 'inline-block', width: '8px', height: '8px', backgroundColor: seg.color, borderRadius: '2px' }}></span>
+                    <span>{seg.key}</span>
+                  </div>
+                  <strong style={{ color: 'var(--text-secondary)' }}>{seg.count} ({seg.pct}%)</strong>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+      </div>
+    );
+  };
+
   const renderFinancialChart = () => {
     const { labels, revValues, expValues, maxVal } = chartData;
     const paddingLeft = 70;
@@ -1330,7 +1916,7 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
           </button>
 
           <button 
-            onClick={() => setActiveTab('crm')} 
+            onClick={() => { setActiveTab('crm'); setCrmTab('list'); }} 
             className={`tab-btn ${activeTab === 'crm' ? 'active' : ''}`}
             style={{
               display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.65rem 0.75rem', width: '100%',
@@ -1340,7 +1926,7 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
               fontWeight: activeTab === 'crm' ? 700 : 500
             }}
           >
-            <Database size={16} /> <span>Client CRM Folders</span>
+            <Database size={16} /> <span>Client CRM</span>
           </button>
 
           <button 
@@ -1734,9 +2320,9 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
             </div>
           )}
 
-          {/* TAB 2: CLIENT CRM FOLDERS */}
+          {/* TAB 2: CLIENT CRM */}
           {activeTab === 'crm' && renderPermissionGuard('view_crm', (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-4">
               
               {/* Dossier Detail Card View if Selected (EXPANDS TO ITS OWN FULL PAGE) */}
               {selectedCrmClient && targetCrmClientDetails ? (
@@ -1749,12 +2335,12 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
                         className="btn btn-secondary flex align-center gap-1"
                         style={{ padding: '0.45rem 0.8rem', cursor: 'pointer', borderRadius: '8px', fontSize: '0.8rem' }}
                       >
-                        <ArrowLeft size={14} /> <span>Back to CRM Directory</span>
+                        <ArrowLeft size={14} /> <span>← Back to CRM Registry</span>
                       </button>
                       <div style={{ height: '20px', width: '1px', backgroundColor: 'var(--border-color)', margin: '0 0.5rem' }}></div>
                       <div>
                         <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>
-                          🏢 {targetCrmClientDetails.hospitalName} Dossier
+                          🏢 {targetCrmClientDetails.hospitalName} Dossier Folder
                         </h2>
                         <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
                           Accreditation ID: <code>{targetCrmClientDetails.regId || 'PENDING'}</code>
@@ -1763,6 +2349,24 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
                     </div>
 
                     <div className="flex gap-2 align-center">
+                      <button 
+                        onClick={() => handleDownloadClientDossierExcel(targetCrmClientDetails)}
+                        className="btn btn-secondary flex align-center gap-1"
+                        style={{ padding: '0.45rem 0.8rem', fontSize: '0.75rem', borderRadius: '8px', cursor: 'pointer' }}
+                        title="Download profile as CSV spreadsheet"
+                      >
+                        <Download size={14} /> <span>Export Excel</span>
+                      </button>
+                      
+                      <button 
+                        onClick={() => handlePrintClientDossier(targetCrmClientDetails)}
+                        className="btn btn-secondary flex align-center gap-1"
+                        style={{ padding: '0.45rem 0.8rem', fontSize: '0.75rem', borderRadius: '8px', cursor: 'pointer' }}
+                        title="Print profile as compilation PDF report"
+                      >
+                        <Printer size={14} /> <span>Export PDF</span>
+                      </button>
+
                       <span className="badge" style={{ 
                         backgroundColor: targetCrmClientDetails.status === 'Paid' ? 'var(--bg-success)' : targetCrmClientDetails.status === 'Expired' ? 'var(--bg-danger)' : 'var(--primary-light)', 
                         color: targetCrmClientDetails.status === 'Paid' ? 'var(--color-success)' : targetCrmClientDetails.status === 'Expired' ? 'var(--color-danger)' : 'var(--primary)',
@@ -1776,7 +2380,7 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
                   {/* Graphical Core Widgets Row */}
                   <div className="grid" style={{ gridTemplateColumns: '1.5fr 1fr 1fr', gap: '1rem' }}>
                     
-                    {/* Stepper Card */}
+                    {/* Onboarding steps tracker */}
                     <div className="card" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
                       <h4 style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem' }}>
                         Onboarding Steps Completion
@@ -1814,39 +2418,7 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
                       })()}
                     </div>
 
-                    {/* Circular Storage Gauge */}
-                    <div className="card flex flex-col align-center justify-center" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', textAlign: 'center' }}>
-                      <h4 style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem', width: '100%', textAlign: 'left' }}>
-                        Vault Storage
-                      </h4>
-                      {(() => {
-                        const usedMB = (targetCrmClientDetails.storageUsed / (1024 * 1024)).toFixed(2);
-                        const pct = Math.min(100, Math.round((parseFloat(usedMB) / storageQuotaMB) * 100));
-                        const radius = 35;
-                        const circumference = 2 * Math.PI * radius;
-                        const offset = circumference - (pct / 100) * circumference;
-                        return (
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', width: '100%', marginTop: '0.25rem' }}>
-                            <svg width="80" height="80" style={{ transform: 'rotate(-90deg)' }}>
-                              <circle cx="40" cy="40" r={radius} fill="transparent" stroke="var(--border-color)" strokeWidth="6" />
-                              <circle 
-                                cx="40" cy="40" r={radius} fill="transparent" 
-                                stroke="var(--primary)" strokeWidth="6"
-                                strokeDasharray={circumference}
-                                strokeDashoffset={offset}
-                                strokeLinecap="round"
-                              />
-                            </svg>
-                            <div style={{ textAlign: 'left' }}>
-                              <div style={{ fontSize: '1.1rem', fontWeight: 800 }}>{usedMB} MB</div>
-                              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>of 50.0 MB used ({pct}%)</div>
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </div>
-
-                    {/* Expiry / Sub Info */}
+                    {/* Override & Deletion panel */}
                     <div className="card" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
                       <h4 style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
                         Direct override controls
@@ -1881,11 +2453,12 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
                             Suspend
                           </button>
                           <button 
-                            onClick={() => setClientStatusOverride(targetCrmClientDetails.hospitalId, 'Active Trial')} 
+                            onClick={() => handleOfficeDeleteClient(targetCrmClientDetails.hospitalId)} 
                             className="btn btn-secondary" 
-                            style={{ flex: 1, padding: '0.3rem', fontSize: '0.65rem', color: 'var(--primary)', cursor: 'pointer' }}
+                            style={{ flex: 1, padding: '0.3rem', fontSize: '0.65rem', color: 'rgb(239, 68, 68)', borderColor: 'rgba(239, 68, 68, 0.4)', cursor: 'pointer', fontWeight: 'bold' }}
+                            title="Delete Client Record"
                           >
-                            Reset Trial
+                            Delete Account
                           </button>
                         </div>
                       </div>
@@ -1971,7 +2544,7 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
                               <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.8rem' }}>Gov ID Type</label>
                               <select 
                                 className="form-control" value={crmGovIdType} onChange={(e) => setCrmGovIdType(e.target.value)}
-                                style={{ width: '100%', padding: '0.5rem', backgroundColor: 'var(--bg-secondary)' }}
+                                style={{ width: '100%', padding: '0.5rem', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
                               >
                                 <option value="GSTIN">GSTIN (Corporate Tax ID)</option>
                                 <option value="PAN">PAN (Income Tax Registration)</option>
@@ -1992,7 +2565,7 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
                             <div className="flex gap-2">
                               <select 
                                 className="form-control" value={crmGovIdStatus} onChange={(e) => setCrmGovIdStatus(e.target.value)}
-                                style={{ padding: '0.5rem', backgroundColor: 'var(--bg-secondary)', flex: 1 }}
+                                style={{ padding: '0.5rem', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', flex: 1 }}
                               >
                                 <option value="Pending">Pending Office Review</option>
                                 <option value="Approved">Approved (Verified & Unlocked)</option>
@@ -2027,7 +2600,7 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
                             { name: 'fire_drill_noc_audit.jpg', size: '2.84 MB', type: 'JPEG Image' },
                             { name: 'bio_waste_regulatory_noc.pdf', size: '920 KB', type: 'PDF Document' }
                           ].map(file => (
-                            <div key={file.name} className="card" style={{ padding: '1rem', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '10px', display: 'flex', flexDirection: 'column', justifyBetween: 'space-between', gap: '0.75rem' }}>
+                            <div key={file.name} className="card" style={{ padding: '1rem', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                                 <FileText size={24} color="var(--primary)" />
                                 <div>
@@ -2053,7 +2626,7 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
                     {dossierSubTab === 'tickets' && (
                       <div>
                         <h4 style={{ fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-                          🎟️ Logged Troubleshoot Queries
+                          🎟️ Logged Troubleshoot Queries & Case History
                         </h4>
 
                         <div className="flex flex-col gap-2">
@@ -2108,7 +2681,7 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
                             </tr>
                           </thead>
                           <tbody>
-                            {transactions.filter(t => t.hospitalName === targetCrmClientDetails.hospitalName).map(tx => (
+                            {transactions.filter(t => t.hospitalName === targetCrmClientDetails.hospitalName || t.clientId === targetCrmClientDetails.email).map(tx => (
                               <tr key={tx.id}>
                                 <td>{tx.date}</td>
                                 <td>₹{tx.amount.toLocaleString()}</td>
@@ -2117,7 +2690,7 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
                                 <td><span className="badge badge-success" style={{ fontSize: '0.65rem' }}>{tx.status}</span></td>
                               </tr>
                             ))}
-                            {transactions.filter(t => t.hospitalName === targetCrmClientDetails.hospitalName).length === 0 && (
+                            {transactions.filter(t => t.hospitalName === targetCrmClientDetails.hospitalName || t.clientId === targetCrmClientDetails.email).length === 0 && (
                               <tr>
                                 <td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-tertiary)', padding: '1.5rem' }}>
                                   No invoice transaction records found for this account.
@@ -2159,125 +2732,589 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
 
                 </div>
               ) : (
-                // Folder cards grid view (Directory Root)
+                
+                // MAIN DATABASE MANAGEMENT CENTER ROOT
                 <div className="flex flex-col gap-3">
-                  <div className="flex justify-between align-center" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
-                    <div>
-                      <h3 style={{ fontSize: '1.1rem', fontWeight: 800 }}>📂 CRM Client Directory Vaults</h3>
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Explore client hospitals graphically. Click a dossier card to audit security vaults and configurations.</p>
-                    </div>
-                    
-                    <button 
-                      onClick={handleExportCsv} 
-                      className="btn btn-secondary flex align-center gap-1"
-                      style={{ padding: '0.45rem 0.85rem', cursor: 'pointer', borderRadius: '8px', fontSize: '0.8rem' }}
-                    >
-                      <Download size={14} /> <span>Export Database CSV</span>
-                    </button>
-                  </div>
-
-                  {/* Filter and Search */}
-                  <input 
-                    type="text" 
-                    className="form-control" 
-                    placeholder="Search hospitals by owner email, title..." 
-                    value={clientSearch}
-                    onChange={(e) => setClientSearch(e.target.value)}
-                    style={{ width: '100%', padding: '0.6rem' }}
-                  />
-
-                  {/* Graphical Folders Grid */}
-                  <div style={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
-                    gap: '1rem', 
-                    marginTop: '0.5rem' 
-                  }}>
-                    {filteredCrmClients.map(client => {
-                      const progress = getClientOnboardingProgress(client);
-                      const completedCount = getCompletedStepsCount(progress);
-                      const progressPercent = completedCount * 25;
-                      const storageMB = (client.storageUsed / (1024 * 1024)).toFixed(2);
-
-                      return (
-                        <div 
-                          key={client.hospitalId}
-                          className="card folder-card-premium"
-                          style={{ 
-                            padding: '1.25rem', 
-                            backgroundColor: 'var(--bg-secondary)', 
-                            border: '1px solid var(--border-color)', 
-                            borderRadius: '12px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '0.75rem',
-                            position: 'relative',
-                            transition: 'transform 0.2s, box-shadow 0.2s'
-                          }}
-                        >
-                          {/* Top bar */}
-                          <div className="flex justify-between align-center">
-                            <div style={{ display: 'flex', padding: '0.5rem', backgroundColor: 'var(--primary-light)', color: 'var(--primary)', borderRadius: '8px' }}>
-                              <FolderOpen size={20} />
-                            </div>
-                            <span className="badge" style={{ 
-                              backgroundColor: client.status === 'Paid' ? 'var(--bg-success)' : client.status === 'Expired' ? 'var(--bg-danger)' : 'var(--primary-light)', 
-                              color: client.status === 'Paid' ? 'var(--color-success)' : client.status === 'Expired' ? 'var(--color-danger)' : 'var(--primary)',
-                              fontSize: '0.7rem', fontWeight: 'bold'
-                            }}>
-                              {client.status}
-                            </span>
-                          </div>
-
-                          {/* Client title */}
-                          <div>
-                            <h4 style={{ fontWeight: 'bold', fontSize: '1rem', margin: 0, color: 'var(--text-primary)' }}>
-                              {client.hospitalName}
-                            </h4>
-                            <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>{client.email}</span>
-                          </div>
-
-                          {/* Onboarding progress bar */}
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                            <div className="flex justify-between" style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
-                              <span>Onboarding: {completedCount}/4 Steps</span>
-                              <span>{progressPercent}%</span>
-                            </div>
-                            <div style={{ width: '100%', height: '6px', backgroundColor: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
-                              <div style={{ width: `${progressPercent}%`, height: '100%', backgroundColor: completedCount === 4 ? 'var(--color-success)' : 'var(--primary)' }}></div>
-                            </div>
-                          </div>
-
-                          {/* Details metadata info */}
-                          <div style={{ display: 'flex', justifyBetween: 'space-between', fontSize: '0.7rem', color: 'var(--text-tertiary)', borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem' }}>
-                            <span>Dynamic: {client.beds} Beds</span>
-                            <span>Storage: {storageMB} MB</span>
-                          </div>
-
-                          {/* Open Dossier Button */}
-                          <button 
-                            onClick={() => loadCrmClient(client)}
-                            className="btn btn-primary glow-premium"
-                            style={{ 
-                              width: '100%', 
-                              padding: '0.5rem', 
-                              fontSize: '0.8rem', 
-                              fontWeight: 'bold', 
-                              cursor: 'pointer', 
-                              borderRadius: '8px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              gap: '0.25rem',
-                              marginTop: '0.25rem'
+                  
+                  {/* Database Sub Tab Menu Bar */}
+                  <div style={{ display: 'flex', justifyBetween: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      {[
+                        { id: 'list', label: '📂 Client Database Registry', icon: Database },
+                        { id: 'analytics', label: '📊 CRM Visual Analytics', icon: Activity },
+                        { id: 'add-client', label: '➕ Register New Client', icon: UserPlus },
+                        { id: 'newsletter', label: '📢 Newsletter Campaign Designer', icon: Mail }
+                      ].map(t => {
+                        const IconComp = t.icon;
+                        const active = crmTab === t.id;
+                        return (
+                          <button
+                            key={t.id}
+                            onClick={() => setCrmTab(t.id)}
+                            className="btn"
+                            style={{
+                              padding: '0.45rem 1rem', fontSize: '0.8rem', border: 'none', borderRadius: '8px', cursor: 'pointer',
+                              backgroundColor: active ? 'var(--primary-light)' : 'transparent',
+                              color: active ? 'var(--primary)' : 'var(--text-secondary)',
+                              fontWeight: active ? 700 : 500,
+                              display: 'flex', alignItems: 'center', gap: '0.35rem'
                             }}
                           >
-                            <span>Open Dossier Console</span> <ChevronRight size={14} />
+                            <IconComp size={14} />
+                            <span>{t.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* SUB TAB VIEW 1: CLIENT DATABASE TABLE */}
+                  {crmTab === 'list' && (
+                    <div className="card flex flex-col gap-3" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                      <div className="flex justify-between align-center" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+                        <div>
+                          <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0 }}>📂 CRM Client Database Registry Directory</h3>
+                          <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', margin: '2px 0 0 0' }}>List of registered VaidyaQ hospitals. Open dossiers to configure vaults, override licenses, and review logs.</p>
+                        </div>
+                        
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button 
+                            onClick={handlePrintCrmDatabase} 
+                            className="btn btn-secondary flex align-center gap-1"
+                            style={{ padding: '0.45rem 0.85rem', cursor: 'pointer', borderRadius: '8px', fontSize: '0.75rem' }}
+                          >
+                            <Printer size={14} /> <span>Print Database</span>
+                          </button>
+                          <button 
+                            onClick={handleExportCsv} 
+                            className="btn btn-secondary flex align-center gap-1"
+                            style={{ padding: '0.45rem 0.85rem', cursor: 'pointer', borderRadius: '8px', fontSize: '0.75rem' }}
+                          >
+                            <Download size={14} /> <span>Export CSV Database</span>
                           </button>
                         </div>
-                      );
-                    })}
-                  </div>
+                      </div>
+
+                      {/* Filter Search */}
+                      <input 
+                        type="text" 
+                        className="form-control" 
+                        placeholder="Search client accounts by name or email ID..." 
+                        value={clientSearch}
+                        onChange={(e) => setClientSearch(e.target.value)}
+                        style={{ width: '100%', padding: '0.55rem', fontSize: '0.8rem' }}
+                      />
+
+                      {/* Table List View */}
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', textAlign: 'left' }}>
+                          <thead>
+                            <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-secondary)', fontWeight: 'bold' }}>
+                              <th style={{ padding: '0.75rem 0.5rem' }}>Hospital Name / ID</th>
+                              <th style={{ padding: '0.75rem 0.5rem' }}>Owner Email</th>
+                              <th style={{ padding: '0.75rem 0.5rem' }}>Capacity</th>
+                              <th style={{ padding: '0.75rem 0.5rem' }}>Status</th>
+                              <th style={{ padding: '0.75rem 0.5rem' }}>Onboarding</th>
+                              <th style={{ padding: '0.75rem 0.5rem' }}>Term Expiry</th>
+                              <th style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredCrmClients.map(client => {
+                              const progress = getClientOnboardingProgress(client);
+                              const completedCount = getCompletedStepsCount(progress);
+                              const progressPercent = completedCount * 25;
+
+                              return (
+                                <tr key={client.hospitalId} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                  <td style={{ padding: '0.75rem 0.5rem' }}>
+                                    <div style={{ fontWeight: 'bold', fontSize: '0.85rem', color: 'var(--text-primary)' }}>{client.hospitalName}</div>
+                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontFamily: 'monospace' }}>{client.hospitalId}</div>
+                                  </td>
+                                  <td style={{ padding: '0.75rem 0.5rem' }}>{client.email}</td>
+                                  <td style={{ padding: '0.75rem 0.5rem' }}>
+                                    <span className="badge badge-neutral">{client.beds} Beds</span>
+                                  </td>
+                                  <td style={{ padding: '0.75rem 0.5rem' }}>
+                                    <span className="badge" style={{ 
+                                      backgroundColor: client.status === 'Paid' ? 'var(--bg-success)' : client.status === 'Expired' ? 'var(--bg-danger)' : 'var(--primary-light)', 
+                                      color: client.status === 'Paid' ? 'var(--color-success)' : client.status === 'Expired' ? 'var(--color-danger)' : 'var(--primary)',
+                                      fontSize: '0.7rem', fontWeight: 'bold'
+                                    }}>
+                                      {client.status}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '0.75rem 0.5rem' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', width: '100px' }}>
+                                      <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{completedCount}/4 steps ({progressPercent}%)</span>
+                                      <div style={{ width: '100%', height: '4px', backgroundColor: 'var(--border-color)', borderRadius: '2px', overflow: 'hidden' }}>
+                                        <div style={{ width: `${progressPercent}%`, height: '100%', backgroundColor: completedCount === 4 ? 'var(--color-success)' : 'var(--primary)' }}></div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: '0.75rem 0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                    {client.planExpiryDate || 'Active Trial'}
+                                  </td>
+                                  <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end' }}>
+                                      <button 
+                                        onClick={() => loadCrmClient(client)}
+                                        className="btn btn-secondary flex align-center gap-1"
+                                        style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', borderRadius: '6px', cursor: 'pointer' }}
+                                        title="Open Dossier Folder"
+                                      >
+                                        <FolderOpen size={12} /> <span>View Folder</span>
+                                      </button>
+                                      <button 
+                                        onClick={() => handleOfficeDeleteClient(client.hospitalId)}
+                                        className="btn btn-secondary"
+                                        style={{ padding: '0.3rem 0.4rem', borderRadius: '6px', color: 'rgb(239, 68, 68)', cursor: 'pointer' }}
+                                        title="Delete Client Account"
+                                      >
+                                        <Trash2 size={12} />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SUB TAB VIEW 2: VISUAL ANALYTICS */}
+                  {crmTab === 'analytics' && (
+                    <div className="flex flex-col gap-3">
+                      {/* Summary top metrics bar */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
+                        <div className="card" style={{ padding: '1rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600 }}>REGISTERED CLIENTS</span>
+                          <h4 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '0.25rem 0 0 0' }}>{clientsList.length} Hospitals</h4>
+                        </div>
+                        <div className="card" style={{ padding: '1rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600 }}>TOTAL CAPACITY SERVED</span>
+                          <h4 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '0.25rem 0 0 0' }}>{clientsList.reduce((sum, c) => sum + c.beds, 0)} Beds</h4>
+                        </div>
+                        <div className="card" style={{ padding: '1rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600 }}>PAID LICENSE BASE</span>
+                          <h4 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '0.25rem 0 0 0' }}>{clientsList.filter(c => c.status === 'Paid').length} Accounts</h4>
+                        </div>
+                        <div className="card" style={{ padding: '1rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600 }}>TRIAL / EXPIRING BASE</span>
+                          <h4 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '0.25rem 0 0 0' }}>{clientsList.filter(c => c.status !== 'Paid').length} Accounts</h4>
+                        </div>
+                      </div>
+
+                      {/* Render SVG graphs */}
+                      {renderCrmVisualCharts()}
+                    </div>
+                  )}
+
+                  {/* SUB TAB VIEW 3: SAAS-STYLED REGISTER FORM */}
+                  {crmTab === 'add-client' && (
+                    <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', maxWidth: '650px', margin: '0 auto', width: '100%' }}>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <UserPlus size={18} color="var(--primary)" /> <span>Register New Hospital Account (SaaS Flow)</span>
+                      </h3>
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '1rem' }}>
+                        Provision a new SaaS license folder directly into the database. Replicates the registration parameters from client onboarding.
+                      </p>
+
+                      {newClientSuccess && (
+                        <div style={{ backgroundColor: 'var(--bg-success)', color: 'var(--color-success)', padding: '0.75rem', borderRadius: '8px', fontSize: '0.8rem', marginBottom: '1rem' }}>
+                          🏥 Hospital account successfully provisioned and welcome dispatch sent!
+                        </div>
+                      )}
+
+                      <form onSubmit={handleOfficeAddClient} className="flex flex-col gap-3">
+                        <div className="form-group">
+                          <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Hospital / Institution Name</label>
+                          <input 
+                            type="text" required placeholder="e.g. Apollo Medical Center" className="form-control"
+                            value={newClientName} onChange={(e) => setNewClientName(e.target.value)}
+                          />
+                        </div>
+
+                        <div className="grid" style={{ gridTemplateColumns: '1.2fr 1fr', gap: '1rem' }}>
+                          <div className="form-group">
+                            <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Owner / Admin Email ID</label>
+                            <input 
+                              type="email" required placeholder="director@apollo.org" className="form-control"
+                              value={newClientEmail} onChange={(e) => setNewClientEmail(e.target.value)}
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Bed Capacity (Accreditation Size)</label>
+                            <input 
+                              type="number" required min="1" className="form-control"
+                              value={newClientBeds} onChange={(e) => setNewClientBeds(e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="form-group">
+                          <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Secure Default Access Password</label>
+                          <input 
+                            type="password" placeholder="•••••••• (Temp password for onboarding login)" className="form-control"
+                            value={newClientPassword} onChange={(e) => setNewClientPassword(e.target.value)}
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Institution Address</label>
+                          <input 
+                            type="text" placeholder="Corporate HQ Address, City, State" className="form-control"
+                            value={newClientAddress} onChange={(e) => setNewClientAddress(e.target.value)}
+                          />
+                        </div>
+
+                        <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                          <div className="form-group">
+                            <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Govt Tax Verification ID Class</label>
+                            <select 
+                              className="form-control" value={newClientGovIdType} onChange={(e) => setNewClientGovIdType(e.target.value)}
+                              style={{ width: '100%', padding: '0.5rem', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+                            >
+                              <option value="GSTIN">GSTIN (Corporate Tax ID)</option>
+                              <option value="PAN">PAN (Income Tax Registration)</option>
+                              <option value="NABH ID">NABH Official Application Number</option>
+                            </select>
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Govt ID Registration Number</label>
+                            <input 
+                              type="text" placeholder="e.g. 06AAAAA1111A1Z1" className="form-control"
+                              value={newClientGovId} onChange={(e) => setNewClientGovId(e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        <button type="submit" className="btn btn-primary glow-premium" style={{ padding: '0.75rem', fontWeight: 'bold', cursor: 'pointer', marginTop: '1rem' }}>
+                          Provision SaaS License Account
+                        </button>
+                      </form>
+                    </div>
+                  )}
+
+                  {/* SUB TAB VIEW 4: CUSTOMIZABLE NEWSLETTER SCHEDULER */}
+                  {crmTab === 'newsletter' && (
+                    <div className="flex flex-col gap-4">
+                      
+                      {/* Enforce Google Workspace Mail Connection */}
+                      <div className="card" style={{ 
+                        padding: '1.25rem', 
+                        backgroundColor: googleMailConnected ? 'rgba(52, 168, 83, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+                        border: `1px solid ${googleMailConnected ? 'rgba(52, 168, 83, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
+                        borderRadius: '12px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <div style={{ 
+                            width: '36px', 
+                            height: '36px', 
+                            borderRadius: '50%', 
+                            backgroundColor: googleMailConnected ? 'rgb(52, 168, 83)' : 'rgb(239, 68, 68)',
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            color: '#fff'
+                          }}>
+                            <Mail size={18} />
+                          </div>
+                          <div>
+                            <h4 style={{ fontSize: '0.85rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                              <span>Google Workspace Campaign Dispatcher</span>
+                              {googleMailConnected && <span style={{ fontSize: '0.65rem', backgroundColor: 'rgb(52, 168, 83)', color: '#fff', padding: '0.1rem 0.4rem', borderRadius: '10px' }}>AUTHENTICATED</span>}
+                            </h4>
+                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+                              {googleMailConnected 
+                                ? `Campaigns will be sent as authenticated Workspace bulletins via: ${googleMailAccount}`
+                                : `Google account connection is required to authenticate newsletters. Lock active.`
+                              }
+                            </p>
+                          </div>
+                        </div>
+                        <div>
+                          {!googleMailConnected && (
+                            <button 
+                              onClick={() => setShowGoogleOAuthModal(true)}
+                              className="btn btn-primary flex align-center gap-1"
+                              style={{ padding: '0.45rem 1rem', fontSize: '0.75rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}
+                            >
+                              <Lock size={12} /> <span>Connect Google Mail</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Main Newsletter Designer Grid Workspace */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.3fr', gap: '1.5rem' }}>
+                        
+                        {/* Left Column Settings */}
+                        <div className="card flex flex-col gap-3" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                          <h3 style={{ fontSize: '0.95rem', fontWeight: 800, margin: 0, borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <Sliders size={16} color="var(--primary)" /> <span>Campaign Settings Designer</span>
+                          </h3>
+
+                          {newsletterSuccess && (
+                            <div style={{ backgroundColor: 'var(--bg-success)', color: 'var(--color-success)', padding: '0.6rem', borderRadius: '8px', fontSize: '0.75rem' }}>
+                              {newsletterFeedbackMessage}
+                            </div>
+                          )}
+
+                          {newsletterError && (
+                            <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', color: 'rgb(239, 68, 68)', padding: '0.6rem', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', fontSize: '0.75rem' }}>
+                              {newsletterFeedbackMessage}
+                            </div>
+                          )}
+
+                          <form onSubmit={newsletterSendTimeMode === 'now' ? handleSendNewsletter : handleScheduleNewsletter} className="flex flex-col gap-3">
+                            
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                              <div className="form-group">
+                                <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Header Brand Text</label>
+                                <input type="text" className="form-control" value={newsletterHeaderLogo} onChange={(e) => setNewsletterHeaderLogo(e.target.value)} style={{ padding: '0.4rem' }} />
+                              </div>
+                              <div className="form-group">
+                                <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Newsletter Theme color</label>
+                                <select 
+                                  className="form-control" value={newsletterTheme} onChange={(e) => setNewsletterTheme(e.target.value)}
+                                  style={{ width: '100%', padding: '0.4rem', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+                                >
+                                  <option value="emerald">🟢 Emerald Green</option>
+                                  <option value="ocean">🔵 Ocean Blue</option>
+                                  <option value="navy">⚫ Corporate Navy</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            <div className="form-group">
+                              <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Newsletter Subject Line</label>
+                              <input type="text" required className="form-control" value={newsletterSubject} onChange={(e) => setNewsletterSubject(e.target.value)} style={{ padding: '0.45rem' }} />
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                              <div className="form-group">
+                                <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Recipient Segment</label>
+                                <select 
+                                  className="form-control" value={newsletterSegment} onChange={(e) => setNewsletterSegment(e.target.value)}
+                                  style={{ width: '100%', padding: '0.4rem', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+                                >
+                                  <option value="all">👥 All Accounts ({clientsList.length} targets)</option>
+                                  <option value="trial">⏳ Trial Accounts ({clientsList.filter(c => resolveClientBillingStatus(c) === 'Under Trial').length} targets)</option>
+                                  <option value="paid">🟢 Paid Subscribers ({clientsList.filter(c => resolveClientBillingStatus(c) === 'Paid').length} targets)</option>
+                                  <option value="expired">🔴 Expired / Suspended ({clientsList.filter(c => resolveClientBillingStatus(c) === 'Expired' || resolveClientBillingStatus(c) === 'Cancelled').length} targets)</option>
+                                </select>
+                              </div>
+                              <div className="form-group">
+                                <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Delivery Timing</label>
+                                <select 
+                                  className="form-control" value={newsletterSendTimeMode} onChange={(e) => setNewsletterSendTimeMode(e.target.value)}
+                                  style={{ width: '100%', padding: '0.4rem', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+                                >
+                                  <option value="now">⚡ Send Now (Google Dispatch)</option>
+                                  <option value="scheduled">📅 Schedule Broadcast time</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            {newsletterSendTimeMode === 'scheduled' && (
+                              <div className="form-group">
+                                <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Scheduled Date & Time</label>
+                                <input 
+                                  type="datetime-local" className="form-control" required
+                                  value={newsletterScheduleDate} onChange={(e) => setNewsletterScheduleDate(e.target.value)}
+                                  style={{ padding: '0.4rem' }}
+                                />
+                              </div>
+                            )}
+
+                            <div className="form-group">
+                              <div className="flex justify-between align-center" style={{ marginBottom: '0.2rem' }}>
+                                <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem', margin: 0 }}>Newsletter Template Body</label>
+                                <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                  <button 
+                                    type="button" 
+                                    onClick={() => setNewsletterBody(prev => prev + " {{hospitalName}}")}
+                                    className="btn btn-secondary" style={{ padding: '0.15rem 0.35rem', fontSize: '0.65rem', borderRadius: '4px', cursor: 'pointer' }}
+                                  >
+                                    + Hospital Name
+                                  </button>
+                                  <button 
+                                    type="button" 
+                                    onClick={() => setNewsletterBody(prev => prev + " {{email}}")}
+                                    className="btn btn-secondary" style={{ padding: '0.15rem 0.35rem', fontSize: '0.65rem', borderRadius: '4px', cursor: 'pointer' }}
+                                  >
+                                    + Email ID
+                                  </button>
+                                </div>
+                              </div>
+                              <textarea 
+                                required className="form-control" value={newsletterBody} onChange={(e) => setNewsletterBody(e.target.value)}
+                                style={{ width: '100%', minHeight: '120px', fontSize: '0.8rem', padding: '0.5rem' }}
+                                placeholder="Write customized email body. Dynamic placeholders like {{hospitalName}} will render values."
+                              />
+                            </div>
+
+                            <div className="form-group">
+                              <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Footer Notice Address</label>
+                              <input type="text" className="form-control" value={newsletterFooter} onChange={(e) => setNewsletterFooter(e.target.value)} style={{ padding: '0.4rem' }} />
+                            </div>
+
+                            <button 
+                              type="submit" 
+                              className="btn btn-primary flex align-center justify-center gap-1 glow-premium" 
+                              style={{ padding: '0.6rem', fontWeight: 'bold', cursor: 'pointer', marginTop: '0.5rem' }}
+                              disabled={!googleMailConnected}
+                            >
+                              {newsletterSendTimeMode === 'now' ? (
+                                <>
+                                  <Send size={14} /> <span>Broadcast Newsletter Now</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Calendar size={14} /> <span>Commit Scheduled Broadcast</span>
+                                </>
+                              )}
+                            </button>
+
+                          </form>
+                        </div>
+
+                        {/* Right Column previewer */}
+                        <div className="flex flex-col gap-3">
+                          
+                          {/* Visual template previewer */}
+                          <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                            <h4 style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem' }}>
+                              Visual Campaign Inbox Preview
+                            </h4>
+
+                            <div style={{ 
+                              border: '1px solid var(--border-color)', 
+                              borderRadius: '8px', 
+                              backgroundColor: '#ffffff', 
+                              color: '#1f2937', 
+                              overflow: 'hidden',
+                              fontFamily: 'sans-serif',
+                              fontSize: '0.85rem'
+                            }}>
+                              
+                              {/* Brand header banner */}
+                              <div style={{ 
+                                padding: '1rem', 
+                                backgroundColor: newsletterTheme === 'emerald' ? '#22c55e' : newsletterTheme === 'ocean' ? '#1a73e8' : '#1f2937', 
+                                color: '#ffffff',
+                                display: 'flex',
+                                justifyBetween: 'space-between',
+                                alignItems: 'center'
+                              }}>
+                                <span style={{ fontWeight: 900, letterSpacing: '0.05em' }}>{newsletterHeaderLogo}</span>
+                                <span style={{ fontSize: '0.65rem', backgroundColor: 'rgba(255,255,255,0.2)', padding: '0.15rem 0.35rem', borderRadius: '4px' }}>BETA BULLETIN</span>
+                              </div>
+
+                              {/* Email meta */}
+                              <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #e5e7eb', fontSize: '0.75rem', color: '#5f6368', lineHeight: '1.4' }}>
+                                <div><strong>From:</strong> VaidyaQ Dispatcher <code>&lt;{googleMailAccount}&gt;</code></div>
+                                <div><strong>Subject:</strong> {newsletterSubject || '(No Subject)'}</div>
+                                <div><strong>Segment:</strong> Target [{newsletterSegment}] category</div>
+                              </div>
+
+                              {/* Body preview */}
+                              <div style={{ padding: '1.5rem 1rem', minHeight: '180px', lineHeight: '1.6', color: '#202124', backgroundColor: '#fafafa' }}>
+                                <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+                                  {newsletterBody
+                                    .replace(/\{\{hospitalName\}\}/g, "City Central Metro Hospital")
+                                    .replace(/\{\{email\}\}/g, "director@metro.org")
+                                    .replace(/\{\{beds\}\}/g, "150")}
+                                </p>
+                              </div>
+
+                              {/* Footer preview */}
+                              <div style={{ 
+                                padding: '1rem', 
+                                borderTop: '1px solid #e5e7eb', 
+                                backgroundColor: '#f1f3f4', 
+                                color: '#5f6368', 
+                                fontSize: '0.65rem', 
+                                textAlign: 'center',
+                                lineHeight: '1.4'
+                              }}>
+                                <div>{newsletterFooter}</div>
+                                <div style={{ marginTop: '0.2rem', color: '#9aa0a6' }}>You received this circular because your institution is registered with VaidyaQ.</div>
+                              </div>
+
+                            </div>
+                          </div>
+
+                        </div>
+
+                      </div>
+
+                      {/* Scheduled campaigns ledger list queue */}
+                      <div className="card flex flex-col gap-3" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                        <h4 style={{ fontSize: '0.85rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                          <Calendar size={14} color="var(--primary)" /> <span>Scheduled Campaigns Dispatch Ledger Queue</span>
+                        </h4>
+                        
+                        <div style={{ overflowX: 'auto' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem', textAlign: 'left' }}>
+                            <thead>
+                              <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
+                                <th style={{ padding: '0.5rem' }}>Campaign Theme & Brand</th>
+                                <th style={{ padding: '0.5rem' }}>Subject Line</th>
+                                <th style={{ padding: '0.5rem' }}>Target Segment</th>
+                                <th style={{ padding: '0.5rem' }}>Scheduled Time</th>
+                                <th style={{ padding: '0.5rem' }}>Status</th>
+                                <th style={{ padding: '0.5rem', textAlign: 'right' }}>Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {scheduledNewsletters.length === 0 ? (
+                                <tr>
+                                  <td colSpan="6" style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-tertiary)' }}>No scheduled bulletins.</td>
+                                </tr>
+                              ) : (
+                                scheduledNewsletters.map(sch => (
+                                  <tr key={sch.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                    <td style={{ padding: '0.5rem' }}>
+                                      <span style={{ 
+                                        display: 'inline-block', width: '8px', height: '8px', 
+                                        backgroundColor: sch.theme === 'emerald' ? '#22c55e' : sch.theme === 'ocean' ? '#1a73e8' : '#1f2937', 
+                                        borderRadius: '2px', marginRight: '0.25rem' 
+                                      }}></span>
+                                      <strong>{sch.logoText}</strong>
+                                    </td>
+                                    <td style={{ padding: '0.5rem' }}>{sch.subject}</td>
+                                    <td style={{ padding: '0.5rem', textTransform: 'capitalize' }}>{sch.segment} Clients</td>
+                                    <td style={{ padding: '0.5rem', fontWeight: 'bold' }}>{new Date(sch.scheduledAt).toLocaleString('en-IN')}</td>
+                                    <td style={{ padding: '0.5rem' }}>
+                                      <span className="badge badge-warning" style={{ fontSize: '0.65rem' }}>Pending Queue</span>
+                                    </td>
+                                    <td style={{ padding: '0.5rem', textAlign: 'right' }}>
+                                      <button 
+                                        onClick={() => handleCancelScheduledNewsletter(sch.id)}
+                                        className="btn btn-secondary" style={{ padding: '0.2rem 0.5rem', fontSize: '0.65rem', color: 'rgb(239, 68, 68)', cursor: 'pointer' }}
+                                        title="Cancel Broadcast"
+                                      >
+                                        Cancel Campaign
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                    </div>
+                  )}
+
                 </div>
               )}
 
