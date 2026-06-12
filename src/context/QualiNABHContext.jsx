@@ -185,7 +185,13 @@ export const QualiNABHProvider = ({ children }) => {
         return defaultStandards.map(s => ({ ...s, score: 0, status: "Not Met" }));
       }
       if (key === 'qn_licenses') {
-        return defaultLicenses.map(l => ({ ...l, status: 'Active' }));
+        return defaultLicenses.map(l => ({
+          ...l,
+          issueDate: '',
+          expiryDate: '',
+          responsible: l.responsible.includes('(') ? l.responsible.substring(l.responsible.indexOf('(') + 1, l.responsible.length - 1) : l.responsible,
+          status: 'Expired'
+        }));
       }
       return Array.isArray(defaultValue) ? [] : typeof defaultValue === 'object' ? {} : defaultValue;
     }

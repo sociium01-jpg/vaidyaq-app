@@ -59,8 +59,12 @@ export default function ComplianceModule() {
 
   // Calculate days remaining helper
   const getDaysRemaining = (expiryStr) => {
+    if (!expiryStr) return -999999;
     const expiry = new Date(expiryStr);
+    if (isNaN(expiry.getTime())) return -999999;
     const today = new Date();
+    expiry.setHours(0,0,0,0);
+    today.setHours(0,0,0,0);
     const diffTime = expiry - today;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
@@ -462,7 +466,10 @@ export default function ComplianceModule() {
                   let stateBadge = 'badge-success';
                   let statusText = 'Active';
 
-                  if (days <= 0) {
+                  if (!lic.expiryDate) {
+                    stateBadge = 'badge-danger';
+                    statusText = 'Expired';
+                  } else if (days <= 0) {
                     stateBadge = 'badge-danger';
                     statusText = 'Expired';
                   } else if (days <= 60) {
@@ -471,16 +478,18 @@ export default function ComplianceModule() {
                   }
 
                   return (
-                    <tr key={idx} style={{ backgroundColor: days <= 0 ? 'rgba(220, 38, 38, 0.02)' : 'transparent' }}>
+                    <tr key={idx} style={{ backgroundColor: (!lic.expiryDate || days <= 0) ? 'rgba(220, 38, 38, 0.02)' : 'transparent' }}>
                       <td>
                         <strong>{lic.name}</strong>
                       </td>
                       <td>{lic.authority}</td>
-                      <td>{lic.issueDate}</td>
-                      <td>{lic.expiryDate}</td>
+                      <td>{lic.issueDate || '—'}</td>
+                      <td>{lic.expiryDate || '—'}</td>
                       <td>{lic.responsible}</td>
                       <td>
-                        {days <= 0 ? (
+                        {!lic.expiryDate ? (
+                          <span style={{ color: 'var(--color-danger)', fontWeight: 700 }}>Not Uploaded</span>
+                        ) : days <= 0 ? (
                           <span style={{ color: 'var(--color-danger)', fontWeight: 700 }}>Expired ({Math.abs(days)} days ago)</span>
                         ) : (
                           <span style={{ fontWeight: 600 }}>{days} Days Left</span>

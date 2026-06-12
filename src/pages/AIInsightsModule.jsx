@@ -29,7 +29,10 @@ export default function AIInsightsModule() {
     analyzeEvidenceFile,
     complianceKnowledgeBase,
     addDocument,
-    updateStandardScore
+    updateStandardScore,
+    capaItems,
+    licenses,
+    hospitalName
   } = useContext(QualiNABHContext);
 
   const [activeSubTab, setActiveSubTab] = useState('copilot'); // 'copilot', 'sop', 'gap', 'ceo'
@@ -66,6 +69,60 @@ export default function AIInsightsModule() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
+  // Dynamic variables for CEO briefing and chatbot
+  const activeCapas = capaItems ? capaItems.filter(c => c.status === 'Open') : [];
+  const expiredLicenses = licenses ? licenses.filter(l => {
+    if (!l.expiryDate) return true; // Treat un-uploaded as expired/alerted
+    const exp = new Date(l.expiryDate);
+    return isNaN(exp.getTime()) || exp < new Date();
+  }) : [];
+
+  const riskDepts = new Set();
+  activeCapas.forEach(c => riskDepts.add(c.department));
+  expiredLicenses.forEach(l => {
+    const dept = l.responsible || "Administration";
+    riskDepts.add(dept);
+  });
+  const highRiskDeptsCount = riskDepts.size;
+
+  // Compile liabilities
+  const liabilitiesList = [];
+  expiredLicenses.forEach(l => {
+    liabilitiesList.push({
+      title: `Expired Statutory License: ${l.name}`,
+      text: `The statutory authorization is currently marked Expired or Not Uploaded. Immediate action required.`
+    });
+  });
+  activeCapas.forEach(c => {
+    liabilitiesList.push({
+      title: `Unresolved ${c.department} CAPA Item`,
+      text: `Finding source: "${c.source}". Action item is assigned to ${c.responsible || 'unassigned'} with priority ${c.priority}.`
+    });
+  });
+  const firstThreeGaps = standards.filter(s => s.score < 10).slice(0, 3);
+  firstThreeGaps.forEach(g => {
+    liabilitiesList.push({
+      title: `Missing Evidence SOP: ${g.id}`,
+      text: `Standard element "${g.title}" in department ${g.department || 'Global'} has no mapped evidence documents.`
+    });
+  });
+
+  // Compile actions
+  const actionItemsList = [];
+  expiredLicenses.forEach(l => {
+    actionItemsList.push(`Submit renewal and upload files for statutory license: ${l.name}.`);
+  });
+  activeCapas.forEach(c => {
+    actionItemsList.push(`Quality Manager to verify corrective action and close open CAPA for ${c.department} ("${c.source}").`);
+  });
+  const firstGap = standards.find(s => s.score < 10);
+  if (firstGap) {
+    actionItemsList.push(`Department HOD to draft and approve the evidence SOP for standard ${firstGap.id}.`);
+  }
+  if (actionItemsList.length === 0) {
+    actionItemsList.push("No outstanding urgent action items. All accreditation checks are fully verified.");
+  }
+
   // AI Copilot Responses (dynamic query on context state)
   const handleSendMessage = (e) => {
     e.preventDefault();
@@ -85,41 +142,75 @@ export default function AIInsightsModule() {
       if (currentAttachment) {
         if (currentAttachment.type === 'pdf') {
           responseText = `I have processed your audit report: **${currentAttachment.name}**. 
-- Detected Gaps: Lacks signatures of the Facility Safety Director.
+- Detected Gaps: Lacks required verification signatures.
 - Verification Status: **Failed Verification**.
-- Corrective Action: Upload signed copy. This file has been scanned and is highly recommended as evidence for standard **FMS.1.d** (Fire Safety Drill Records).`;
+- Corrective Action: Upload a signed copy. This file has been scanned and is recommended as evidence for the appropriate chapter.`;
         } else if (currentAttachment.type === 'image') {
           responseText = `I have analyzed the uploaded image: **${currentAttachment.name}**. 
 Visual validation results:
-- Item: Medication lockbox cabinet inside Pharmacy
-- Locked status: **VERIFIED** (physical lock engaged)
+- Status: **VERIFIED**
 - Compliance status: **PASS**.
-This serves as valid proof of compliance for Standard **MOM.2.c** (High-Alert Medication Storage safety).`;
+This serves as valid proof of compliance for the mapped standard.`;
         } else if (currentAttachment.type === 'video') {
           responseText = `Analyzing compliance video recording: **${currentAttachment.name}** (1m 24s). 
-Detected: 8 clinical staff members practicing WHO hand rub techniques.
-Compliance score check: **92% scrubbing compliance**. 
-This serves as strong evidence for training Standard **HRM.2.b** (Infection Control Training Drills).`;
+Detected: Clinical staff members practicing standard compliance procedures.
+Compliance check: **92% compliance verified**. 
+This serves as strong supportive evidence.`;
         }
       } else if (query.includes('score') || query.includes('ready') || query.includes('readiness')) {
         responseText = `Our overall hospital accreditation readiness score is currently calculated at ${readinessScore}%. 
-This is based on scoring preloaded objective elements: ${standards.filter(s => s.score === 10).length} Fully Met chapters, ${standards.filter(s => s.score === 5).length} Partially Met, and ${standards.filter(s => s.score === 0).length} Not Met. We require ${missingEvidenceCount} more evidence documents to achieve 90%+ target.`;
+This is based on scoring active objective elements: ${standards.filter(s => s.score === 10).length} Fully Met chapters, ${standards.filter(s => s.score === 5).length} Partially Met, and ${standards.filter(s => s.score === 0).length} Not Met. We require ${missingEvidenceCount} more evidence documents to achieve 90%+ target.`;
       } 
       else if (query.includes('capa') || query.includes('corrective')) {
-        responseText = `There are currently ${openCapasCount} open CAPA actions pending. 
-The most critical is CAPA-1 (ICU Crash Cart) assigned to Sister Gracy, due on 20-Jun-2026. Suggest uploading the physical inventory signature log to resolve the gap.`;
+        const openCapas = capaItems ? capaItems.filter(c => c.status === 'Open') : [];
+        if (openCapas.length === 0) {
+          responseText = `There are currently 0 open CAPA actions pending. Your quality improvement targets are fully met!`;
+        } else {
+          const firstCapa = openCapas[0];
+          responseText = `There are currently ${openCapas.length} open CAPA actions pending. 
+The most critical is "${firstCapa.source || 'Standard Audit Finding'}" in department "${firstCapa.department}", assigned to ${firstCapa.responsible || 'unassigned'}, due on ${firstCapa.dueDate || 'N/A'}. Suggest uploading evidence/logs to resolve this gap.`;
+        }
       } 
       else if (query.includes('missing') || query.includes('evidence') || query.includes('gap')) {
         const missingStds = standards.filter(s => s.score < 10).map(s => s.id);
-        responseText = `I have detected evidence deficiencies in ${missingEvidenceCount} standards. 
-Chapters with critical gaps (scored under 10): ${missingStds.join(', ')}. 
-Specifically, MOM.3.a (Medication Expiry disposal) has no mapped SOP. You can use the AI SOP Generator tab to draft and approve one.`;
+        if (missingStds.length === 0) {
+          responseText = `Congratulations! All standards are currently fully met. No active evidence deficiencies were detected.`;
+        } else {
+          responseText = `I have detected evidence deficiencies in ${missingEvidenceCount} standards. 
+Chapters with critical gaps (scored under 10): ${missingStds.slice(0, 10).join(', ')}${missingStds.length > 10 ? '...' : ''}. \n`;
+          const firstMissing = standards.find(s => s.score < 10);
+          if (firstMissing) {
+            responseText += `Specifically, ${firstMissing.id} (${firstMissing.title}) has no mapped evidence SOP. You can draft one or upload a record under the Document Vault.`;
+          }
+        }
       } 
       else if (query.includes('risk') || query.includes('department')) {
-        responseText = "Department risk scans: ICU and Pharmacy are flagged as HIGH RISK because ICU has an open high-severity CAPA for expired syringes, and Pharmacy has an expired Narcotic Storage License.";
+        const openCapas = capaItems ? capaItems.filter(c => c.status === 'Open') : [];
+        const expiredLics = licenses ? licenses.filter(l => {
+          if (!l.expiryDate) return true;
+          const exp = new Date(l.expiryDate);
+          return isNaN(exp.getTime()) || exp < new Date();
+        }) : [];
+
+        if (openCapas.length === 0 && expiredLics.length === 0) {
+          responseText = "Department risk scans: All active units are currently flagged as LOW RISK. No open CAPAs or expired statutory licenses detected.";
+        } else {
+          const rDepts = new Set();
+          const rReasons = [];
+          openCapas.forEach(c => {
+            rDepts.add(c.department);
+            rReasons.push(`Open CAPA in ${c.department} ("${c.source}" assigned to ${c.responsible})`);
+          });
+          expiredLics.forEach(l => {
+            const dept = l.responsible || "Administration";
+            rDepts.add(dept);
+            rReasons.push(`Expired license: "${l.name}"`);
+          });
+          responseText = `Department risk scans: The following units/departments have active risk flags: ${Array.from(rDepts).join(', ') || 'Global'}. \nReasons:\n` + rReasons.map(r => `- ${r}`).join('\n');
+        }
       } 
       else {
-        responseText = "Based on our hospital compliance logs, I suggest checking the 'Chapter Gap Analysis' dashboard. You have " + openCapasCount + " open CAPA items and " + missingEvidenceCount + " missing document uploads. Let me know if you want me to draft an SOP for medication safety or security policies.";
+        responseText = `Based on our hospital compliance logs, I suggest checking the 'Accreditation Readiness' dashboard. You have ${openCapasCount} open CAPA items and ${missingEvidenceCount} missing document uploads. Let me know if you want me to draft an SOP or scan a document.`;
       }
 
       setChatMessages(prev => [...prev, { sender: 'ai', text: responseText }]);
@@ -701,32 +792,36 @@ This SOP is subject to audit every 6 months. Revision 1.0.`;
                 </div>
                 <div style={{ backgroundColor: 'var(--bg-tertiary)', padding: '0.75rem', borderRadius: '8px' }}>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>High-Risk Depts</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-danger)' }}>2</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: highRiskDeptsCount > 0 ? 'var(--color-danger)' : 'var(--color-success)' }}>{highRiskDeptsCount}</div>
                 </div>
               </div>
 
               <div>
                 <h4 style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>1. Overall Performance Summary</h4>
                 <p style={{ color: 'var(--text-secondary)', lineHeight: '1.45' }}>
-                  City Central Metro Hospital is currently at <strong>{readinessScore}%</strong> compliance for the NABH 6th Edition accreditation standard. We have mapped <strong>{documents.filter(d=>d.status==='Approved').length} approved SOPs</strong>. A compliance score of 85% is required to trigger final document submission.
+                  {hospitalName} is currently at <strong>{readinessScore}%</strong> compliance for the NABH 6th Edition accreditation standard. We have mapped <strong>{documents.filter(d=>d.status==='Approved').length} approved SOPs</strong>. A compliance score of 85% is required to trigger final document submission.
                 </p>
               </div>
 
               <div>
                 <h4 style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>2. Critical Compliance Liabilities</h4>
-                <ul style={{ listStyleType: 'decimal', paddingLeft: '1.25rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <li><strong>Expired Narcotics License:</strong> The pharmacy Narcotics Storage license expired on 10-May-2026. Immediate renewal action required to prevent regulatory fines.</li>
-                  <li><strong>Unresolved ICU finding:</strong> Audit-1 logged a high-severity finding for expired saline syringes in the crash cart. CAPA-1 remains open.</li>
-                  <li><strong>Missing SOP Evidence:</strong> MOM.3.a (Medication Expiry disposal) has no mapped evidence SOP.</li>
-                </ul>
+                {liabilitiesList.length === 0 ? (
+                  <p style={{ color: 'var(--text-secondary)' }}>No active statutory or clinical liabilities detected.</p>
+                ) : (
+                  <ul style={{ listStyleType: 'decimal', paddingLeft: '1.25rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    {liabilitiesList.map((liab, index) => (
+                      <li key={index}><strong>{liab.title}:</strong> {liab.text}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
               <div>
                 <h4 style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>3. Immediate Action Items for Executive Team</h4>
                 <ul style={{ listStyleType: 'disc', paddingLeft: '1.25rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <li>COO to sign off the Narcotic Storage license renewal fee request.</li>
-                  <li>Quality Head to verify Sister Gracy's crash cart handover sheet and close CAPA-1.</li>
-                  <li>Pharmacy HOD to approve the Expired Drug Disposal SOP draft.</li>
+                  {actionItemsList.map((act, index) => (
+                    <li key={index}>{act}</li>
+                  ))}
                 </ul>
               </div>
             </div>
