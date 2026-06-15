@@ -1920,5 +1920,108 @@ button {
   border: 1px solid rgba(0, 0, 0, 0.06) !important;
 }
 
+/* Mobile & Tablet App layout pass */
+@media (max-width: 768px) {
+  /* Navbar elements adjustments */
+  .navbar {
+    padding: 0 0.75rem !important;
+    height: 56px !important;
+  }
+  .navbar button.btn-primary {
+    padding: 0.35rem 0.5rem !important;
+  }
+  .navbar button.btn-primary span {
+    display: none !important; /* hide Ask Copilot text on mobile */
+  }
+  .navbar .badge {
+    display: none !important; /* hide hospital beds/tier badge on mobile to free space */
+  }
+  .navbar h2, .navbar span {
+    font-size: 0.9rem !important;
+  }
+  
+  /* Login responsiveness overrides */
+  .login-card {
+    padding: 1.5rem !important;
+  }
+  .login-container {
+    padding: 1rem !important;
+  }
+}
+
+/* Base Bottom Nav style (hidden on desktop) */
+.bottom-nav {
+  display: none;
+}
+
+.navbar-user-role {
+  display: flex;
+}
+
+/* Responsive bottom nav drawer & breakpoints */
+@media (max-width: 1024px) {
+  .bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    height: 60px;
+    background: rgba(30, 41, 59, 0.75);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    justify-content: space-around;
+    align-items: center;
+    z-index: 900;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    padding: 0 0.5rem;
+    transition: background-color var(--transition-normal);
+  }
+
+  [data-theme="light"] .bottom-nav {
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  }
+
+  .bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    gap: 4px;
+    padding: 0.4rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    transition: all var(--transition-fast);
+  }
+
+  .bottom-nav-item.active {
+    color: var(--primary);
+  }
+
+  .bottom-nav-item:active {
+    transform: scale(0.95);
+  }
+
+  /* Adjust main scroll area to make room for bottom nav */
+  .main-scroll-area {
+    padding-bottom: 96px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .navbar-user-role {
+    display: none !important;
+  }
+}
+
+
 
 

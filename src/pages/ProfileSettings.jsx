@@ -174,6 +174,19 @@ export default function ProfileSettings() {
     }
   };
 
+  const handleResetDatabase = () => {
+    if (!window.confirm("🚨 WARNING: This will reset all your compliance logs, custom SOPs, incidents, committees, and settings back to default mock data. This action cannot be undone. Do you wish to proceed?")) {
+      return;
+    }
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('qn_') || key.includes('_qn_')) {
+        localStorage.removeItem(key);
+      }
+    });
+    localStorage.removeItem('qn_user');
+    window.location.reload();
+  };
+
   // Export local state JSON
   const handleExportData = () => {
     const backupData = {
@@ -553,6 +566,16 @@ export default function ProfileSettings() {
                   Deactivate Profile Session
                 </button>
               </form>
+            </div>
+
+            <div style={{ padding: '1rem', backgroundColor: 'rgba(239, 68, 68, 0.05)', borderRadius: '10px', border: '1px solid rgba(239, 68, 68, 0.15)' }}>
+              <span style={{ fontWeight: 'bold', fontSize: '0.9rem', display: 'block', color: 'var(--color-danger)' }}>Reset Local Database to defaults</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '1rem' }}>
+                This clears all custom SOPs, incidents, licenses, audits, and settings in your browser database and restores default mock datasets.
+              </span>
+              <button onClick={handleResetDatabase} type="button" className="btn btn-danger" style={{ padding: '0.55rem', fontWeight: 'bold', cursor: 'pointer', width: '100%' }}>
+                🚨 Reset Database & Reload
+              </button>
             </div>
           </div>
         </div>

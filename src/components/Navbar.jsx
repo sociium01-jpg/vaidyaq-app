@@ -184,7 +184,7 @@ export default function Navbar({ setSidebarOpen }) {
           >
             {currentUser.name ? currentUser.name.charAt(0) : 'U'}
           </div>
-          <div className="flex flex-col" style={{ display: 'none', md: 'flex' }}>
+          <div className="navbar-user-role flex flex-col">
             <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{currentUser.role}</span>
           </div>
         </div>

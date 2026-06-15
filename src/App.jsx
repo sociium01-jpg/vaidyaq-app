@@ -4,6 +4,7 @@ import { QualiNABHProvider, QualiNABHContext } from './context/QualiNABHContext'
 // Import Components & Layout
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
+import BottomNav from './components/BottomNav';
 
 // Import Pages
 import PublicPages from './pages/PublicPages';
@@ -173,7 +174,7 @@ function AppContent() {
       {/* Main workspace */}
       <div className="app-content-wrapper">
         {/* Top Navbar */}
-        <Navbar />
+        <Navbar setSidebarOpen={setSidebarOpen} />
 
         {/* Dynamic page scroll viewport */}
         <main className="main-scroll-area">
@@ -210,6 +211,9 @@ function AppContent() {
             }
           })()}
         </main>
+
+        {/* Mobile & Tablet Bottom Navigation Bar */}
+        <BottomNav setSidebarOpen={setSidebarOpen} />
       </div>
     </div>
   );
