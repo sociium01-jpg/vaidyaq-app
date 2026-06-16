@@ -2,7 +2,7 @@ import React, { useContext, useState } from 'react';
 import { QualiNABHContext } from '../context/QualiNABHContext';
 import { Bell, Search, Sparkles, User, AlertTriangle, Menu } from 'lucide-react';
 
-export default function Navbar({ setSidebarOpen }) {
+export default function Navbar({ setSidebarOpen, onSearchClick }) {
   const {
     setCurrentRoute,
     openCapasCount,
@@ -114,9 +114,14 @@ export default function Navbar({ setSidebarOpen }) {
       </div>
 
       {/* Middle Search Bar */}
-      <div className="navbar-search">
+      <div className="navbar-search" onClick={onSearchClick} style={{ cursor: 'pointer' }}>
         <Search size={16} className="text-tertiary" />
-        <input type="text" placeholder="Search SOPs, CAPAs, Standard codes..." />
+        <input 
+          type="text" 
+          placeholder="Search SOPs, CAPAs, Standard codes... (Ctrl+K)" 
+          readOnly 
+          style={{ cursor: 'pointer' }}
+        />
       </div>
 
       {/* Right controls */}

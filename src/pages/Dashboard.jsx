@@ -776,6 +776,119 @@ DOCUMENT CONTROL CYCLE: Reviewed every 6 months. Revision 1.0.`;
         </div>
       </div>
 
+      {/* 2.5 Standards Compliance Heatmap */}
+      <div className="card" style={{ padding: '1.5rem', marginTop: '0.5rem' }}>
+        <div className="flex justify-between align-center" style={{ marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <div>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Grid size={18} color="var(--primary)" />
+              <span>Standards Compliance Heatmap</span>
+            </h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginTop: '0.2rem' }}>
+              Chapter-wise NABH compliance at a glance — click any chapter for details
+            </p>
+          </div>
+          <button onClick={() => setCurrentRoute('/app/accreditation')} className="btn btn-secondary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem' }}>
+            Full Assessment →
+          </button>
+        </div>
+        <div className="heatmap-grid">
+          {(() => {
+            const chapters = ['AAC', 'COP', 'MOM', 'FMS', 'HRM'];
+            const chapterNames = {
+              AAC: 'Access, Assessment & Continuity',
+              COP: 'Care of Patients',
+              MOM: 'Management of Medication',
+              FMS: 'Facility Management & Safety',
+              HRM: 'Human Resource Management'
+            };
+            return chapters.map(ch => {
+              const chapterStandards = standards.filter(s => s.chapter === ch || s.id?.startsWith(ch));
+              const totalScore = chapterStandards.reduce((sum, s) => sum + (s.score || 0), 0);
+              const maxScore = chapterStandards.length * 10;
+              const pct = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
+              const colorClass = pct < 40 ? 'heatmap-red' : pct < 75 ? 'heatmap-amber' : 'heatmap-green';
+              return (
+                <div
+                  key={ch}
+                  className={`heatmap-cell ${colorClass}`}
+                  onClick={() => setCurrentRoute('/app/accreditation')}
+                  title={chapterNames[ch]}
+                >
+                  <div className="heatmap-chapter">{ch}</div>
+                  <div className="heatmap-score">{pct}%</div>
+                  <div className="heatmap-label">{chapterStandards.length} standards</div>
+                </div>
+              );
+            });
+          })()}
+        </div>
+      </div>
+
+      {/* 2.6 CAPA Aging Dashboard */}
+      {capaItems.filter(c => c.status === 'Open').length > 0 && (
+        <div className="card" style={{ padding: '1.5rem', marginTop: '0.5rem' }}>
+          <div className="flex justify-between align-center" style={{ marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <AlertTriangle size={18} color="var(--color-warning)" />
+                <span>CAPA Aging Dashboard</span>
+              </h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginTop: '0.2rem' }}>
+                Distribution of open CAPAs by age — older items need urgent attention
+              </p>
+            </div>
+            <button onClick={() => setCurrentRoute('/app/quality')} className="btn btn-secondary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem' }}>
+              Manage CAPAs →
+            </button>
+          </div>
+          <div className="aging-chart">
+            {(() => {
+              const now = new Date();
+              const openCapas = capaItems.filter(c => c.status === 'Open');
+              const ageBuckets = [
+                { label: '0-7d', max: 7 },
+                { label: '8-14d', max: 14 },
+                { label: '15-30d', max: 30 },
+                { label: '31-60d', max: 60 },
+                { label: '60d+', max: Infinity }
+              ];
+              const counts = ageBuckets.map(b => ({ ...b, count: 0 }));
+              openCapas.forEach(c => {
+                const created = new Date(c.dueDate || c.dateCreated || now);
+                const ageDays = Math.max(0, Math.floor((now - created) / (1000 * 60 * 60 * 24)));
+                let placed = false;
+                for (let i = 0; i < counts.length; i++) {
+                  const prevMax = i === 0 ? 0 : ageBuckets[i - 1].max + 1;
+                  if (ageDays <= counts[i].max) { counts[i].count++; placed = true; break; }
+                }
+                if (!placed) counts[counts.length - 1].count++;
+              });
+              const maxCount = Math.max(...counts.map(c => c.count), 1);
+              const barColors = ['var(--color-success)', 'var(--primary)', 'var(--color-warning)', 'var(--color-danger)', '#7f1d1d'];
+              return counts.map((b, i) => (
+                <div key={i} className="aging-bar-group">
+                  <div className="aging-bar-count">{b.count}</div>
+                  <div
+                    className="aging-bar"
+                    style={{
+                      height: `${Math.max(8, (b.count / maxCount) * 140)}px`,
+                      backgroundColor: barColors[i],
+                      opacity: b.count === 0 ? 0.3 : 1
+                    }}
+                  />
+                  <div className="aging-bar-label">{b.label}</div>
+                </div>
+              ));
+            })()}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>
+            <span>← Newer</span>
+            <span>Older →</span>
+          </div>
+        </div>
+      )}
+
       {/* 3. Onboarding Operating Model Map / Pipeline */}
       {hospitalMode === 'new' && (
         <div className="card" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>

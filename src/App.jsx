@@ -1,10 +1,14 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { QualiNABHProvider, QualiNABHContext } from './context/QualiNABHContext';
 
 // Import Components & Layout
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
 import BottomNav from './components/BottomNav';
+import SearchModal from './components/SearchModal';
+import ToastProvider from './components/ToastProvider';
+import FAB from './components/FAB';
+import OnboardingWizard from './components/OnboardingWizard';
 
 // Import Pages
 import PublicPages from './pages/PublicPages';
@@ -37,10 +41,25 @@ function AppContent() {
     isAppLocked,
     getLiveCountdownString,
     forcePaymentScreen,
-    setForcePaymentScreen
+    setForcePaymentScreen,
+    hospitalMode
   } = useContext(QualiNABHContext);
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedCycle, setSelectedCycle] = useState('annually'); // 'quarterly' or 'annually'
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  // Global shortcut Ctrl+K / Cmd+K to open Search Modal
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsSearchOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
 
   // 0. VENDOR ADMIN OFFICE ROUTE HANDLER (Isolated from SaaS app)
   if (currentRoute === '/vendor-admin') {
@@ -157,6 +176,11 @@ function AppContent() {
     );
   }
 
+  // 2.5 HOSPTIAL ONBOARDING WIZARD BLOCKER
+  if (hospitalMode === 'new') {
+    return <OnboardingWizard />;
+  }
+
   // 3. LOGGED-IN SAAS APPLICATION ROUTE HANDLER
   return (
     <div className={`app-layout ${sidebarOpen ? 'sidebar-open' : ''}`}>
@@ -174,7 +198,7 @@ function AppContent() {
       {/* Main workspace */}
       <div className="app-content-wrapper">
         {/* Top Navbar */}
-        <Navbar setSidebarOpen={setSidebarOpen} />
+        <Navbar setSidebarOpen={setSidebarOpen} onSearchClick={() => setIsSearchOpen(true)} />
 
         {/* Dynamic page scroll viewport */}
         <main className="main-scroll-area">
@@ -214,6 +238,12 @@ function AppContent() {
 
         {/* Mobile & Tablet Bottom Navigation Bar */}
         <BottomNav setSidebarOpen={setSidebarOpen} />
+
+        {/* Floating Action Button for mobile quick actions */}
+        <FAB />
+
+        {/* Global Search Modal */}
+        <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
       </div>
     </div>
   );
@@ -222,7 +252,9 @@ function AppContent() {
 export default function App() {
   return (
     <QualiNABHProvider>
-      <AppContent />
+      <ToastProvider>
+        <AppContent />
+      </ToastProvider>
     </QualiNABHProvider>
   );
 }

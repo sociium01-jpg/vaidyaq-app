@@ -58,6 +58,13 @@ export default function QualityModule() {
 
   const [selectedIncidentToInvestigate, setSelectedIncidentToInvestigate] = useState(null);
   const [investigationForm, setInvestigationForm] = useState({ investigator: '', rootCause: '', capaId: '' });
+  const [selectedMatrixCell, setSelectedMatrixCell] = useState(null);
+  const [isFiveWhy, setIsFiveWhy] = useState(false);
+  const [why1, setWhy1] = useState('');
+  const [why2, setWhy2] = useState('');
+  const [why3, setWhy3] = useState('');
+  const [why4, setWhy4] = useState('');
+  const [why5, setWhy5] = useState('');
 
   // AI Assistant Draft Statuses
   const [aiDraftLoading, setAiDraftLoading] = useState(false);
@@ -137,13 +144,17 @@ export default function QualityModule() {
 
   const handleSaveInvestigation = (e) => {
     e.preventDefault();
+    let finalRootCause = investigationForm.rootCause;
+    if (isFiveWhy) {
+      finalRootCause = `Root Cause (5-Why Analysis):\n1. Why? ${why1}\n2. Why? ${why2}\n3. Why? ${why3}\n4. Why? ${why4}\n5. Why? ${why5}`;
+    }
     setIncidents(prev => prev.map(inc => {
       if (inc.id === selectedIncidentToInvestigate.id) {
         return {
           ...inc,
           status: "Closed",
           investigator: investigationForm.investigator,
-          rootCause: investigationForm.rootCause,
+          rootCause: finalRootCause,
           capaId: investigationForm.capaId
         };
       }
@@ -494,6 +505,141 @@ export default function QualityModule() {
                     <Plus size={12} /> Log Risk Item
                   </button>
                 </div>
+                {/* 5x5 Risk Scoring Matrix */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '1.5rem', marginBottom: '1.5rem', backgroundColor: 'var(--bg-tertiary)', padding: '1.25rem', borderRadius: '12px', border: '1px solid var(--border-color)', flexWrap: 'wrap' }}>
+                  {/* Grid Matrix Column */}
+                  <div>
+                    <h4 style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Likelihood × Impact Scoring Grid</span>
+                      {selectedMatrixCell && (
+                        <button 
+                          onClick={() => setSelectedMatrixCell(null)} 
+                          style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700 }}
+                        >
+                          Reset Filter [x]
+                        </button>
+                      )}
+                    </h4>
+                    
+                    <div className="risk-matrix">
+                      {/* Top Header Label */}
+                      <div className="risk-matrix-header" style={{ gridColumn: 'span 6', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px' }}>
+                        Likelihood (Rare → Almost Certain)
+                      </div>
+                      
+                      {/* Column labels */}
+                      <div className="risk-matrix-header"></div>
+                      <div className="risk-matrix-header">1</div>
+                      <div className="risk-matrix-header">2</div>
+                      <div className="risk-matrix-header">3</div>
+                      <div className="risk-matrix-header">4</div>
+                      <div className="risk-matrix-header">5</div>
+                      
+                      {/* Rows generation */}
+                      {(() => {
+                        const rowHeaders = [
+                          { label: '5-Ext', value: 5 },
+                          { label: '4-Maj', value: 4 },
+                          { label: '3-Mod', value: 3 },
+                          { label: '2-Min', value: 2 },
+                          { label: '1-Neg', value: 1 }
+                        ];
+                        
+                        const mapImpactToValue = (impact) => {
+                          if (impact === 'High' || impact === 'Extreme' || impact === '5') return 5;
+                          if (impact === 'Major' || impact === '4') return 4;
+                          if (impact === 'Medium' || impact === 'Moderate' || impact === '3') return 3;
+                          if (impact === 'Minor' || impact === '2') return 2;
+                          return 1;
+                        };
+
+                        const mapLikelihoodToValue = (like) => {
+                          if (like === 'Almost Certain' || like === '5') return 5;
+                          if (like === 'High' || like === 'Likely' || like === '4') return 4;
+                          if (like === 'Medium' || like === 'Possible' || like === '3') return 3;
+                          if (like === 'Low' || like === 'Unlikely' || like === '2') return 2;
+                          return 1;
+                        };
+
+                        const cells = [];
+                        
+                        rowHeaders.forEach(row => {
+                          // Renders row title cell
+                          cells.push(<div key={`rh-${row.value}`} className="risk-matrix-header" style={{ borderRight: '1px solid var(--border-color)', paddingRight: '4px', justifyContent: 'flex-end' }}>{row.label}</div>);
+                          
+                          // Renders 5 likelihood cells for this impact row
+                          for (let colVal = 1; colVal <= 5; colVal++) {
+                            const score = row.value * colVal;
+                            
+                            // Find ratings class
+                            let colorClass = 'risk-low';
+                            if (score >= 16) colorClass = 'risk-extreme';
+                            else if (score >= 10) colorClass = 'risk-high';
+                            else if (score >= 5) colorClass = 'risk-medium';
+                            
+                            // Count active matching risks
+                            const matchingCount = (risks || []).filter(risk => {
+                              return mapImpactToValue(risk.impact) === row.value && mapLikelihoodToValue(risk.likelihood) === colVal;
+                            }).length;
+                            
+                            const isCellSelected = selectedMatrixCell && selectedMatrixCell.impact === row.value && selectedMatrixCell.likelihood === colVal;
+                            
+                            cells.push(
+                              <div 
+                                key={`cell-${row.value}-${colVal}`}
+                                className={`risk-matrix-cell ${colorClass}`}
+                                style={{
+                                  border: isCellSelected ? '3px solid var(--primary)' : '1px solid transparent',
+                                  transform: isCellSelected ? 'scale(1.05)' : 'none',
+                                  boxShadow: isCellSelected ? 'var(--shadow-glow)' : 'none'
+                                }}
+                                onClick={() => setSelectedMatrixCell(isCellSelected ? null : { impact: row.value, likelihood: colVal })}
+                                title={`Impact: ${row.value}, Likelihood: ${colVal} (Score: ${score})`}
+                              >
+                                {matchingCount > 0 ? (
+                                  <strong style={{ fontSize: '0.9rem', textShadow: '0 0 4px rgba(255,255,255,0.2)' }}>{matchingCount}</strong>
+                                ) : (
+                                  <span style={{ opacity: 0.25, fontSize: '0.65rem' }}>{score}</span>
+                                )}
+                              </div>
+                            );
+                          }
+                        });
+                        
+                        return cells;
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Matrix Description Side Column */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', justifyContent: 'center' }}>
+                    <h4 style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', margin: 0 }}>Risk Classification Key</h4>
+                    <div className="flex flex-col gap-1" style={{ fontSize: '0.75rem' }}>
+                      <div className="flex align-center gap-2">
+                        <div style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: 'rgba(220, 38, 38, 0.3)', border: '1px solid rgba(220, 38, 38, 0.5)' }}></div>
+                        <span style={{ fontWeight: 600 }}>Extreme Risk (16 - 25)</span>
+                      </div>
+                      <div className="flex align-center gap-2">
+                        <div style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: 'rgba(220, 38, 38, 0.15)', border: '1px solid rgba(220, 38, 38, 0.3)' }}></div>
+                        <span style={{ fontWeight: 600 }}>High Risk (10 - 15)</span>
+                      </div>
+                      <div className="flex align-center gap-2">
+                        <div style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: 'rgba(217, 119, 6, 0.15)', border: '1px solid rgba(217, 119, 6, 0.3)' }}></div>
+                        <span style={{ fontWeight: 600 }}>Medium Risk (5 - 9)</span>
+                      </div>
+                      <div className="flex align-center gap-2">
+                        <div style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: 'rgba(5, 150, 105, 0.15)', border: '1px solid rgba(5, 150, 105, 0.3)' }}></div>
+                        <span style={{ fontWeight: 600 }}>Low Risk (1 - 4)</span>
+                      </div>
+                    </div>
+                    <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.4' }}>
+                      {selectedMatrixCell 
+                        ? `Filtering table below to display items with Likelihood = ${selectedMatrixCell.likelihood} and Impact = ${selectedMatrixCell.impact}.`
+                        : "Click any cell inside the matrix grid above to filter the register table below to show only items matching that score."}
+                    </p>
+                  </div>
+                </div>
+
                 <div className="overflow-x-auto">
                   <table className="table" style={{ fontSize: '0.75rem' }}>
                     <thead>
@@ -506,26 +652,63 @@ export default function QualityModule() {
                       </tr>
                     </thead>
                     <tbody>
-                      {risks && risks.map((risk, idx) => (
-                        <tr key={idx}>
-                          <td style={{ fontWeight: 'bold' }}>{risk.category}</td>
-                          <td>{risk.description}</td>
-                          <td>{risk.department}</td>
-                          <td>
-                            <span style={{
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              fontWeight: 'bold',
-                              fontSize: '0.65rem',
-                              backgroundColor: risk.rating === 'Red' ? 'rgba(220, 38, 38, 0.1)' : 'rgba(245, 158, 11, 0.1)',
-                              color: risk.rating === 'Red' ? 'var(--color-danger)' : '#f59e0b'
-                            }}>
-                              {risk.rating} ({risk.impact}/{risk.likelihood})
-                            </span>
-                          </td>
-                          <td style={{ color: 'var(--text-secondary)' }}>{risk.correctiveAction}</td>
-                        </tr>
-                      ))}
+                      {(() => {
+                        let filtered = risks || [];
+                        
+                        const mapImpactToValue = (impact) => {
+                          if (impact === 'High' || impact === 'Extreme' || impact === '5') return 5;
+                          if (impact === 'Major' || impact === '4') return 4;
+                          if (impact === 'Medium' || impact === 'Moderate' || impact === '3') return 3;
+                          if (impact === 'Minor' || impact === '2') return 2;
+                          return 1;
+                        };
+
+                        const mapLikelihoodToValue = (like) => {
+                          if (like === 'Almost Certain' || like === '5') return 5;
+                          if (like === 'High' || like === 'Likely' || like === '4') return 4;
+                          if (like === 'Medium' || like === 'Possible' || like === '3') return 3;
+                          if (like === 'Low' || like === 'Unlikely' || like === '2') return 2;
+                          return 1;
+                        };
+
+                        if (selectedMatrixCell) {
+                          filtered = filtered.filter(risk => {
+                            return mapImpactToValue(risk.impact) === selectedMatrixCell.impact && 
+                                   mapLikelihoodToValue(risk.likelihood) === selectedMatrixCell.likelihood;
+                          });
+                        }
+                        
+                        if (filtered.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan="5" style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-tertiary)' }}>
+                                No active risks matched the selected filter.
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        return filtered.map((risk, idx) => (
+                          <tr key={idx}>
+                            <td style={{ fontWeight: 'bold' }}>{risk.category}</td>
+                            <td>{risk.description}</td>
+                            <td>{risk.department}</td>
+                            <td>
+                              <span style={{
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                fontWeight: 'bold',
+                                fontSize: '0.65rem',
+                                backgroundColor: risk.rating === 'Red' ? 'rgba(220, 38, 38, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                                color: risk.rating === 'Red' ? 'var(--color-danger)' : '#f59e0b'
+                              }}>
+                                {risk.rating} ({risk.impact}/{risk.likelihood})
+                              </span>
+                            </td>
+                            <td style={{ color: 'var(--text-secondary)' }}>{risk.correctiveAction}</td>
+                          </tr>
+                        ));
+                      })()}
                     </tbody>
                   </table>
                 </div>
@@ -1050,17 +1233,65 @@ export default function QualityModule() {
                   />
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Root Cause Analysis (RCA) *</label>
-                  <textarea
-                    rows="4"
-                    required
-                    className="form-control"
-                    placeholder="Log RCA findings (gaps, training lapses, environment hazards)..."
-                    value={investigationForm.rootCause}
-                    onChange={(e) => setInvestigationForm({ ...investigationForm, rootCause: e.target.value })}
-                  />
+                <div style={{ display: 'flex', gap: '10px', margin: '0.5rem 0', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                  <button 
+                    type="button" 
+                    className={`btn ${!isFiveWhy ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ fontSize: '0.75rem', padding: '4px 10px', cursor: 'pointer' }}
+                    onClick={() => setIsFiveWhy(false)}
+                  >
+                    Basic RCA Notes
+                  </button>
+                  <button 
+                    type="button" 
+                    className={`btn ${isFiveWhy ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ fontSize: '0.75rem', padding: '4px 10px', cursor: 'pointer' }}
+                    onClick={() => setIsFiveWhy(true)}
+                  >
+                    🎓 Interactive 5-Why Worksheet
+                  </button>
                 </div>
+
+                {!isFiveWhy ? (
+                  <div className="form-group animate-fadeIn">
+                    <label className="form-label">Root Cause Analysis (RCA) *</label>
+                    <textarea
+                      rows="4"
+                      required={!isFiveWhy}
+                      className="form-control"
+                      placeholder="Log RCA findings (gaps, training lapses, environment hazards)..."
+                      value={investigationForm.rootCause}
+                      onChange={(e) => setInvestigationForm({ ...investigationForm, rootCause: e.target.value })}
+                    />
+                  </div>
+                ) : (
+                  <div className="rca-worksheet animate-fadeIn" style={{ margin: '0.5rem 0' }}>
+                    <label className="form-label" style={{ marginBottom: '8px' }}>RCA 5-Why Worksheet *</label>
+                    {[
+                      { val: why1, setVal: setWhy1, label: "Why 1: What triggered the incident first?" },
+                      { val: why2, setVal: setWhy2, label: "Why 2: Why did that occur?" },
+                      { val: why3, setVal: setWhy3, label: "Why 3: Why was that?" },
+                      { val: why4, setVal: setWhy4, label: "Why 4: What is the underlying reason?" },
+                      { val: why5, setVal: setWhy5, label: "Why 5: What is the systemic root cause?" }
+                    ].map((stepObj, idx) => (
+                      <div key={idx} className="rca-why-step">
+                        <div className="rca-why-number">{idx + 1}</div>
+                        <div className="rca-why-input">
+                          <label>{stepObj.label}</label>
+                          <textarea
+                            required={isFiveWhy}
+                            rows="2"
+                            className="form-control"
+                            style={{ minHeight: '40px', padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                            value={stepObj.val}
+                            onChange={(e) => stepObj.setVal(e.target.value)}
+                            placeholder="Enter description..."
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <div className="form-group">
                   <label className="form-label">Link to Corrective Action (CAPA)</label>

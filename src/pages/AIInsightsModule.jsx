@@ -291,7 +291,16 @@ Chapters with critical gaps (scored under 10): ${missingStds.slice(0, 10).join('
         responseText = `Based on our hospital compliance logs, I suggest checking the 'Accreditation Readiness' dashboard. You have ${openCapasCount} open CAPA items and ${missingEvidenceCount} missing document uploads. Let me know if you want me to draft an SOP or scan a document.`;
       }
 
-      setChatMessages(prev => [...prev, { sender: 'ai', text: responseText }]);
+      const isAttachment = !!currentAttachment;
+      const queryLower = query || '';
+      let confidenceLevel = 'High';
+      if (queryLower.includes('missing') || queryLower.includes('gap') || queryLower.includes('risk')) {
+        confidenceLevel = 'Medium';
+      } else if (isAttachment && currentAttachment.type === 'pdf') {
+        confidenceLevel = 'Medium';
+      }
+
+      setChatMessages(prev => [...prev, { sender: 'ai', text: responseText, confidence: confidenceLevel }]);
       logActivity(currentAttachment ? `Uploaded attachment for AI inspection: ${currentAttachment.name}` : `Consulted AI Copilot: "${userText}"`);
     }, 800);
   };
@@ -616,7 +625,17 @@ This SOP is subject to audit every 6 months. Revision 1.0.`;
                         </div>
                       </div>
                     )}
-                    <div>{msg.text}</div>
+                    <div style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</div>
+                    {msg.sender === 'ai' && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', paddingTop: '0.4rem', borderTop: '1px solid rgba(255, 255, 255, 0.05)', flexWrap: 'wrap', gap: '8px' }}>
+                        <span className={`ai-confidence-badge ai-confidence-${msg.confidence ? msg.confidence.toLowerCase() : 'high'}`}>
+                          🎯 AI CONFIDENCE: {msg.confidence || 'HIGH'}
+                        </span>
+                        <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
+                          ⚠️ AI Advisory — Requires Human Verification
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -886,12 +905,14 @@ This SOP is subject to audit every 6 months. Revision 1.0.`;
               
               {sopDraftText ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1, overflowY: 'auto' }}>
-                  <textarea
-                    className="sop-content-draft form-control"
-                    style={{ minHeight: '160px', height: '160px', whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.85rem', padding: '1rem', backgroundColor: 'var(--bg-tertiary)' }}
-                    value={sopDraftText}
-                    onChange={(e) => setSopDraftText(e.target.value)}
-                  />
+                  <div className="ai-draft-watermark" style={{ width: '100%' }}>
+                    <textarea
+                      className="sop-content-draft form-control"
+                      style={{ minHeight: '160px', height: '160px', width: '100%', whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.85rem', padding: '1rem', backgroundColor: 'var(--bg-tertiary)', border: 'none', outline: 'none', resize: 'vertical' }}
+                      value={sopDraftText}
+                      onChange={(e) => setSopDraftText(e.target.value)}
+                    />
+                  </div>
                   {/* Flowchart Component */}
                   <div style={{ backgroundColor: 'var(--bg-primary)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                     <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Workflow Flowchart Nodes:</label>
@@ -976,6 +997,10 @@ This SOP is subject to audit every 6 months. Revision 1.0.`;
                   <div style={{ padding: '0.5rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '6px', border: '1px dashed var(--border-color)', marginTop: '0.5rem' }}>
                     💡 <strong>AI Recommendations:</strong> {gapCheckResult.advice}
                   </div>
+                  <div style={{ marginTop: '0.75rem', padding: '0.6rem 0.8rem', backgroundColor: 'rgba(124, 58, 237, 0.08)', border: '1px dashed rgba(124, 58, 237, 0.3)', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                    <span className="ai-confidence-badge ai-confidence-high" style={{ fontSize: '0.65rem' }}>🎯 AI CONFIDENCE: HIGH</span>
+                    <span style={{ fontSize: '10px', color: '#7c3aed', fontWeight: 600 }}>⚠️ AI ASSESSMENT — REQUIRES HUMAN SIGN-OFF</span>
+                  </div>
                   {gapCheckResult.success && (
                     <button 
                       onClick={handleApplyGapRecommendation} 
@@ -1050,6 +1075,11 @@ This SOP is subject to audit every 6 months. Revision 1.0.`;
                   ))}
                 </ul>
               </div>
+            </div>
+
+            <div style={{ marginTop: '1.5rem', padding: '0.75rem', backgroundColor: 'rgba(124, 58, 237, 0.05)', border: '1px dashed rgba(124, 58, 237, 0.3)', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+              <span className="ai-confidence-badge ai-confidence-medium" style={{ fontSize: '0.65rem' }}>🎯 AI CONFIDENCE: MEDIUM</span>
+              <span style={{ fontSize: '10px', color: '#7c3aed', fontWeight: 600 }}>⚠️ EXECUTIVE ADVISORY — REQUIRES QUALITY HEAD SIGN-OFF</span>
             </div>
 
             <div className="flex gap-2 justify-end" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1.25rem', marginTop: '2rem' }}>

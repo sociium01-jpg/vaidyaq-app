@@ -34,10 +34,15 @@ export default function ComplianceModule() {
     setComplianceFlows,
     updateComplianceFlowStage,
     currentUser,
-    setTasks
+    setTasks,
+    audits,
+    trainings
   } = useContext(QualiNABHContext);
 
-  const [activeSubTab, setActiveSubTab] = useState('standards'); // 'standards', 'docs', 'licenses', 'flow'
+  const [activeSubTab, setActiveSubTab] = useState('standards'); // 'standards', 'docs', 'licenses', 'flow', 'calendar'
+  const [currentYear, setCurrentYear] = useState(2026);
+  const [currentMonth, setCurrentMonth] = useState(5); // June (0-indexed)
+  const [selectedCalendarDay, setSelectedCalendarDay] = useState(null);
   const [selectedFlowId, setSelectedFlowId] = useState('PSP');
   const [flowScanMessage, setFlowScanMessage] = useState('');
 
@@ -549,6 +554,9 @@ export default function ComplianceModule() {
           </button>
           <button onClick={() => setActiveSubTab('flow')} className={`tab-btn ${activeSubTab === 'flow' ? 'active' : ''}`}>
             Lifecycle Flow Tracker
+          </button>
+          <button onClick={() => setActiveSubTab('calendar')} className={`tab-btn ${activeSubTab === 'calendar' ? 'active' : ''}`}>
+            📅 Compliance Calendar
           </button>
         </div>
 
@@ -1291,6 +1299,267 @@ export default function ComplianceModule() {
               </div>
             );
           })()}
+        </div>
+      )}
+
+      {/* 5. STATUTORY COMPLIANCE & AUDIT CALENDAR VIEW */}
+      {activeSubTab === 'calendar' && (() => {
+        // Calendar calculations
+        const monthsNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        
+        const firstDayIdx = new Date(currentYear, currentMonth, 1).getDay();
+        const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+        const daysInPrevMonth = new Date(currentYear, currentMonth, 0).getDate();
+        
+        // Build days array
+        const dayCells = [];
+        
+        // Prev month padding
+        for (let i = firstDayIdx - 1; i >= 0; i--) {
+          const d = daysInPrevMonth - i;
+          const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+          const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+          const dateStr = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+          dayCells.push({ day: d, monthType: 'prev', dateStr });
+        }
+        
+        // Current month
+        for (let d = 1; d <= daysInMonth; d++) {
+          const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+          dayCells.push({ day: d, monthType: 'current', dateStr });
+        }
+        
+        // Next month padding to complete 42 cells (6 rows of 7 days)
+        const totalCells = 42;
+        const nextPaddingCount = totalCells - dayCells.length;
+        for (let d = 1; d <= nextPaddingCount; d++) {
+          const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
+          const nextYear = currentMonth === 11 ? currentYear + 1 : currentYear;
+          const dateStr = `${nextYear}-${String(nextMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+          dayCells.push({ day: d, monthType: 'next', dateStr });
+        }
+        
+        const handlePrevMonth = () => {
+          if (currentMonth === 0) {
+            setCurrentMonth(11);
+            setCurrentYear(y => y - 1);
+          } else {
+            setCurrentMonth(m => m - 1);
+          }
+        };
+        
+        const handleNextMonth = () => {
+          if (currentMonth === 11) {
+            setCurrentMonth(0);
+            setCurrentYear(y => y + 1);
+          } else {
+            setCurrentMonth(m => m + 1);
+          }
+        };
+
+        const getDayEvents = (dateStr) => {
+          const evts = [];
+          
+          // Licenses expiring
+          (licenses || []).forEach(l => {
+            if (l.expiryDate === dateStr) {
+              evts.push({ type: 'license', title: `Renewal: ${l.name}`, data: l });
+            }
+          });
+          
+          // Audits scheduled
+          (audits || []).forEach(a => {
+            if (a.date === dateStr) {
+              evts.push({ type: 'audit', title: `Audit: ${a.title}`, data: a });
+            }
+          });
+          
+          // Trainings
+          (trainings || []).forEach(t => {
+            if (t.date === dateStr) {
+              evts.push({ type: 'training', title: `Train: ${t.topic}`, data: t });
+            }
+          });
+          
+          // Policy reviews
+          (complianceFlows || []).forEach(f => {
+            if (f.reviewDate === dateStr) {
+              evts.push({ type: 'review', title: `Review: ${f.name}`, data: f });
+            }
+          });
+          
+          return evts;
+        };
+
+        return (
+          <div className="flex flex-col gap-3" style={{ animation: 'fadeIn 0.35s ease' }}>
+            {/* Calendar Controls */}
+            <div className="flex justify-between align-center" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', padding: '1rem 1.25rem', borderRadius: '12px' }}>
+              <div className="flex flex-col">
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span>Accreditation & Compliance Scheduler</span>
+                </h3>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+                  Consolidated timeline tracking license renewals, internal quality audits, review dates, and training drills.
+                </p>
+              </div>
+
+              <div className="flex align-center gap-2">
+                <button onClick={handlePrevMonth} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', cursor: 'pointer' }}>✕ Prev</button>
+                <span style={{ fontSize: '0.95rem', fontWeight: 700, minWidth: '120px', textAlign: 'center' }}>
+                  {monthsNames[currentMonth]} {currentYear}
+                </span>
+                <button onClick={handleNextMonth} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', cursor: 'pointer' }}>Next ✕</button>
+              </div>
+            </div>
+
+            {/* Calendar Grid Container */}
+            <div className="card" style={{ padding: '1.25rem' }}>
+              <div className="compliance-calendar">
+                {/* Weekday Headers */}
+                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(day => (
+                  <div key={day} className="cal-header-cell">{day}</div>
+                ))}
+                
+                {/* Day Cells */}
+                {dayCells.map((cell, idx) => {
+                  const evts = getDayEvents(cell.dateStr);
+                  const isToday = cell.dateStr === '2026-06-16'; // user's current date is June 16, 2026
+                  
+                  return (
+                    <div 
+                      key={idx} 
+                      className={`cal-day-cell ${cell.monthType !== 'current' ? 'other-month' : ''} ${isToday ? 'today' : ''}`}
+                      onClick={() => setSelectedCalendarDay({ dateStr: cell.dateStr, events: evts })}
+                    >
+                      <div className="cal-day-number flex justify-between align-center">
+                        <span>{cell.day}</span>
+                        {isToday && <span style={{ fontSize: '0.55rem', padding: '1px 4px', backgroundColor: 'var(--primary)', color: '#fff', borderRadius: '4px' }}>TODAY</span>}
+                      </div>
+                      
+                      {/* Events badging */}
+                      <div className="flex flex-col gap-1" style={{ marginTop: '0.25rem' }}>
+                        {evts.slice(0, 3).map((evt, eIdx) => (
+                          <div 
+                            key={eIdx} 
+                            className={`cal-event cal-event-${evt.type}`}
+                            title={evt.title}
+                          >
+                            {evt.type === 'license' ? '📜' : evt.type === 'audit' ? '🔍' : evt.type === 'training' ? '🏫' : '📄'} {evt.title}
+                          </div>
+                        ))}
+                        {evts.length > 3 && (
+                          <div style={{ fontSize: '0.55rem', color: 'var(--text-tertiary)', fontWeight: 600, paddingLeft: '4px' }}>
+                            + {evts.length - 3} more alerts
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Simulated OCR/Statutory renewal trigger */}
+            <div className="card flex justify-between align-center" style={{ padding: '1rem 1.25rem', borderLeft: '4px solid var(--primary)' }}>
+              <div className="flex align-center gap-3">
+                <span style={{ fontSize: '1.5rem' }}>🤖</span>
+                <div className="flex flex-col">
+                  <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>AI Statutory Audit Reminders</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Trigger a diagnostic scan on upcoming statutory licenses.</span>
+                </div>
+              </div>
+              <button 
+                onClick={() => alert("AI scan completed! No immediate statutory lapses found. Next license expiring in 34 days.")} 
+                className="btn btn-secondary" 
+                style={{ fontSize: '0.75rem', padding: '0.4rem 0.8rem' }}
+              >
+                Run Compliance Check
+              </button>
+            </div>
+
+          </div>
+        );
+      })()}
+
+      {/* Selected Calendar Day Detail Modal */}
+      {selectedCalendarDay && (
+        <div className="modal-overlay" onClick={() => setSelectedCalendarDay(null)}>
+          <div className="modal-content" style={{ maxWidth: '500px', backgroundColor: 'var(--bg-secondary)' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800 }}>Events on {selectedCalendarDay.dateStr}</h3>
+              <button onClick={() => setSelectedCalendarDay(null)} style={{ fontSize: '1.2rem', fontWeight: 700 }}>✕</button>
+            </div>
+            <div className="modal-body flex flex-col gap-3" style={{ padding: '1.25rem' }}>
+              {selectedCalendarDay.events.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--text-tertiary)' }} className="flex flex-col align-center gap-2">
+                  <span style={{ fontSize: '2.5rem' }}>📅</span>
+                  <p style={{ margin: 0, fontSize: '0.85rem' }}>No compliance events or scheduled actions recorded for this date.</p>
+                </div>
+              ) : (
+                selectedCalendarDay.events.map((evt, idx) => (
+                  <div 
+                    key={idx}
+                    style={{ 
+                      padding: '1rem', 
+                      borderRadius: '10px', 
+                      border: '1px solid var(--border-color)',
+                      backgroundColor: 'var(--bg-tertiary)',
+                      borderLeft: `5px solid ${
+                        evt.type === 'license' 
+                          ? 'var(--color-danger)' 
+                          : evt.type === 'audit' 
+                            ? 'var(--secondary)' 
+                            : evt.type === 'training' 
+                              ? 'var(--color-success)' 
+                              : 'var(--color-warning)'
+                      }`
+                    }}
+                  >
+                    <div className="flex justify-between align-center mb-1">
+                      <span className="badge badge-neutral" style={{ textTransform: 'uppercase', fontSize: '0.65rem', fontWeight: 700 }}>{evt.type}</span>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>{selectedCalendarDay.dateStr}</span>
+                    </div>
+                    <h4 style={{ fontSize: '0.9rem', fontWeight: 700, margin: '4px 0 6px 0', color: 'var(--text-primary)' }}>{evt.title}</h4>
+                    
+                    {/* Dynamic detail content */}
+                    {evt.type === 'license' && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }} className="flex flex-col gap-1">
+                        <div><strong>Authority:</strong> {evt.data.authority}</div>
+                        <div><strong>Department:</strong> {evt.data.responsible || 'General Administration'}</div>
+                        <div style={{ color: 'var(--color-danger)', fontWeight: 600, marginTop: '4px' }}>⚠️ Renewal required! Statutory penalty warning.</div>
+                      </div>
+                    )}
+                    {evt.type === 'audit' && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }} className="flex flex-col gap-1">
+                        <div><strong>Lead Auditor:</strong> {evt.data.auditor}</div>
+                        <div><strong>Target Department:</strong> {evt.data.department}</div>
+                        <div><strong>Status:</strong> {evt.data.status}</div>
+                        <div style={{ marginTop: '4px' }}><strong>Checklist size:</strong> {evt.data.checklist ? evt.data.checklist.length : 0} items.</div>
+                      </div>
+                    )}
+                    {evt.type === 'training' && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }} className="flex flex-col gap-1">
+                        <div><strong>Department:</strong> {evt.data.department}</div>
+                        <div><strong>Target Role:</strong> {evt.data.role}</div>
+                        <div><strong>Passing criteria:</strong> {evt.data.passRate}% pass score required.</div>
+                      </div>
+                    )}
+                    {evt.type === 'review' && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }} className="flex flex-col gap-1">
+                        <div><strong>Owner:</strong> {evt.data.owner}</div>
+                        <div><strong>Department:</strong> {evt.data.department}</div>
+                        <div><strong>Version:</strong> v{evt.data.version}</div>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="modal-footer">
+              <button onClick={() => setSelectedCalendarDay(null)} className="btn btn-secondary">Close</button>
+            </div>
+          </div>
         </div>
       )}
 
