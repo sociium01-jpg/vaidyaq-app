@@ -1163,13 +1163,78 @@ export const QualiNABHProvider = ({ children }) => {
   };
 
   const updateHospitalTaskStatus = (taskId, status) => {
-    setTasks(prev => prev.map(t => {
-      if (t.id === taskId) {
-        logActivity(`Updated task "${t.title}" status to ${status}`);
-        return { ...t, status };
-      }
-      return t;
-    }));
+    setTasks(prev => {
+      return prev.map(t => {
+        if (t.id === taskId) {
+          logActivity(`Updated task "${t.title}" status to ${status}`);
+          
+          if (status === "Completed") {
+            // Relational update: close CAPA
+            if (t.capaId) {
+              setCapaItems(prevCapa => prevCapa.map(c => {
+                if (c.id === t.capaId && c.status !== "Closed") {
+                  logActivity(`Closed CAPA ${c.id} automatically via task completion`);
+                  return { ...c, status: "Closed", closureApprovedBy: "System Autoclose" };
+                }
+                return c;
+              }));
+              // Also update compliance flow
+              setComplianceFlows(prevFlows => prevFlows.map(flow => {
+                if (flow.linkedCapas && flow.linkedCapas.includes(t.capaId)) {
+                  return {
+                    ...flow,
+                    stages: {
+                      ...flow.stages,
+                      capa: "Completed",
+                      review: "Completed",
+                      improvement: "Completed",
+                      updates: "Pending"
+                    }
+                  };
+                }
+                return flow;
+              }));
+            }
+            
+            // Relational update: close Incident
+            if (t.incidentId) {
+              setIncidents(prevInc => prevInc.map(inc => {
+                if (inc.id === t.incidentId && inc.status !== "Closed") {
+                  logActivity(`Closed Incident ${inc.id} automatically via task completion`);
+                  return { ...inc, status: "Closed" };
+                }
+                return inc;
+              }));
+            }
+
+            // Relational update: update committee meeting action item
+            if (t.meetingId && t.actionItemId) {
+              setCommittees(prevComm => prevComm.map(c => {
+                if (c.id === t.committeeId) {
+                  const updatedMeetings = (c.meetings || []).map(m => {
+                    if (m.id === t.meetingId) {
+                      const updatedActions = (m.actionItems || []).map(act => {
+                        if (act.id === t.actionItemId) {
+                          return { ...act, status: "Completed" };
+                        }
+                        return act;
+                      });
+                      return { ...m, actionItems: updatedActions };
+                    }
+                    return m;
+                  });
+                  return { ...c, meetings: updatedMeetings };
+                }
+                return c;
+              }));
+            }
+          }
+          
+          return { ...t, status };
+        }
+        return t;
+      });
+    });
   };
 
   const deleteHospitalTask = (taskId) => {
@@ -1738,6 +1803,18 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
     };
     setCapaItems(prev => [capaObj, ...prev]);
 
+    // Relational check: If CAPA was generated from an incident, link it back!
+    let linkedIncidentId = null;
+    if (newCapa.source && newCapa.source.startsWith("Incident: ")) {
+      linkedIncidentId = newCapa.source.replace("Incident: ", "").trim();
+      setIncidents(prevInc => prevInc.map(inc => {
+        if (inc.id === linkedIncidentId) {
+          return { ...inc, capaId: capaId };
+        }
+        return inc;
+      }));
+    }
+
     const taskId = `task-${Date.now()}`;
     const taskObj = {
       id: taskId,
@@ -1745,7 +1822,9 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
       assignedTo: newCapa.responsible,
       dueDate: newCapa.dueDate,
       status: "Pending",
-      priority: newCapa.priority
+      priority: newCapa.priority,
+      capaId: capaId,
+      incidentId: linkedIncidentId
     };
     setTasks(prev => [taskObj, ...prev]);
 
@@ -1802,6 +1881,26 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
     setCapaItems(prev => prev.map(c => {
       if (c.id === capaId) {
         logActivity(`Closed CAPA ${capaId} (Approved by ${approverName})`);
+        
+        // Auto-close associated tasks!
+        setTasks(prevTasks => prevTasks.map(t => {
+          if (t.capaId === capaId && t.status !== "Completed") {
+            return { ...t, status: "Completed" };
+          }
+          return t;
+        }));
+
+        // Auto-close associated incident!
+        if (c.source && c.source.startsWith("Incident: ")) {
+          const incidentId = c.source.replace("Incident: ", "").trim();
+          setIncidents(prevInc => prevInc.map(inc => {
+            if (inc.id === incidentId && inc.status !== "Closed") {
+              return { ...inc, status: "Closed" };
+            }
+            return inc;
+          }));
+        }
+
         return { ...c, status: "Closed", closureApprovedBy: approverName };
       }
       return c;
@@ -1832,16 +1931,23 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
           }
           return f;
         });
-        return { ...a, findings: updatedFindings };
+        const allResolved = updatedFindings.every(f => f.resolved);
+        const newStatus = allResolved ? "Completed" : a.status;
+        return { ...a, findings: updatedFindings, status: newStatus };
       }
       return a;
     }));
   };
 
   const addCommitteeMeeting = (committeeId, meeting) => {
+    const meetingId = `meet-${Date.now()}`;
     const meetingWithId = {
       ...meeting,
-      id: `meet-${Date.now()}`
+      id: meetingId,
+      actionItems: (meeting.actionItems || []).map(item => ({
+        ...item,
+        id: item.id || `act-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      }))
     };
     
     setCommittees(prev => prev.map(c => {
@@ -1854,15 +1960,18 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
       return c;
     }));
 
-    if (meeting.actionItems && meeting.actionItems.length > 0) {
-      const newTasks = meeting.actionItems.map(item => ({
-        id: item.id || `task-meet-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    if (meetingWithId.actionItems && meetingWithId.actionItems.length > 0) {
+      const newTasks = meetingWithId.actionItems.map(item => ({
+        id: `task-meet-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         title: `Committee Action: ${item.task}`,
         assignedTo: item.assignedTo,
         dueDate: item.dueDate,
         status: item.status || "Pending",
         priority: "Medium",
-        source: "Committee Meeting"
+        source: "Committee Meeting",
+        meetingId: meetingId,
+        committeeId: committeeId,
+        actionItemId: item.id
       }));
       setTasks(prev => [...newTasks, ...prev]);
     }

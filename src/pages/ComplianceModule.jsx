@@ -33,7 +33,8 @@ export default function ComplianceModule() {
     complianceFlows,
     setComplianceFlows,
     updateComplianceFlowStage,
-    currentUser
+    currentUser,
+    setTasks
   } = useContext(QualiNABHContext);
 
   const [activeSubTab, setActiveSubTab] = useState('standards'); // 'standards', 'docs', 'licenses', 'flow'
@@ -294,6 +295,14 @@ export default function ComplianceModule() {
           mappedStandards: l.id === "lic-2" ? ["MOM.2.c"] : l.id === "lic-3" ? ["FMS.1.d"] : l.id === "lic-1" ? ["FMS.2.a"] : [],
           content: `Renewed license document. Expiry date: ${renewalDate}.`
         });
+
+        // Auto-complete any associated tasks
+        setTasks(prevTasks => prevTasks.map(t => {
+          if (t.title.toLowerCase().includes(l.name.toLowerCase()) || t.title.toLowerCase().includes("renew " + l.name.toLowerCase())) {
+            return { ...t, status: "Completed" };
+          }
+          return t;
+        }));
 
         return {
           ...l,
