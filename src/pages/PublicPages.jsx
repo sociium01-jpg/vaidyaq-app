@@ -1776,7 +1776,7 @@ Key Benefits of the SaaS Model:
           <div className="login-container" style={{ padding: '3rem 0' }}>
             <div className="login-card">
               <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                <span style={{ fontSize: '2.5rem' }}>🛡️</span>
+                <div style={{ marginBottom: '1rem' }}><VaidyaQLogo size={40} showText={false} /></div>
                 <h2 style={{ marginTop: '0.5rem' }}>{isSignUp ? "Register with VaidyaQ" : "Sign In to VaidyaQ"}</h2>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.25rem' }}>
                   Hospital Accreditation & Quality OS
@@ -1921,6 +1921,15 @@ Key Benefits of the SaaS Model:
                   </form>
                 </div>
               )}
+
+              <button 
+                type="button"
+                onClick={() => navigateToTab('home')} 
+                className="btn btn-secondary" 
+                style={{ padding: '0.75rem', width: '100%', marginTop: '1rem', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem', borderRadius: '8px' }}
+              >
+                ← Return to Landing Page
+              </button>
             </div>
           </div>
         )}

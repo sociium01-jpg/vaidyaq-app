@@ -1,5 +1,6 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { QualiNABHContext } from '../context/QualiNABHContext';
+import VaidyaQLogo from './VaidyaQLogo';
 import { 
   Building2, ShieldCheck, ClipboardList, Users2, Sparkles, 
   ArrowRight, ArrowLeft, Check, Plus, Trash2, Calendar, Target,
@@ -188,6 +189,44 @@ export default function OnboardingWizard() {
       overflowX: 'hidden'
     }}>
       
+      {/* Top Header with Brand and Logout */}
+      <div style={{
+        width: '100%',
+        maxWidth: '780px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: '1.25rem',
+        padding: '0 0.5rem'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <VaidyaQLogo size={26} showText={true} showSlogan={false} logoColorStyle="white" />
+        </div>
+        <button 
+          onClick={() => {
+            // Log out
+            localStorage.removeItem('qn_user');
+            window.location.reload();
+          }}
+          className="btn btn-secondary"
+          style={{
+            padding: '0.45rem 0.85rem',
+            fontSize: '0.75rem',
+            cursor: 'pointer',
+            borderRadius: '8px',
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            color: '#f8fafc',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}
+        >
+          <ArrowLeft size={12} /> Exit Onboarding
+        </button>
+      </div>
+
       {/* Container Card */}
       <div className="glassmorphic-card" style={{
         width: '100%',

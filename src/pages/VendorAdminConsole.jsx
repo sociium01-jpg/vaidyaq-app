@@ -1360,6 +1360,15 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
             </button>
           </form>
 
+          <button 
+            type="button"
+            onClick={() => setCurrentRoute('/')} 
+            className="btn btn-secondary" 
+            style={{ padding: '0.8rem', width: '100%', marginTop: '0.5rem', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem', borderRadius: '8px' }}
+          >
+            ← Return to Landing Page
+          </button>
+
           <div style={{ textAlign: 'center', marginTop: '1.5rem', color: 'var(--text-tertiary)', fontSize: '0.7rem', lineHeight: '1.4' }}>
             🔒 256-bit vault protection. Unauthorized logins are audited.<br />
             (Mocks: <strong>admin</strong>/<strong>123</strong>, <strong>aarav</strong>/<strong>123</strong>, <strong>priya</strong>/<strong>123</strong>)
