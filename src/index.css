@@ -662,6 +662,10 @@ button {
   width: 100%;
 }
 
+.mobile-search-btn {
+  display: none;
+}
+
 .main-scroll-area {
   flex: 1;
   overflow-y: auto;
@@ -1960,6 +1964,9 @@ button {
 
 /* Responsive bottom nav drawer & breakpoints */
 @media (max-width: 1024px) {
+  .mobile-search-btn {
+    display: flex !important;
+  }
   .bottom-nav {
     display: flex;
     position: fixed;

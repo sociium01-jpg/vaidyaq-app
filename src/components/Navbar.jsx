@@ -144,6 +144,25 @@ export default function Navbar({ setSidebarOpen, onSearchClick, onNotificationCl
           <span>Ask Copilot</span>
         </button>
 
+        {/* Mobile Search Button */}
+        <button
+          onClick={onSearchClick}
+          className="mobile-search-btn"
+          style={{
+            padding: '0.5rem',
+            borderRadius: '50%',
+            backgroundColor: 'var(--bg-tertiary)',
+            border: '1px solid var(--border-color)',
+            color: 'var(--text-secondary)',
+            cursor: 'pointer',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+          title="Search"
+        >
+          <Search size={18} />
+        </button>
+
         {/* Notifications */}
         <button
           onClick={onNotificationClick}
