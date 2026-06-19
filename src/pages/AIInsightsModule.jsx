@@ -1,5 +1,6 @@
 import React, { useState, useContext, useEffect, useRef } from 'react';
 import { QualiNABHContext } from '../context/QualiNABHContext';
+import { callAIService } from '../services/aiService';
 import {
   Brain,
   Send,
@@ -110,10 +111,17 @@ export default function AIInsightsModule() {
     updateStandardScore,
     capaItems,
     licenses,
-    hospitalName
+    hospitalName,
+    geminiApiKey, setGeminiApiKey,
+    openaiApiKey, setOpenaiApiKey,
+    anthropicApiKey, setAnthropicApiKey,
+    aiProvider, setAiProvider,
+    aiModel, setAiModel,
+    aiSystemPrompt, setAiSystemPrompt
   } = useContext(QualiNABHContext);
 
   const [activeSubTab, setActiveSubTab] = useState('copilot'); // 'copilot', 'sop', 'gap', 'ceo'
+  const [isAiTyping, setIsAiTyping] = useState(false);
 
   // 1. AI Copilot Chat States
   const [chatInput, setChatInput] = useState('');
@@ -201,8 +209,8 @@ export default function AIInsightsModule() {
     actionItemsList.push("No outstanding urgent action items. All accreditation checks are fully verified.");
   }
 
-  // AI Copilot Responses (dynamic query on context state)
-  const handleSendMessage = (e) => {
+  // AI Copilot Responses (dynamic query on context state or live API keys)
+  const handleSendMessage = async (e) => {
     e.preventDefault();
     if (chatInput.trim() === '' && !attachedFile) return;
 
@@ -211,88 +219,33 @@ export default function AIInsightsModule() {
     setChatMessages(prev => [...prev, { sender: 'user', text: userText || `Uploaded attachment: ${currentAttachment.name}`, attachment: currentAttachment }]);
     setChatInput('');
     setAttachedFile(null);
+    setIsAiTyping(true);
 
-    // Simulate AI response delay
-    setTimeout(() => {
-      let responseText = '';
-      const query = userText.toLowerCase();
-
-      if (currentAttachment) {
-        if (currentAttachment.type === 'pdf') {
-          responseText = `I have processed your audit report: **${currentAttachment.name}**. 
-- Detected Gaps: Lacks required verification signatures.
-- Verification Status: **Failed Verification**.
-- Corrective Action: Upload a signed copy. This file has been scanned and is recommended as evidence for the appropriate chapter.`;
-        } else if (currentAttachment.type === 'image') {
-          responseText = `I have analyzed the uploaded image: **${currentAttachment.name}**. 
-Visual validation results:
-- Status: **VERIFIED**
-- Compliance status: **PASS**.
-This serves as valid proof of compliance for the mapped standard.`;
-        } else if (currentAttachment.type === 'video') {
-          responseText = `Analyzing compliance video recording: **${currentAttachment.name}** (1m 24s). 
-Detected: Clinical staff members practicing standard compliance procedures.
-Compliance check: **92% compliance verified**. 
-This serves as strong supportive evidence.`;
+    try {
+      const activeKey = aiProvider === 'google' ? geminiApiKey 
+                        : aiProvider === 'openai' ? openaiApiKey 
+                        : aiProvider === 'anthropic' ? anthropicApiKey 
+                        : '';
+      const responseText = await callAIService({
+        provider: aiProvider,
+        model: aiModel,
+        apiKey: activeKey,
+        systemPrompt: aiSystemPrompt,
+        prompt: userText || `Inspect attachment: ${currentAttachment.name}`,
+        type: 'chat',
+        contextData: {
+          readinessScore,
+          openCapasCount,
+          missingEvidenceCount,
+          overdueTasksCount,
+          pendingAuditsCount,
+          incidentsThisMonthCount,
+          hospitalName
         }
-      } else if (query.includes('score') || query.includes('ready') || query.includes('readiness')) {
-        responseText = `Our overall hospital accreditation readiness score is currently calculated at ${readinessScore}%. 
-This is based on scoring active objective elements: ${standards.filter(s => s.score === 10).length} Fully Met chapters, ${standards.filter(s => s.score === 5).length} Partially Met, and ${standards.filter(s => s.score === 0).length} Not Met. We require ${missingEvidenceCount} more evidence documents to achieve 90%+ target.`;
-      } 
-      else if (query.includes('capa') || query.includes('corrective')) {
-        const openCapas = capaItems ? capaItems.filter(c => c.status === 'Open') : [];
-        if (openCapas.length === 0) {
-          responseText = `There are currently 0 open CAPA actions pending. Your quality improvement targets are fully met!`;
-        } else {
-          const firstCapa = openCapas[0];
-          responseText = `There are currently ${openCapas.length} open CAPA actions pending. 
-The most critical is "${firstCapa.source || 'Standard Audit Finding'}" in department "${firstCapa.department}", assigned to ${firstCapa.responsible || 'unassigned'}, due on ${firstCapa.dueDate || 'N/A'}. Suggest uploading evidence/logs to resolve this gap.`;
-        }
-      } 
-      else if (query.includes('missing') || query.includes('evidence') || query.includes('gap')) {
-        const missingStds = standards.filter(s => s.score < 10).map(s => s.id);
-        if (missingStds.length === 0) {
-          responseText = `Congratulations! All standards are currently fully met. No active evidence deficiencies were detected.`;
-        } else {
-          responseText = `I have detected evidence deficiencies in ${missingEvidenceCount} standards. 
-Chapters with critical gaps (scored under 10): ${missingStds.slice(0, 10).join(', ')}${missingStds.length > 10 ? '...' : ''}. \n`;
-          const firstMissing = standards.find(s => s.score < 10);
-          if (firstMissing) {
-            responseText += `Specifically, ${firstMissing.id} (${firstMissing.title}) has no mapped evidence SOP. You can draft one or upload a record under the Document Vault.`;
-          }
-        }
-      } 
-      else if (query.includes('risk') || query.includes('department')) {
-        const openCapas = capaItems ? capaItems.filter(c => c.status === 'Open') : [];
-        const expiredLics = licenses ? licenses.filter(l => {
-          if (!l.expiryDate) return true;
-          const exp = new Date(l.expiryDate);
-          return isNaN(exp.getTime()) || exp < new Date();
-        }) : [];
-
-        if (openCapas.length === 0 && expiredLics.length === 0) {
-          responseText = "Department risk scans: All active units are currently flagged as LOW RISK. No open CAPAs or expired statutory licenses detected.";
-        } else {
-          const rDepts = new Set();
-          const rReasons = [];
-          openCapas.forEach(c => {
-            rDepts.add(c.department);
-            rReasons.push(`Open CAPA in ${c.department} ("${c.source}" assigned to ${c.responsible})`);
-          });
-          expiredLics.forEach(l => {
-            const dept = l.responsible || "Administration";
-            rDepts.add(dept);
-            rReasons.push(`Expired license: "${l.name}"`);
-          });
-          responseText = `Department risk scans: The following units/departments have active risk flags: ${Array.from(rDepts).join(', ') || 'Global'}. \nReasons:\n` + rReasons.map(r => `- ${r}`).join('\n');
-        }
-      } 
-      else {
-        responseText = `Based on our hospital compliance logs, I suggest checking the 'Accreditation Readiness' dashboard. You have ${openCapasCount} open CAPA items and ${missingEvidenceCount} missing document uploads. Let me know if you want me to draft an SOP or scan a document.`;
-      }
+      });
 
       const isAttachment = !!currentAttachment;
-      const queryLower = query || '';
+      const queryLower = (userText || '').toLowerCase();
       let confidenceLevel = 'High';
       if (queryLower.includes('missing') || queryLower.includes('gap') || queryLower.includes('risk')) {
         confidenceLevel = 'Medium';
@@ -302,45 +255,47 @@ Chapters with critical gaps (scored under 10): ${missingStds.slice(0, 10).join('
 
       setChatMessages(prev => [...prev, { sender: 'ai', text: responseText, confidence: confidenceLevel }]);
       logActivity(currentAttachment ? `Uploaded attachment for AI inspection: ${currentAttachment.name}` : `Consulted AI Copilot: "${userText}"`);
-    }, 800);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsAiTyping(false);
+    }
   };
 
-  // SOP Draft Generator
-  const handleDraftSOP = () => {
+  // SOP Draft Generator (calls callAIService with fallback)
+  const handleDraftSOP = async () => {
     setSopDrafting(true);
-    setTimeout(() => {
-      const draft = `STANDARD OPERATING PROCEDURE (SOP)
-DOCUMENT TITLE: ${sopTitle}
-DEPARTMENT: ${sopDepartment}
-MAPPED STANDARD: ${sopStandard}
-DOCUMENT STATUS: Draft (Awaiting Human Review)
---------------------------------------------------
+    try {
+      const activeKey = aiProvider === 'google' ? geminiApiKey 
+                        : aiProvider === 'openai' ? openaiApiKey 
+                        : aiProvider === 'anthropic' ? anthropicApiKey 
+                        : '';
+      const prompt = `Draft a comprehensive, production-ready Standard Operating Procedure (SOP) policy document.
+SOP Title: ${sopTitle}
+Department: ${sopDepartment}
+Mapped Standard: ${sopStandard}`;
 
-1. PURPOSE & OBJECTIVE
-To outline the clinical safety standards and protocols for handling, labelling, verifying, and administering high-risk procedures inside the ${sopDepartment} department in accordance with NABH 6th Edition guidelines.
-
-2. SCOPE
-Applies to all clinical nurses, pharmacists, medical officers, and auxiliary staff working within the ${sopDepartment}.
-
-3. RESPONSIBILITY
-The Clinical Head of ${sopDepartment} is responsible for enforcing compliance, auditing logs, and reporting sentinel incidents.
-
-4. PROCEDURAL PROTOCOL
-A. DOUBLE VERIFICATION: Two qualified clinical officers must independently verify the dosage/labels before execution.
-B. LABELLING: Standard color-coded warning labels (RED for high-alert drugs, ORANGE for hazardous material) must be affixed physically.
-C. DISPOSAL: Expired drugs or contaminated equipment must be logged in the waste register and segregated in locked cabinets.
-
-5. DOCUMENTATION REQUIRED
-- Daily inventory check logs
-- Incident near-miss forms
-- Shift handover signature sheets
-
-6. REVIEW CYCLE
-This SOP is subject to audit every 6 months. Revision 1.0.`;
+      const draft = await callAIService({
+        provider: aiProvider,
+        model: aiModel,
+        apiKey: activeKey,
+        systemPrompt: aiSystemPrompt,
+        prompt: prompt,
+        type: 'sop',
+        contextData: {
+          title: sopTitle,
+          department: sopDepartment,
+          standard: sopStandard,
+          hospitalName
+        }
+      });
       setSopDraftText(draft);
+      logActivity(`Generated SOP draft for "${sopTitle}"`);
+    } catch (err) {
+      console.error(err);
+    } finally {
       setSopDrafting(false);
-      logActivity(`Generated SOP draft for ${sopTitle}`);
-    }, 1000);
+    }
   };
 
   const handleApproveSOP = () => {
@@ -582,6 +537,9 @@ This SOP is subject to audit every 6 months. Revision 1.0.`;
         <button onClick={() => setActiveSubTab('ceo')} className={`tab-btn ${activeSubTab === 'ceo' ? 'active' : ''}`}>
           AI CEO Briefing
         </button>
+        <button onClick={() => setActiveSubTab('settings')} className={`tab-btn ${activeSubTab === 'settings' ? 'active' : ''}`}>
+          ⚙️ AI API Keys Settings
+        </button>
       </div>
 
       {/* 1. AI COPILOT CHAT VIEW */}
@@ -639,6 +597,19 @@ This SOP is subject to audit every 6 months. Revision 1.0.`;
                   </div>
                 </div>
               ))}
+              {isAiTyping && (
+                <div className="chat-bubble ai" style={{ display: 'flex', gap: '0.75rem', padding: '0.75rem 1rem', opacity: 0.8 }}>
+                  <div className="chat-avatar ai">AI</div>
+                  <div className="chat-bubble-body flex align-center gap-2" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    <span className="flex gap-1" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                      <span className="typing-dot" style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'var(--primary)', display: 'inline-block', animation: 'typingBounce 1.4s infinite both' }}></span>
+                      <span className="typing-dot" style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'var(--primary)', display: 'inline-block', animation: 'typingBounce 1.4s infinite both', animationDelay: '0.2s' }}></span>
+                      <span className="typing-dot" style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'var(--primary)', display: 'inline-block', animation: 'typingBounce 1.4s infinite both', animationDelay: '0.4s' }}></span>
+                    </span>
+                    <span>AI Copilot is processing standard logs...</span>
+                  </div>
+                </div>
+              )}
               <div ref={chatEndRef} />
             </div>
 
@@ -1019,6 +990,187 @@ This SOP is subject to audit every 6 months. Revision 1.0.`;
       )}
 
       {/* 4. AI CEO BRIEFING VIEW */}
+      {/* 5. AI API SETTINGS & AUTOMATIONS VIEW */}
+      {activeSubTab === 'settings' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }} className="animate-fade-in">
+          {/* API Keys Configuration Card */}
+          <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              ⚙️ Client AI Tokens & API Integrations
+            </h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: '1.5' }}>
+              Configure VaidyaQ to run completions using your own API credentials. This prevents token rate-limiting and keeps compliance scanning direct, secure, and isolated to your organization. If keys are omitted, the system falls back to high-fidelity mock generators.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+              {/* Provider Selection */}
+              <div className="form-group">
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, display: 'block', marginBottom: '0.35rem', color: 'var(--text-primary)' }}>Active AI Provider</label>
+                <select 
+                  className="form-control" 
+                  value={aiProvider}
+                  onChange={(e) => setAiProvider(e.target.value)}
+                  style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontSize: '0.8rem' }}
+                >
+                  <option value="mock">Local Sandbox Simulator (No Keys Needed)</option>
+                  <option value="google">Google Gemini API</option>
+                  <option value="openai">OpenAI API</option>
+                  <option value="anthropic">Anthropic Claude API</option>
+                </select>
+              </div>
+
+              {/* Model Selection */}
+              <div className="form-group">
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, display: 'block', marginBottom: '0.35rem', color: 'var(--text-primary)' }}>Active Model Engine</label>
+                <select 
+                  className="form-control" 
+                  value={aiModel}
+                  onChange={(e) => setAiModel(e.target.value)}
+                  style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontSize: '0.8rem' }}
+                >
+                  {aiProvider === 'google' && (
+                    <>
+                      <option value="gemini-2.5-flash">gemini-2.5-flash (Recommended, Fast)</option>
+                      <option value="gemini-2.5-pro">gemini-2.5-pro (In-depth analysis)</option>
+                    </>
+                  )}
+                  {aiProvider === 'openai' && (
+                    <>
+                      <option value="gpt-4o-mini">gpt-4o-mini (Cost-efficient)</option>
+                      <option value="gpt-4o">gpt-4o (Premium reasoning)</option>
+                    </>
+                  )}
+                  {aiProvider === 'anthropic' && (
+                    <>
+                      <option value="claude-3-5-haiku-20241022">claude-3-5-haiku</option>
+                      <option value="claude-3-5-sonnet-20241022">claude-3-5-sonnet (High precision)</option>
+                    </>
+                  )}
+                  {aiProvider === 'mock' && (
+                    <option value="mock-sandbox">local-sandbox-v1</option>
+                  )}
+                </select>
+              </div>
+            </div>
+
+            {/* API Keys inputs */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+              <div className="form-group">
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, display: 'block', marginBottom: '0.25rem', color: 'var(--text-secondary)' }}>
+                  Google Gemini API Key {aiProvider === 'google' && <span style={{ color: 'var(--primary)' }}>● Active</span>}
+                </label>
+                <input 
+                  type="password" 
+                  className="form-control"
+                  placeholder={geminiApiKey ? "••••••••••••••••••••••••••••••••" : "Enter Google API key (AIzaSy...)"}
+                  value={geminiApiKey}
+                  onChange={(e) => setGeminiApiKey(e.target.value)}
+                  style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontSize: '0.8rem' }}
+                />
+              </div>
+
+              <div className="form-group">
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, display: 'block', marginBottom: '0.25rem', color: 'var(--text-secondary)' }}>
+                  OpenAI API Key {aiProvider === 'openai' && <span style={{ color: 'var(--primary)' }}>● Active</span>}
+                </label>
+                <input 
+                  type="password" 
+                  className="form-control"
+                  placeholder={openaiApiKey ? "••••••••••••••••••••••••••••••••" : "Enter OpenAI API key (sk-...)"}
+                  value={openaiApiKey}
+                  onChange={(e) => setOpenaiApiKey(e.target.value)}
+                  style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontSize: '0.8rem' }}
+                />
+              </div>
+
+              <div className="form-group">
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, display: 'block', marginBottom: '0.25rem', color: 'var(--text-secondary)' }}>
+                  Anthropic Claude API Key {aiProvider === 'anthropic' && <span style={{ color: 'var(--primary)' }}>● Active</span>}
+                </label>
+                <input 
+                  type="password" 
+                  className="form-control"
+                  placeholder={anthropicApiKey ? "••••••••••••••••••••••••••••••••" : "Enter Anthropic API key (sk-ant-...)"}
+                  value={anthropicApiKey}
+                  onChange={(e) => setAnthropicApiKey(e.target.value)}
+                  style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontSize: '0.8rem' }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* AI Instructions Persona Card */}
+          <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              🧠 Custom AI Persona & System Instructions
+            </h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+              Override the baseline instructions fed to the LLM agent to align completions with local hospital guidelines, regional bylaws, or specific accreditation standards.
+            </p>
+
+            <div className="form-group">
+              <textarea 
+                rows="4"
+                className="form-control"
+                value={aiSystemPrompt}
+                onChange={(e) => setAiSystemPrompt(e.target.value)}
+                style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontSize: '0.8rem', resize: 'vertical', fontFamily: 'var(--font-body)' }}
+              />
+            </div>
+            
+            <div className="flex justify-between align-center" style={{ marginTop: '0.5rem' }}>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>System prompt will load dynamically on every completion trigger.</span>
+              <button 
+                onClick={() => {
+                  setAiSystemPrompt('You are a clinical quality auditor and NABH 6th Edition compliance consultant. Generate precise compliance reports, audit checklists, SOP text, and CAPA corrective measures for hospital administration.');
+                  alert('AI prompt reset to factory default!');
+                }} 
+                className="btn btn-secondary"
+                style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
+              >
+                Reset Default
+              </button>
+            </div>
+          </div>
+
+          {/* AI Automations Guide & Prompts */}
+          <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              🤖 AI Agent Autopilot Prompts & Scripts
+            </h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: '1.5' }}>
+              You can copy these prompts into the VaidyaQ Chatbot Copilot, or configure them under your external automation chronometers, to trigger automated compliance workflows:
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              <div style={{ padding: '0.75rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.25rem' }}>📋 1. Incident Desk Audit & CAPA Loop</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontFamily: 'monospace', padding: '0.4rem', backgroundColor: 'rgba(0,0,0,0.1)', borderRadius: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>"Scan the Incident Desk register, identify medication safety near-misses, and auto-draft a CAPA item with high priority."</span>
+                  <button onClick={() => { navigator.clipboard.writeText("Scan the Incident Desk register, identify medication safety near-misses, and auto-draft a CAPA item with high priority."); alert("Prompt copied!"); }} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Copy</button>
+                </div>
+              </div>
+
+              <div style={{ padding: '0.75rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.25rem' }}>🛡️ 2. License Expiry Watchdog</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontFamily: 'monospace', padding: '0.4rem', backgroundColor: 'rgba(0,0,0,0.1)', borderRadius: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>"Scan statutory renewal dates, verify file upload attachment metadata, and trigger system warning cards."</span>
+                  <button onClick={() => { navigator.clipboard.writeText("Scan statutory renewal dates, verify file upload attachment metadata, and trigger system warning cards."); alert("Prompt copied!"); }} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Copy</button>
+                </div>
+              </div>
+
+              <div style={{ padding: '0.75rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.25rem' }}>📄 3. SOP Validation & HAM Compliance Checker</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontFamily: 'monospace', padding: '0.4rem', backgroundColor: 'rgba(0,0,0,0.1)', borderRadius: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>"Audit all approved SOP documents under Pharmacy and ICU against MOM.2.c. Verify double-signature checks, and output gap reports."</span>
+                  <button onClick={() => { navigator.clipboard.writeText("Audit all approved SOP documents under Pharmacy and ICU against MOM.2.c. Verify double-signature checks, and output gap reports."); alert("Prompt copied!"); }} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Copy</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {activeSubTab === 'ceo' && (
         <div className="flex flex-col gap-3" style={{ maxWidth: '750px', margin: '0 auto' }}>
           <div className="card" style={{ borderTop: '6px solid var(--primary)', padding: '2.5rem' }}>
@@ -1099,6 +1251,10 @@ This SOP is subject to audit every 6 months. Revision 1.0.`;
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
+        }
+        @keyframes typingBounce {
+          0%, 80%, 100% { transform: scale(0); }
+          40% { transform: scale(1); }
         }
       `}</style>
     </div>

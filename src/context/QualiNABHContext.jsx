@@ -377,6 +377,26 @@ export const QualiNABHProvider = ({ children }) => {
     return loadNamespacedState('qn_gemini_api_key', '');
   });
 
+  const [openaiApiKey, setOpenaiApiKey] = useState(() => {
+    return loadNamespacedState('qn_openai_api_key', '');
+  });
+
+  const [anthropicApiKey, setAnthropicApiKey] = useState(() => {
+    return loadNamespacedState('qn_anthropic_api_key', '');
+  });
+
+  const [aiProvider, setAiProvider] = useState(() => {
+    return loadNamespacedState('qn_ai_provider', 'mock');
+  });
+
+  const [aiModel, setAiModel] = useState(() => {
+    return loadNamespacedState('qn_ai_model', 'gemini-2.5-flash');
+  });
+
+  const [aiSystemPrompt, setAiSystemPrompt] = useState(() => {
+    return loadNamespacedState('qn_ai_system_prompt', 'You are a clinical quality auditor and NABH 6th Edition compliance consultant. Generate precise compliance reports, audit checklists, SOP text, and CAPA corrective measures for hospital administration.');
+  });
+
   const [hospitalLogo, setHospitalLogo] = useState(() => {
     return loadNamespacedState('qn_hospital_logo', '🛡️');
   });
@@ -675,6 +695,36 @@ export const QualiNABHProvider = ({ children }) => {
 
   useEffect(() => {
     if (currentUser) {
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_openai_api_key`, openaiApiKey);
+    }
+  }, [openaiApiKey, currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_anthropic_api_key`, anthropicApiKey);
+    }
+  }, [anthropicApiKey, currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_ai_provider`, aiProvider);
+    }
+  }, [aiProvider, currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_ai_model`, aiModel);
+    }
+  }, [aiModel, currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_ai_system_prompt`, aiSystemPrompt);
+    }
+  }, [aiSystemPrompt, currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
       localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_hospital_logo`, hospitalLogo);
     }
   }, [hospitalLogo, currentUser]);
@@ -798,6 +848,11 @@ export const QualiNABHProvider = ({ children }) => {
       setIsSubscribed(getSaved('qn_is_subscribed', false));
       setTrialStartDate(getSaved('qn_trial_start_date', new Date().toISOString()));
       setGeminiApiKey(getSaved('qn_gemini_api_key', ''));
+      setOpenaiApiKey(getSaved('qn_openai_api_key', ''));
+      setAnthropicApiKey(getSaved('qn_anthropic_api_key', ''));
+      setAiProvider(getSaved('qn_ai_provider', 'mock'));
+      setAiModel(getSaved('qn_ai_model', 'gemini-2.5-flash'));
+      setAiSystemPrompt(getSaved('qn_ai_system_prompt', 'You are a clinical quality auditor and NABH 6th Edition compliance consultant. Generate precise compliance reports, audit checklists, SOP text, and CAPA corrective measures for hospital administration.'));
       setHospitalLogo(getSaved('qn_hospital_logo', '🛡️'));
       setTeamMembers(getSaved('qn_team_members', [
         { email: "quality.head@hospital.org", name: "Dr. Sarah Paul", role: "Quality Head", department: "Quality Control" },
@@ -2231,6 +2286,11 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
       isSubscribed, setIsSubscribed,
       trialStartDate, setTrialStartDate,
       geminiApiKey, setGeminiApiKey,
+      openaiApiKey, setOpenaiApiKey,
+      anthropicApiKey, setAnthropicApiKey,
+      aiProvider, setAiProvider,
+      aiModel, setAiModel,
+      aiSystemPrompt, setAiSystemPrompt,
       hospitalLogo, setHospitalLogo,
       teamMembers, setTeamMembers,
       vendorAdminCredentials, setVendorAdminCredentials,
