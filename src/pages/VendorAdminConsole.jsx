@@ -1,5 +1,6 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { QualiNABHContext } from '../context/QualiNABHContext';
+import VaidyaQLogo from '../components/VaidyaQLogo';
 import { isConfigured, configError } from '../firebase';
 import { 
   ShieldCheck, Lock, Activity, Users, Settings, UserPlus, 
@@ -1928,9 +1929,13 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
             <ArrowLeft size={16} /> <span>Landing Page</span>
           </button>
           <div style={{ height: '24px', width: '1px', backgroundColor: 'var(--border-color)', margin: '0 0.5rem' }}></div>
-          <div className="flex align-center gap-1">
-            <ShieldCheck size={26} color="var(--primary)" />
-            <h1 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0 }}>VaidyaQ Employee Console</h1>
+          <div className="flex align-center gap-2">
+            <VaidyaQLogo size={28} showText={false} />
+            <h1 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'baseline', gap: '3px' }}>
+              <span style={{ color: 'var(--text-primary)' }}>Vaidya</span>
+              <span style={{ color: '#0d9488' }}>Q</span>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, marginLeft: '0.4rem' }}>Employee Console</span>
+            </h1>
           </div>
         </div>
 

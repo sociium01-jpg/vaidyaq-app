@@ -1,5 +1,6 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { QualiNABHContext } from '../context/QualiNABHContext';
+import VaidyaQLogo from '../components/VaidyaQLogo';
 import {
   Shield,
   Brain,
@@ -604,10 +605,7 @@ Key Benefits of the SaaS Model:
       <header className="public-header">
         <div className="container public-nav flex align-center justify-between" style={{ position: 'relative' }}>
           <div className="logo cursor-pointer" onClick={() => navigateToTab('home')}>
-            <span style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <Shield size={24} color="var(--primary)" />
-              <span>VaidyaQ <strong style={{ color: 'var(--secondary)' }}>AI</strong></span>
-            </span>
+            <VaidyaQLogo size={28} showText={true} showSlogan={false} />
           </div>
 
           <ul className="nav-links">
@@ -2233,10 +2231,9 @@ Key Benefits of the SaaS Model:
           
           {/* Column 1: Brand & Contact */}
           <div>
-            <span style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 800, fontSize: '1.1rem', marginBottom: '0.75rem' }}>
-              <Shield size={20} color="var(--primary)" />
-              <span>VaidyaQ AI</span>
-            </span>
+            <div style={{ marginBottom: '0.75rem' }}>
+              <VaidyaQLogo size={24} showText={true} showSlogan={false} />
+            </div>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', lineHeight: '1.4' }}>
               The premium digital operating system designed specifically for Indian hospitals seeking NABH 6th Edition compliance and continuous audit readiness.
             </p>

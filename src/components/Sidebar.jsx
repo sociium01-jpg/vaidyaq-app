@@ -1,5 +1,6 @@
 import React, { useContext, useState } from 'react';
 import { QualiNABHContext } from '../context/QualiNABHContext';
+import VaidyaQLogo from './VaidyaQLogo';
 import {
   LayoutDashboard,
   Activity,
@@ -111,11 +112,12 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
       {/* Brand Logo */}
       <div className="sidebar-logo flex align-center justify-between">
         <div className="flex align-center gap-2">
-          <div style={{ backgroundColor: 'var(--primary)', color: 'white', padding: '0.4rem', borderRadius: '8px', display: 'flex' }}>
-            <ShieldCheck size={20} />
-          </div>
+          <VaidyaQLogo size={28} showText={false} />
           <div className="flex flex-col">
-            <span style={{ fontWeight: 800, fontSize: '1.2rem', lineHeight: 1.1, color: 'var(--primary)' }}>VaidyaQ</span>
+            <div style={{ display: 'flex', alignItems: 'baseline', fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+              <span style={{ color: 'var(--text-primary)' }}>Vaidya</span>
+              <span style={{ color: '#0d9488' }}>Q</span>
+            </div>
             <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600 }}>6TH ED. OS • Jan 2025</span>
           </div>
         </div>
