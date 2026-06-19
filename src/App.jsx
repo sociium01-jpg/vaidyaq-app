@@ -91,12 +91,12 @@ function AppContent() {
           </div>
           <div>
             <h2 style={{ fontSize: '1.75rem', fontWeight: 800, margin: 0 }}>
-              {forcePaymentScreen ? "Renew VaidyaQ Subscription" : !isSubscribed ? "Trial Period Expired" : "Subscription Expired"}
+              {forcePaymentScreen ? "Renew VaidyaQ Subscription" : !isSubscribed ? "Access Locked — Free Trial Expired" : "Access Locked — Subscription Expired"}
             </h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.5rem', lineHeight: '1.5' }}>
               {!isSubscribed 
-                ? `The 7-Day Free Trial period for ${hospitalName} has expired. Choose a billing cycle to unlock the NABH compliance cockpit.`
-                : `Your subscription has expired. Please renew your plan below to restore access to your SOP lists, team members, and audits.`}
+                ? `The 7-day free trial period for ${hospitalName} has expired. To restore access to your SOP drafts, audit modules, and evidence logs, please upgrade your subscription below or contact our sales desk.`
+                : `Your subscription has expired. Please renew your plan below to restore access to your compliance dashboard.`}
             </p>
           </div>
 
@@ -173,6 +173,14 @@ function AppContent() {
             >
               Logout & Return to Home
             </button>
+          </div>
+
+          {/* Sales Contact Assistance Panel */}
+          <div style={{ padding: '0.85rem 1rem', border: '1px solid var(--border-color)', borderRadius: '8px', backgroundColor: 'var(--bg-secondary)', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>Need assistance or a custom plan?</div>
+            <div style={{ color: 'var(--text-secondary)' }}>
+              Contact Sales: <a href="mailto:sales@vaidyaq.com" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>sales@vaidyaq.com</a> or call/WhatsApp <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>+91 8850822250</span>.
+            </div>
           </div>
         </div>
       </div>

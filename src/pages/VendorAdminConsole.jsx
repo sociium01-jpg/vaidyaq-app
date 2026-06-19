@@ -2509,21 +2509,28 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
                         </div>
                         <div className="flex gap-1">
                           <button 
+                            onClick={() => setClientStatusOverride(targetCrmClientDetails.hospitalId, 'Active Trial')} 
+                            className="btn btn-secondary" 
+                            style={{ flex: 1, padding: '0.3rem', fontSize: '0.65rem', color: 'var(--primary)', borderColor: 'var(--primary)', cursor: 'pointer' }}
+                          >
+                            Reset Trial
+                          </button>
+                          <button 
                             onClick={() => setClientStatusOverride(targetCrmClientDetails.hospitalId, 'Restricted')} 
                             className="btn btn-secondary" 
                             style={{ flex: 1, padding: '0.3rem', fontSize: '0.65rem', color: 'var(--text-tertiary)', cursor: 'pointer' }}
                           >
                             Suspend
                           </button>
-                          <button 
-                            onClick={() => handleOfficeDeleteClient(targetCrmClientDetails.hospitalId)} 
-                            className="btn btn-secondary" 
-                            style={{ flex: 1, padding: '0.3rem', fontSize: '0.65rem', color: 'rgb(239, 68, 68)', borderColor: 'rgba(239, 68, 68, 0.4)', cursor: 'pointer', fontWeight: 'bold' }}
-                            title="Delete Client Record"
-                          >
-                            Delete Account
-                          </button>
                         </div>
+                        <button 
+                          onClick={() => handleOfficeDeleteClient(targetCrmClientDetails.hospitalId)} 
+                          className="btn btn-secondary" 
+                          style={{ width: '100%', padding: '0.3rem', fontSize: '0.65rem', color: 'rgb(239, 68, 68)', borderColor: 'rgba(239, 68, 68, 0.4)', cursor: 'pointer', fontWeight: 'bold', marginTop: '4px' }}
+                          title="Delete Client Record"
+                        >
+                          Delete Account
+                        </button>
                       </div>
                     </div>
 

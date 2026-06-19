@@ -275,15 +275,6 @@ export default function PublicPages() {
   const [promoClosed, setPromoClosed] = useState(false);
   const [copiedCoupon, setCopiedCoupon] = useState(false);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (!promoClosed) {
-        setShowPromoPopup(true);
-      }
-    }, 8000); // 8 seconds
-    return () => clearTimeout(timer);
-  }, [promoClosed]);
-
   const testimonials = [
     {
       quote: "VaidyaQ AI completely transformed our accreditation process. We transitioned from massive paper binders to a 100% digital evidence dashboard in just 2 weeks. The dynamic score calculation kept us on track daily.",
@@ -2329,87 +2320,6 @@ Key Benefits of the SaaS Model:
           </p>
         </div>
       </footer>
-
-      {/* 8-SECOND PROMO POPUP MODAL */}
-      {showPromoPopup && (
-        <div className="modal-overlay" style={{ zIndex: 2000 }}>
-          <div className="card glassmorphic-card" style={{ maxWidth: '450px', padding: '2.5rem', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', position: 'relative', textAlign: 'center', border: '1px solid var(--border-color)' }}>
-            {/* Close button */}
-            <button 
-              onClick={() => { setShowPromoPopup(false); setPromoClosed(true); }}
-              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
-              <X size={18} />
-            </button>
-
-            {/* Gift Icon */}
-            <div style={{ display: 'inline-flex', padding: '1rem', backgroundColor: 'var(--primary-light)', color: 'var(--primary)', borderRadius: '50%', marginBottom: '1.25rem' }}>
-              <Gift size={32} />
-            </div>
-
-            <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Exclusive Pilot Offer!</h3>
-            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: '1.5' }}>
-              Get an additional <strong>5% discount</strong> on any plan. Copy the coupon code below and apply it to your pilot request.
-            </p>
-
-            {/* Coupon Box */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', backgroundColor: 'var(--bg-tertiary)', border: '1.5px dashed var(--primary)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem' }}>
-              <span style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'monospace', letterSpacing: '0.1em' }}>
-                NABH5
-              </span>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText("NABH5");
-                  setCopiedCoupon(true);
-                  setTimeout(() => setCopiedCoupon(false), 2000);
-                }}
-                className="btn btn-secondary"
-                style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}
-              >
-                {copiedCoupon ? (
-                  <>
-                    <Check size={12} color="var(--color-success)" />
-                    <span style={{ color: 'var(--color-success)', fontWeight: 'bold' }}>Copied! ✓</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy size={12} />
-                    <span>Copy Code</span>
-                  </>
-                )}
-              </button>
-            </div>
-
-            {/* Action buttons */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <button
-                onClick={() => {
-                  setDemoForm(prev => ({ ...prev, coupon: "NABH5" }));
-                  setShowPromoPopup(false);
-                  setPromoClosed(true);
-                  // Scroll to Demo form section
-                  const formEl = document.getElementById("direct-demo-form");
-                  if (formEl) {
-                    formEl.scrollIntoView({ behavior: 'smooth' });
-                  } else {
-                    navigateToTab('book-demo');
-                  }
-                }}
-                className="btn btn-primary glow-premium"
-                style={{ padding: '0.75rem', width: '100%', fontWeight: 700, borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
-              >
-                🎁 Apply & Request Demo
-              </button>
-              <button
-                onClick={() => { setShowPromoPopup(false); setPromoClosed(true); }}
-                style={{ background: 'none', border: 'none', padding: '0.5rem', color: 'var(--text-tertiary)', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}
-              >
-                Dismiss Offer
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

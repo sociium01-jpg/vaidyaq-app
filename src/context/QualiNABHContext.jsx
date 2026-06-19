@@ -1376,25 +1376,130 @@ export const QualiNABHProvider = ({ children }) => {
   const setClientStatusOverride = (hospId, statusValue) => {
     setClientsList(prev => prev.map(c => {
       if (c.hospitalId === hospId) {
-        if (c.hospitalName === hospitalName) {
-          if (statusValue === 'Paid') {
+        const isCurrentHosp = c.hospitalName === hospitalName || c.email.toLowerCase() === (currentUser?.parentEmail || currentUser?.email)?.toLowerCase();
+        let updatedClient = { ...c, status: statusValue, isSubscribed: statusValue === 'Paid' };
+        
+        if (statusValue === 'Paid') {
+          updatedClient.planExpiryDate = new Date(Date.now() + 365*24*60*60*1000).toISOString();
+          if (isCurrentHosp) {
             setIsSubscribed(true);
-          } else if (statusValue === 'Expired') {
+          }
+        } else if (statusValue === 'Expired') {
+          updatedClient.trialStartDate = new Date(Date.now() - 8*24*60*60*1000).toISOString();
+          updatedClient.planExpiryDate = new Date(Date.now() - 8*24*60*60*1000).toISOString();
+          if (isCurrentHosp) {
             setIsSubscribed(false);
-            setTrialStartDate(new Date(Date.now() - 8*24*60*60*1000).toISOString());
-          } else if (statusValue === 'Restricted') {
+            setTrialStartDate(updatedClient.trialStartDate);
+          }
+        } else if (statusValue === 'Restricted') {
+          updatedClient.trialStartDate = new Date(Date.now() - 8*24*60*60*1000).toISOString();
+          updatedClient.planExpiryDate = new Date(Date.now() - 8*24*60*60*1000).toISOString();
+          if (isCurrentHosp) {
             setIsSubscribed(false);
-            setTrialStartDate(new Date(Date.now() - 8*24*60*60*1000).toISOString());
-          } else if (statusValue === 'Active Trial') {
+            setTrialStartDate(updatedClient.trialStartDate);
+          }
+        } else if (statusValue === 'Active Trial') {
+          const nowIso = new Date().toISOString();
+          const trialExpiry = new Date(Date.now() + 7*24*60*60*1000).toISOString();
+          updatedClient.trialStartDate = nowIso;
+          updatedClient.planExpiryDate = trialExpiry;
+          if (isCurrentHosp) {
             setIsSubscribed(false);
-            setTrialStartDate(new Date().toISOString());
+            setTrialStartDate(nowIso);
           }
         }
-        return { ...c, status: statusValue, isSubscribed: statusValue === 'Paid' };
+        return updatedClient;
       }
       return c;
     }));
     logActivity(`Vendor Admin override client ${hospId} status to: ${statusValue}`);
+  };
+
+  const loadDemoData = () => {
+    setStandards(defaultStandards);
+    setDocuments(defaultDocuments);
+    setAudits(defaultAudits);
+    setCapaItems(defaultCapas);
+    setIncidents(defaultIncidents);
+    setTasks(defaultTasks);
+    setComplianceFlows(defaultComplianceFlows);
+    setCommittees(defaultCommittees);
+    setTrainings(defaultTrainings);
+    setRisks(defaultRisks);
+    setLicenses(defaultLicenses);
+    
+    // Namespace them to local storage as well
+    const prefix = currentUser ? `${currentUser.parentEmail || currentUser.email}_` : '';
+    localStorage.setItem(prefix + 'qn_standards', JSON.stringify(defaultStandards));
+    localStorage.setItem(prefix + 'qn_documents', JSON.stringify(defaultDocuments));
+    localStorage.setItem(prefix + 'qn_audits', JSON.stringify(defaultAudits));
+    localStorage.setItem(prefix + 'qn_capas', JSON.stringify(defaultCapas));
+    localStorage.setItem(prefix + 'qn_incidents', JSON.stringify(defaultIncidents));
+    localStorage.setItem(prefix + 'qn_tasks', JSON.stringify(defaultTasks));
+    localStorage.setItem(prefix + 'qn_compliance_flows', JSON.stringify(defaultComplianceFlows));
+    localStorage.setItem(prefix + 'qn_committees', JSON.stringify(defaultCommittees));
+    localStorage.setItem(prefix + 'qn_trainings', JSON.stringify(defaultTrainings));
+    localStorage.setItem(prefix + 'qn_risks', JSON.stringify(defaultRisks));
+    localStorage.setItem(prefix + 'qn_licenses', JSON.stringify(defaultLicenses));
+    
+    logActivity("Populated workspace with complete suite of demo data.");
+  };
+
+  const clearWorkspaceData = () => {
+    setStandards(defaultStandards.map(s => ({ ...s, score: 0, status: "Not Met" })));
+    setDocuments([]);
+    setAudits([]);
+    setCapaItems([]);
+    setIncidents([]);
+    setTasks([]);
+    setComplianceFlows(defaultComplianceFlows.map(flow => ({
+      ...flow,
+      stages: {
+        policy: "Not Started",
+        sop: "Not Started",
+        training: "Not Started",
+        implementation: "Not Started",
+        documentation: "Not Started",
+        audit: "Not Started",
+        findings: "Not Started",
+        capa: "Not Started",
+        review: "Not Started",
+        improvement: "Not Started",
+        updates: "Not Started"
+      },
+      linkedSops: [],
+      linkedForms: [],
+      linkedTraining: [],
+      linkedAudits: [],
+      linkedCapas: [],
+      linkedIncidents: []
+    })));
+    setCommittees(defaultCommittees.map(c => ({ ...c, meetings: [] })));
+    setTrainings([]);
+    setRisks([]);
+    setLicenses(defaultLicenses.map(l => ({
+      ...l,
+      issueDate: '',
+      expiryDate: '',
+      responsible: l.responsible.includes('(') ? l.responsible.substring(l.responsible.indexOf('(') + 1, l.responsible.length - 1) : l.responsible,
+      status: 'Expired'
+    })));
+    
+    // Namespace them to local storage
+    const prefix = currentUser ? `${currentUser.parentEmail || currentUser.email}_` : '';
+    localStorage.removeItem(prefix + 'qn_standards');
+    localStorage.removeItem(prefix + 'qn_documents');
+    localStorage.removeItem(prefix + 'qn_audits');
+    localStorage.removeItem(prefix + 'qn_capas');
+    localStorage.removeItem(prefix + 'qn_incidents');
+    localStorage.removeItem(prefix + 'qn_tasks');
+    localStorage.removeItem(prefix + 'qn_compliance_flows');
+    localStorage.removeItem(prefix + 'qn_committees');
+    localStorage.removeItem(prefix + 'qn_trainings');
+    localStorage.removeItem(prefix + 'qn_risks');
+    localStorage.removeItem(prefix + 'qn_licenses');
+    
+    logActivity("Cleared all workspace data to a clean slate.");
   };
 
 
@@ -2172,7 +2277,7 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
     return () => clearInterval(timer);
   }, []);
 
-  const clientRecord = currentUser ? clientsList.find(c => c.email === currentUser.email) : null;
+  const clientRecord = currentUser ? clientsList.find(c => c.email.toLowerCase() === (currentUser.parentEmail || currentUser.email).toLowerCase()) : null;
 
   const trialTimeLeftMs = (() => {
     if (isSubscribed || !clientRecord) return 0;
@@ -2295,7 +2400,7 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
       teamMembers, setTeamMembers,
       vendorAdminCredentials, setVendorAdminCredentials,
       vendorEmployees, setVendorEmployees,
-      signUpClient, purchaseSubscription,
+      signUpClient, purchaseSubscription, loadDemoData, clearWorkspaceData,
       updateHospitalProfile, saveGeminiKey, inviteTeamMember,
       changeUserPassword, changeUserProfile,
       addHospitalTask, updateHospitalTaskStatus, deleteHospitalTask,
