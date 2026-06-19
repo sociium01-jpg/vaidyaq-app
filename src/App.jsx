@@ -9,6 +9,8 @@ import SearchModal from './components/SearchModal';
 import ToastProvider from './components/ToastProvider';
 import FAB from './components/FAB';
 import OnboardingWizard from './components/OnboardingWizard';
+import Breadcrumb from './components/Breadcrumb';
+import NotificationPanel from './components/NotificationPanel';
 
 // Import Pages
 import PublicPages from './pages/PublicPages';
@@ -48,6 +50,7 @@ function AppContent() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedCycle, setSelectedCycle] = useState('annually'); // 'quarterly' or 'annually'
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
 
   // Global shortcut Ctrl+K / Cmd+K to open Search Modal
   useEffect(() => {
@@ -198,10 +201,15 @@ function AppContent() {
       {/* Main workspace */}
       <div className="app-content-wrapper">
         {/* Top Navbar */}
-        <Navbar setSidebarOpen={setSidebarOpen} onSearchClick={() => setIsSearchOpen(true)} />
+        <Navbar 
+          setSidebarOpen={setSidebarOpen} 
+          onSearchClick={() => setIsSearchOpen(true)} 
+          onNotificationClick={() => setIsNotificationOpen(true)}
+        />
 
         {/* Dynamic page scroll viewport */}
-        <main className="main-scroll-area">
+        <main className="main-scroll-area" style={{ padding: '1rem' }}>
+          <Breadcrumb />
           {(() => {
             switch (currentRoute) {
               case '/app/dashboard':
@@ -244,6 +252,9 @@ function AppContent() {
 
         {/* Global Search Modal */}
         <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+
+        {/* Global Notification Panel */}
+        <NotificationPanel isOpen={isNotificationOpen} onClose={() => setIsNotificationOpen(false)} />
       </div>
     </div>
   );

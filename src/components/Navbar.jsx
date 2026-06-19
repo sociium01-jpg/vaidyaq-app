@@ -2,7 +2,7 @@ import React, { useContext, useState } from 'react';
 import { QualiNABHContext } from '../context/QualiNABHContext';
 import { Bell, Search, Sparkles, User, AlertTriangle, Menu } from 'lucide-react';
 
-export default function Navbar({ setSidebarOpen, onSearchClick }) {
+export default function Navbar({ setSidebarOpen, onSearchClick, onNotificationClick }) {
   const {
     setCurrentRoute,
     openCapasCount,
@@ -17,7 +17,7 @@ export default function Navbar({ setSidebarOpen, onSearchClick }) {
     subscriptionDaysLeft
   } = useContext(QualiNABHContext);
 
-  const [showNotifications, setShowNotifications] = useState(false);
+
 
   // Derive notifications from actual states
   const notificationsList = [];
@@ -146,14 +146,15 @@ export default function Navbar({ setSidebarOpen, onSearchClick }) {
 
         {/* Notifications */}
         <button
-          onClick={() => setShowNotifications(!showNotifications)}
+          onClick={onNotificationClick}
           style={{
             padding: '0.5rem',
             borderRadius: '50%',
             backgroundColor: 'var(--bg-tertiary)',
             border: '1px solid var(--border-color)',
             color: 'var(--text-secondary)',
-            position: 'relative'
+            position: 'relative',
+            cursor: 'pointer'
           }}
         >
           <Bell size={18} />
@@ -193,62 +194,6 @@ export default function Navbar({ setSidebarOpen, onSearchClick }) {
             <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{currentUser.role}</span>
           </div>
         </div>
-
-        {/* Notifications Dropdown Panel */}
-        {showNotifications && (
-          <div
-            style={{
-              position: 'absolute',
-              top: '45px',
-              right: '40px',
-              width: '320px',
-              backgroundColor: 'var(--bg-secondary)',
-              border: '1px solid var(--border-color)',
-              borderRadius: 'var(--radius-lg)',
-              boxShadow: 'var(--shadow-lg)',
-              zIndex: 150,
-              overflow: 'hidden'
-            }}
-          >
-            <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--border-color)', fontWeight: 700, fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between' }}>
-              <span>Security & Compliance Alerts</span>
-              <span className="badge badge-neutral">{notificationsList.length}</span>
-            </div>
-            <div style={{ maxHeight: '250px', overflowY: 'auto' }}>
-              {notificationsList.map((notif, index) => (
-                <div
-                  key={index}
-                  style={{
-                    padding: '0.75rem 1rem',
-                    borderBottom: '1px solid var(--border-color)',
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: '0.75rem',
-                    backgroundColor: notif.type === 'danger' ? 'rgba(220, 38, 38, 0.03)' : notif.type === 'warning' ? 'rgba(217, 119, 6, 0.03)' : 'transparent'
-                  }}
-                >
-                  <AlertTriangle
-                    size={16}
-                    color={notif.type === 'danger' ? 'var(--color-danger)' : notif.type === 'warning' ? 'var(--color-warning)' : 'var(--primary)'}
-                    style={{ marginTop: '2px', flexShrink: 0 }}
-                  />
-                  <div className="flex flex-col">
-                    <span style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-primary)' }}>{notif.text}</span>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>{notif.time}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div style={{ padding: '0.5rem', textAlign: 'center', backgroundColor: 'var(--bg-tertiary)' }}>
-              <button
-                onClick={() => { setShowNotifications(false); setCurrentRoute('/app/admin'); }}
-                style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--primary)' }}
-              >
-                View Audit Logs
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Embedded Pulse Animation */}

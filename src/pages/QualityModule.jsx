@@ -344,6 +344,87 @@ export default function QualityModule() {
               </tbody>
             </table>
           </div>
+
+          {/* ── Audit Calendar View ── */}
+          {(() => {
+            const today = new Date();
+            const [calMonth, setCalMonth] = React.useState(today.getMonth());
+            const [calYear, setCalYear] = React.useState(today.getFullYear());
+            const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+            const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+            const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+            const firstDayOfWeek = new Date(calYear, calMonth, 1).getDay();
+            const cells = [];
+            for (let i = 0; i < firstDayOfWeek; i++) cells.push(null);
+            for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+            const getAuditsForDay = (day) => {
+              if (!day) return [];
+              const dateStr = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+              return audits.filter(a => a.date === dateStr);
+            };
+
+            const statusColor = (s) => s === 'Completed' ? 'var(--color-success)' : s === 'Scheduled' ? 'var(--primary)' : 'var(--color-warning)';
+
+            return (
+              <div className="card" style={{ padding: '1rem', marginTop: '0.5rem' }}>
+                <div className="flex justify-between align-center" style={{ marginBottom: '0.75rem' }}>
+                  <h3 style={{ fontSize: '1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Calendar size={18} style={{ color: 'var(--primary)' }} />
+                    Audit Calendar
+                  </h3>
+                  <div className="flex align-center gap-2">
+                    <button onClick={() => { if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1); } else setCalMonth(m => m - 1); }} className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}>← Prev</button>
+                    <span style={{ fontWeight: 700, fontSize: '0.9rem', minWidth: 140, textAlign: 'center' }}>{monthNames[calMonth]} {calYear}</span>
+                    <button onClick={() => { if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1); } else setCalMonth(m => m + 1); }} className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}>Next →</button>
+                  </div>
+                </div>
+                {/* Day headers */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px', marginBottom: '2px' }}>
+                  {dayNames.map(d => (
+                    <div key={d} style={{ textAlign: 'center', fontWeight: 700, fontSize: '0.7rem', color: 'var(--text-tertiary)', padding: '0.35rem 0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{d}</div>
+                  ))}
+                </div>
+                {/* Calendar grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px' }}>
+                  {cells.map((day, i) => {
+                    const dayAudits = getAuditsForDay(day);
+                    const isToday = day === today.getDate() && calMonth === today.getMonth() && calYear === today.getFullYear();
+                    return (
+                      <div key={i} style={{
+                        minHeight: 72, padding: '0.3rem', fontSize: '0.75rem',
+                        backgroundColor: day ? (isToday ? 'var(--primary-light)' : 'var(--bg-tertiary)') : 'transparent',
+                        borderRadius: '6px', border: isToday ? '2px solid var(--primary)' : '1px solid var(--border-color)',
+                        opacity: day ? 1 : 0
+                      }}>
+                        {day && (
+                          <>
+                            <div style={{ fontWeight: isToday ? 800 : 600, fontSize: '0.75rem', color: isToday ? 'var(--primary)' : 'var(--text-secondary)', marginBottom: '0.2rem' }}>{day}</div>
+                            {dayAudits.map((a, ai) => (
+                              <div key={ai} style={{
+                                fontSize: '0.6rem', padding: '2px 4px', borderRadius: '4px', marginBottom: '2px',
+                                backgroundColor: statusColor(a.status), color: '#fff', fontWeight: 600,
+                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer'
+                              }} title={`${a.title} (${a.status})`}>
+                                {a.title.length > 18 ? a.title.substring(0, 18) + '…' : a.title}
+                              </div>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Legend */}
+                <div className="flex gap-3 align-center" style={{ marginTop: '0.75rem', fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                  <div className="flex align-center gap-1"><div style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: 'var(--primary)' }}></div> Scheduled</div>
+                  <div className="flex align-center gap-1"><div style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: 'var(--color-success)' }}></div> Completed</div>
+                  <div className="flex align-center gap-1"><div style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: 'var(--color-warning)' }}></div> In Progress</div>
+                </div>
+              </div>
+            );
+          })()}
+
         </div>
       )}
 

@@ -4,7 +4,7 @@ import {
   ListTodo, Plus, CheckCircle2, Circle, Calendar, AlertCircle, 
   ArrowRight, Check, X, ShieldAlert, Tag, User, Clock, CheckCircle
 } from 'lucide-react';
-
+import EmptyState from '../components/EmptyState';
 export default function Tasks() {
   const {
     tasks,
@@ -192,137 +192,154 @@ export default function Tasks() {
       )}
 
       {/* Kanban Board Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem', marginTop: '0.5rem' }}>
-        {Object.entries(columns).map(([colName, taskList]) => (
-          <div key={colName} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', backgroundColor: 'var(--bg-secondary)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border-color)', minHeight: '400px' }}>
-            {/* Column Header */}
-            <div className="flex align-center justify-between" style={{ borderBottom: '2px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.25rem' }}>
-              <span style={{ fontWeight: 800, fontSize: '0.9rem', color: colName === 'Completed' ? 'var(--color-success)' : colName === 'Verification' ? 'var(--primary)' : 'var(--text-primary)' }}>
-                {colName}
-              </span>
-              <span className="badge badge-neutral" style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem' }}>
-                {taskList.length}
-              </span>
-            </div>
+      {filteredTasks.length === 0 ? (
+        <EmptyState 
+          type="tasks" 
+          action={
+            canAssignTasks && (
+              <button 
+                onClick={() => setShowTaskModal(true)} 
+                className="btn btn-primary"
+                style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem', margin: '0 auto' }}
+              >
+                <Plus size={16} /> Assign Action Task
+              </button>
+            )
+          } 
+        />
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem', marginTop: '0.5rem' }}>
+          {Object.entries(columns).map(([colName, taskList]) => (
+            <div key={colName} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', backgroundColor: 'var(--bg-secondary)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border-color)', minHeight: '400px' }}>
+              {/* Column Header */}
+              <div className="flex align-center justify-between" style={{ borderBottom: '2px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.25rem' }}>
+                <span style={{ fontWeight: 800, fontSize: '0.9rem', color: colName === 'Completed' ? 'var(--color-success)' : colName === 'Verification' ? 'var(--primary)' : 'var(--text-primary)' }}>
+                  {colName}
+                </span>
+                <span className="badge badge-neutral" style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem' }}>
+                  {taskList.length}
+                </span>
+              </div>
 
-            {/* Tasks cards list */}
-            <div className="flex flex-col gap-2" style={{ overflowY: 'auto', maxHeight: '550px' }}>
-              {taskList.length === 0 ? (
-                <div style={{ padding: '2rem 1rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.75rem', border: '1px dashed var(--border-color)', borderRadius: '8px', marginTop: '0.5rem' }}>
-                  No tasks in this stage
-                </div>
-              ) : (
-                taskList.map((task) => (
-                  <div key={task.id} className="card animate-fade-in" style={{ padding: '1rem', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '0.6rem', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-                    {/* Priority & Delete button */}
-                    <div className="flex align-center justify-between">
-                      <span className={`badge ${task.priority === 'High' ? 'badge-danger' : task.priority === 'Medium' ? 'badge-warning' : 'badge-success'}`} style={{ fontSize: '0.65rem' }}>
-                        {task.priority} Priority
-                      </span>
-                      {canAssignTasks && (
-                        <button 
-                          onClick={() => {
-                            if (confirm(`Are you sure you want to delete task "${task.title}"?`)) {
-                              deleteHospitalTask(task.id);
-                            }
-                          }}
-                          style={{ color: 'var(--text-tertiary)', border: 'none', background: 'none', cursor: 'pointer', padding: 0, fontSize: '0.8rem' }}
-                          title="Delete Task"
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Task Title */}
-                    <h4 style={{ margin: 0, fontWeight: 700, fontSize: '0.85rem', lineHeight: '1.4', color: 'var(--text-primary)' }}>
-                      {task.title}
-                    </h4>
-
-                    {/* Meta Fields */}
-                    <div className="flex flex-col gap-1 text-secondary" style={{ fontSize: '0.75rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem', marginTop: '0.2rem' }}>
-                      <div className="flex align-center gap-1">
-                        <User size={12} style={{ color: 'var(--primary)' }} />
-                        <span><strong>Owner:</strong> {task.assignedTo} ({task.department})</span>
-                      </div>
-                      <div className="flex align-center gap-1">
-                        <Clock size={12} style={{ color: 'var(--text-secondary)' }} />
-                        <span><strong>Due Date:</strong> {task.dueDate}</span>
-                      </div>
-                      {task.mappedStandard && (
-                        <div className="flex align-center gap-1">
-                          <Tag size={12} style={{ color: 'var(--color-warning)' }} />
-                          <span><strong>NABH Standard:</strong> <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>{task.mappedStandard}</span></span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Actions controls */}
-                    <div style={{ display: 'flex', gap: '0.3rem', marginTop: '0.4rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem' }}>
-                      {task.status === 'Pending' && (
-                        <button 
-                          onClick={() => updateHospitalTaskStatus(task.id, 'In Progress')}
-                          className="btn btn-secondary flex align-center justify-center gap-1"
-                          style={{ padding: '0.35rem', fontSize: '0.7rem', width: '100%', cursor: 'pointer' }}
-                        >
-                          Start Work <ArrowRight size={10} />
-                        </button>
-                      )}
-                      
-                      {task.status === 'In Progress' && (
-                        <button 
-                          onClick={() => updateHospitalTaskStatus(task.id, 'Verification')}
-                          className="btn btn-primary flex align-center justify-center gap-1 glow-premium"
-                          style={{ padding: '0.35rem', fontSize: '0.7rem', width: '100%', cursor: 'pointer' }}
-                        >
-                          Request Sign-off <Clock size={10} />
-                        </button>
-                      )}
-
-                      {(task.status === 'Verification' || task.status === 'Review') && (
-                        <div className="flex flex-col gap-1" style={{ width: '100%' }}>
-                          {/* Super Admin or Quality Head reviews */}
-                          {canAssignTasks ? (
-                            <div style={{ display: 'flex', gap: '0.25rem', width: '100%' }}>
-                              <button 
-                                onClick={() => handleVerifyAndApprove(task)}
-                                className="btn btn-primary flex align-center justify-center gap-1"
-                                style={{ padding: '0.35rem', fontSize: '0.7rem', flex: 1, backgroundColor: 'var(--color-success)', borderColor: 'var(--color-success)', cursor: 'pointer' }}
-                              >
-                                <Check size={12} /> Sign-off
-                              </button>
-                              <button 
-                                onClick={() => {
-                                  updateHospitalTaskStatus(task.id, 'In Progress');
-                                  logActivity(`Rejected sign-off request for task "${task.title}". Returned to In Progress.`);
-                                }}
-                                className="btn btn-danger flex align-center justify-center gap-1"
-                                style={{ padding: '0.35rem', fontSize: '0.7rem', flex: 1, cursor: 'pointer' }}
-                              >
-                                <X size={12} /> Reject
-                              </button>
-                            </div>
-                          ) : (
-                            <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontStyle: 'italic', textAlign: 'center', display: 'block', width: '100%', padding: '0.2rem' }}>
-                              ⏳ Pending Admin Sign-off Check
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      {task.status === 'Completed' && (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem', color: 'var(--color-success)', fontSize: '0.75rem', fontWeight: 'bold', width: '100%', justifyContent: 'center' }}>
-                          <CheckCircle2 size={14} /> Completed & Closed
-                        </span>
-                      )}
-                    </div>
+              {/* Tasks cards list */}
+              <div className="flex flex-col gap-2" style={{ overflowY: 'auto', maxHeight: '550px' }}>
+                {taskList.length === 0 ? (
+                  <div style={{ padding: '2rem 1rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.75rem', border: '1px dashed var(--border-color)', borderRadius: '8px', marginTop: '0.5rem' }}>
+                    No tasks in this stage
                   </div>
-                ))
-              )}
+                ) : (
+                  taskList.map((task) => (
+                    <div key={task.id} className="card animate-fade-in" style={{ padding: '1rem', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '0.6rem', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                      {/* Priority & Delete button */}
+                      <div className="flex align-center justify-between">
+                        <span className={`badge ${task.priority === 'High' ? 'badge-danger' : task.priority === 'Medium' ? 'badge-warning' : 'badge-success'}`} style={{ fontSize: '0.65rem' }}>
+                          {task.priority} Priority
+                        </span>
+                        {canAssignTasks && (
+                          <button 
+                            onClick={() => {
+                              if (confirm(`Are you sure you want to delete task "${task.title}"?`)) {
+                                deleteHospitalTask(task.id);
+                              }
+                            }}
+                            style={{ color: 'var(--text-tertiary)', border: 'none', background: 'none', cursor: 'pointer', padding: 0, fontSize: '0.8rem' }}
+                            title="Delete Task"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Task Title */}
+                      <h4 style={{ margin: 0, fontWeight: 700, fontSize: '0.85rem', lineHeight: '1.4', color: 'var(--text-primary)' }}>
+                        {task.title}
+                      </h4>
+
+                      {/* Meta Fields */}
+                      <div className="flex flex-col gap-1 text-secondary" style={{ fontSize: '0.75rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem', marginTop: '0.2rem' }}>
+                        <div className="flex align-center gap-1">
+                          <User size={12} style={{ color: 'var(--primary)' }} />
+                          <span><strong>Owner:</strong> {task.assignedTo} ({task.department})</span>
+                        </div>
+                        <div className="flex align-center gap-1">
+                          <Clock size={12} style={{ color: 'var(--text-secondary)' }} />
+                          <span><strong>Due Date:</strong> {task.dueDate}</span>
+                        </div>
+                        {task.mappedStandard && (
+                          <div className="flex align-center gap-1">
+                            <Tag size={12} style={{ color: 'var(--color-warning)' }} />
+                            <span><strong>NABH Standard:</strong> <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>{task.mappedStandard}</span></span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Actions controls */}
+                      <div style={{ display: 'flex', gap: '0.3rem', marginTop: '0.4rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem' }}>
+                        {task.status === 'Pending' && (
+                          <button 
+                            onClick={() => updateHospitalTaskStatus(task.id, 'In Progress')}
+                            className="btn btn-secondary flex align-center justify-center gap-1"
+                            style={{ padding: '0.35rem', fontSize: '0.7rem', width: '100%', cursor: 'pointer' }}
+                          >
+                            Start Work <ArrowRight size={10} />
+                          </button>
+                        )}
+                        
+                        {task.status === 'In Progress' && (
+                          <button 
+                            onClick={() => updateHospitalTaskStatus(task.id, 'Verification')}
+                            className="btn btn-primary flex align-center justify-center gap-1 glow-premium"
+                            style={{ padding: '0.35rem', fontSize: '0.7rem', width: '100%', cursor: 'pointer' }}
+                          >
+                            Request Sign-off <Clock size={10} />
+                          </button>
+                        )}
+
+                        {(task.status === 'Verification' || task.status === 'Review') && (
+                          <div className="flex flex-col gap-1" style={{ width: '100%' }}>
+                            {/* Super Admin or Quality Head reviews */}
+                            {canAssignTasks ? (
+                              <div style={{ display: 'flex', gap: '0.25rem', width: '100%' }}>
+                                <button 
+                                  onClick={() => handleVerifyAndApprove(task)}
+                                  className="btn btn-primary flex align-center justify-center gap-1"
+                                  style={{ padding: '0.35rem', fontSize: '0.7rem', flex: 1, backgroundColor: 'var(--color-success)', borderColor: 'var(--color-success)', cursor: 'pointer' }}
+                                >
+                                  <Check size={12} /> Sign-off
+                                </button>
+                                <button 
+                                  onClick={() => {
+                                    updateHospitalTaskStatus(task.id, 'In Progress');
+                                    logActivity(`Rejected sign-off request for task "${task.title}". Returned to In Progress.`);
+                                  }}
+                                  className="btn btn-danger flex align-center justify-center gap-1"
+                                  style={{ padding: '0.35rem', fontSize: '0.7rem', flex: 1, cursor: 'pointer' }}
+                                >
+                                  <X size={12} /> Reject
+                                </button>
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontStyle: 'italic', textAlign: 'center', display: 'block', width: '100%', padding: '0.2rem' }}>
+                                ⏳ Pending Admin Sign-off Check
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        {task.status === 'Completed' && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem', color: 'var(--color-success)', fontSize: '0.75rem', fontWeight: 'bold', width: '100%', justifyContent: 'center' }}>
+                            <CheckCircle2 size={14} /> Completed & Closed
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Assign Task Modal */}
       {showTaskModal && (

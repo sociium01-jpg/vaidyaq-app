@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -15,6 +16,7 @@ const firebaseConfig = {
 let app = null;
 let auth = null;
 let db = null;
+let storage = null;
 let isConfigured = false;
 let configError = null;
 
@@ -24,6 +26,7 @@ try {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getFirestore(app);
+    storage = getStorage(app);
     isConfigured = true;
   } else {
     configError = "Firebase environment variables are using default placeholder values.";
@@ -33,5 +36,5 @@ try {
   console.warn("Firebase initialization skipped or failed:", err);
 }
 
-export { app, auth, db, isConfigured, configError, firebaseConfig };
+export { app, auth, db, storage, isConfigured, configError, firebaseConfig };
 export default app;
