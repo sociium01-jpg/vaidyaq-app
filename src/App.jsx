@@ -179,7 +179,7 @@ function AppContent() {
           <div style={{ padding: '0.85rem 1rem', border: '1px solid var(--border-color)', borderRadius: '8px', backgroundColor: 'var(--bg-secondary)', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <div style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>Need assistance or a custom plan?</div>
             <div style={{ color: 'var(--text-secondary)' }}>
-              Contact Sales: <a href="mailto:sales@vaidyaq.com" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>sales@vaidyaq.com</a> or call/WhatsApp <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>+91 8850822250</span>.
+              Contact Sales: <a href="mailto:am@sociium.biz" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>am@sociium.biz</a> or call/WhatsApp <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>+91 8850822250</span>.
             </div>
           </div>
         </div>

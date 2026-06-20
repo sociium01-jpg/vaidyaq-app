@@ -971,7 +971,7 @@ export const QualiNABHProvider = ({ children }) => {
 
     // Copy to internal office folder
     sendSimulatedEmail(
-      "support-desk@vaidyaq.com",
+      "am@sociium.biz",
       `[OFFICE COPY] Ticket Filed - ${seqNum} - ${hospitalName}`,
       `Client ${hospitalName} filed ticket ${seqNum}. Category: ${category}. Description: ${description}`,
       "Ticket"

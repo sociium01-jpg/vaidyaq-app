@@ -125,7 +125,7 @@ export default function VendorAdminConsole() {
     return localStorage.getItem('qn_finance_google_connected') === 'true';
   });
   const [googleMailAccount, setGoogleMailAccount] = useState(() => {
-    return localStorage.getItem('qn_finance_google_account') || 'finance@vaidyaq.com';
+    return localStorage.getItem('qn_finance_google_account') || 'am@sociium.biz';
   });
   const [showGoogleOAuthModal, setShowGoogleOAuthModal] = useState(false);
   const [focusedClientId, setFocusedClientId] = useState('all');
@@ -157,7 +157,7 @@ export default function VendorAdminConsole() {
   const [invoiceAddress, setInvoiceAddress] = useState('DLF Cyber City, Phase 3, Gurugram, Haryana - 122002');
   const [invoiceGst, setInvoiceGst] = useState('06AAAAA1111A1Z1');
   const [invoiceTerms, setInvoiceTerms] = useState('Due within 30 days');
-  const [invoiceFooterNotice, setInvoiceFooterNotice] = useState('For billing inquiries, contact billing@vaidyaq.com / +91 8850822250');
+  const [invoiceFooterNotice, setInvoiceFooterNotice] = useState('For billing inquiries, contact am@sociium.biz / +91 8850822250');
   
   // Customizer Checklist Toggles
   const [layoutShowLogo, setLayoutShowLogo] = useState(true);
@@ -5102,7 +5102,7 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
                     color: '#202124',
                     outline: 'none'
                   }}
-                  placeholder="finance@vaidyaq.com"
+                  placeholder="am@sociium.biz"
                 />
               </div>
 
