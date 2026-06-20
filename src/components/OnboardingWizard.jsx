@@ -222,13 +222,13 @@ export default function OnboardingWizard() {
       </div>
 
       {/* Container Card */}
-      <div className="glassmorphic-card" style={{
+      <div className="onboarding-card" style={{
         width: '100%',
         maxWidth: '780px',
-        background: 'rgba(30, 41, 59, 0.45)',
+        background: 'rgba(15, 23, 42, 0.65)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
         borderRadius: '24px',
         padding: '2.5rem',
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 40px rgba(99, 102, 241, 0.1)',
@@ -252,7 +252,7 @@ export default function OnboardingWizard() {
             left: '2rem',
             right: '2rem',
             height: '2px',
-            background: 'rgba(255,255,255,0.06)',
+            background: 'rgba(255, 255, 255, 0.15)',
             zIndex: 1
           }} />
           
@@ -290,11 +290,11 @@ export default function OnboardingWizard() {
                     ? 'linear-gradient(135deg, var(--primary), var(--secondary))' 
                     : isActive 
                       ? 'var(--primary)' 
-                      : 'var(--bg-tertiary)',
+                      : 'rgba(30, 41, 59, 0.7)',
                   border: isCurrent 
-                    ? '3px solid rgba(255,255,255,0.2)' 
-                    : '1px solid var(--border-color)',
-                  color: isActive ? '#fff' : 'var(--text-tertiary)',
+                    ? '3px solid rgba(255, 255, 255, 0.2)' 
+                    : '1px solid rgba(255, 255, 255, 0.15)',
+                  color: isActive ? '#fff' : '#64748b',
                   transition: 'all 0.3s ease',
                   boxShadow: isCurrent ? 'var(--shadow-glow)' : 'none'
                 }}>
@@ -303,7 +303,7 @@ export default function OnboardingWizard() {
                 <span style={{
                   fontSize: '11px',
                   fontWeight: isCurrent ? 700 : 500,
-                  color: isCurrent ? 'var(--primary)' : isActive ? 'var(--text-primary)' : 'var(--text-tertiary)'
+                  color: isCurrent ? 'var(--primary)' : isActive ? '#cbd5e1' : '#64748b'
                 }}>
                   {s.label}
                 </span>
@@ -318,40 +318,40 @@ export default function OnboardingWizard() {
           {/* STEP 1: WELCOME & PROFILE */}
           {step === 1 && (
             <div style={{ animation: 'fadeIn 0.4s ease' }}>
-              <h2 style={{ fontSize: '1.8rem', fontWeight: 800, margin: '0 0 0.5rem 0', background: 'linear-gradient(135deg, #fff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              <h2 style={{ fontSize: '1.8rem', fontWeight: 800, margin: '0 0 0.5rem 0', background: 'linear-gradient(135deg, #fff, #cbd5e1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                 Setup Hospital Profile
               </h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.75rem', lineHeight: '1.5' }}>
+              <p style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '1.75rem', lineHeight: '1.5' }}>
                 Let's configure VaidyaQ for your hospital. This sets up the correct NABH checklist size and rules.
               </p>
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
                 <div className="flex flex-col gap-1" style={{ gridColumn: 'span 2' }}>
-                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Hospital / Healthcare Facility Name</label>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#cbd5e1' }}>Hospital / Healthcare Facility Name</label>
                   <input 
                     type="text" 
                     value={hName} 
                     onChange={e => setHName(e.target.value)}
-                    style={{ padding: '0.75rem 1rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '10px', color: '#fff' }}
+                    style={{ padding: '0.75rem 1rem', background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '10px', color: '#fff' }}
                   />
                 </div>
 
                 <div className="flex flex-col gap-1">
-                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Facility Type</label>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#cbd5e1' }}>Facility Type</label>
                   <select 
                     value={hType} 
                     onChange={e => setHType(e.target.value)}
-                    style={{ padding: '0.75rem 1rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '10px', color: '#fff', outline: 'none' }}
+                    style={{ padding: '0.75rem 1rem', background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '10px', color: '#fff', outline: 'none' }}
                   >
-                    <option value="Multispecialty">Multispecialty Hospital</option>
-                    <option value="General">General Hospital</option>
-                    <option value="Single Specialty">Single Specialty Clinic</option>
-                    <option value="Super Specialty">Super Specialty Institute</option>
+                    <option value="Multispecialty" style={{ background: '#0f172a', color: '#fff' }}>Multispecialty Hospital</option>
+                    <option value="General" style={{ background: '#0f172a', color: '#fff' }}>General Hospital</option>
+                    <option value="Single Specialty" style={{ background: '#0f172a', color: '#fff' }}>Single Specialty Clinic</option>
+                    <option value="Super Specialty" style={{ background: '#0f172a', color: '#fff' }}>Super Specialty Institute</option>
                   </select>
                 </div>
 
                 <div className="flex flex-col gap-1">
-                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Beds Count: <strong style={{ color: 'var(--primary)', fontSize: '0.95rem' }}>{beds} Beds</strong></label>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#cbd5e1' }}>Beds Count: <strong style={{ color: 'var(--primary)', fontSize: '0.95rem' }}>{beds} Beds</strong></label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px' }}>
                     <input 
                       type="range" 
@@ -365,22 +365,22 @@ export default function OnboardingWizard() {
                 </div>
 
                 <div className="flex flex-col gap-1">
-                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>City</label>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#cbd5e1' }}>City</label>
                   <input 
                     type="text" 
                     value={city} 
                     onChange={e => setCity(e.target.value)}
-                    style={{ padding: '0.75rem 1rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '10px', color: '#fff' }}
+                    style={{ padding: '0.75rem 1rem', background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '10px', color: '#fff' }}
                   />
                 </div>
 
                 <div className="flex flex-col gap-1">
-                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>State</label>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#cbd5e1' }}>State</label>
                   <input 
                     type="text" 
                     value={state} 
                     onChange={e => setState(e.target.value)}
-                    style={{ padding: '0.75rem 1rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '10px', color: '#fff' }}
+                    style={{ padding: '0.75rem 1rem', background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '10px', color: '#fff' }}
                   />
                 </div>
               </div>
@@ -390,10 +390,10 @@ export default function OnboardingWizard() {
           {/* STEP 2: ACCREDITATION GOAL */}
           {step === 2 && (
             <div style={{ animation: 'fadeIn 0.4s ease' }}>
-              <h2 style={{ fontSize: '1.8rem', fontWeight: 800, margin: '0 0 0.5rem 0', background: 'linear-gradient(135deg, #fff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              <h2 style={{ fontSize: '1.8rem', fontWeight: 800, margin: '0 0 0.5rem 0', background: 'linear-gradient(135deg, #fff, #cbd5e1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                 Accreditation Goal & Target
               </h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.75rem', lineHeight: '1.5' }}>
+              <p style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '1.75rem', lineHeight: '1.5' }}>
                 Define your accreditation program. VaidyaQ maps chapters based on your target level.
               </p>
 
@@ -411,8 +411,8 @@ export default function OnboardingWizard() {
                       onClick={() => setGoalTier(item.title)}
                       style={{
                         padding: '1.25rem',
-                        background: goalTier === item.title ? 'rgba(13, 148, 136, 0.15)' : 'var(--bg-secondary)',
-                        border: goalTier === item.title ? '2px solid var(--primary)' : '1px solid var(--border-color)',
+                        background: goalTier === item.title ? 'rgba(13, 148, 136, 0.15)' : 'rgba(15, 23, 42, 0.5)',
+                        border: goalTier === item.title ? '2px solid var(--primary)' : '1px solid rgba(255, 255, 255, 0.15)',
                         borderRadius: '12px',
                         cursor: 'pointer',
                         transition: 'all 0.25s ease',
@@ -420,34 +420,34 @@ export default function OnboardingWizard() {
                       }}
                     >
                       <h4 style={{ fontSize: '0.9rem', fontWeight: 700, margin: '0 0 6px 0', color: goalTier === item.title ? 'var(--primary)' : '#fff' }}>{item.title}</h4>
-                      <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.4' }}>{item.desc}</p>
+                      <p style={{ fontSize: '0.7rem', color: '#94a3b8', margin: 0, lineHeight: '1.4' }}>{item.desc}</p>
                     </div>
                   ))}
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginTop: '0.5rem' }}>
                   <div className="flex flex-col gap-1">
-                    <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Target Assessment Date</label>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#cbd5e1' }}>Target Assessment Date</label>
                     <div style={{ position: 'relative' }}>
                       <input 
                         type="date" 
                         value={targetDate} 
                         onChange={e => setTargetDate(e.target.value)}
-                        style={{ padding: '0.75rem 1rem', width: '100%', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '10px', color: '#fff', outline: 'none' }}
+                        style={{ padding: '0.75rem 1rem', width: '100%', background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '10px', color: '#fff', outline: 'none' }}
                       />
                     </div>
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Current Accreditation Status</label>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#cbd5e1' }}>Current Accreditation Status</label>
                     <select 
                       value={prevStatus} 
                       onChange={e => setPrevStatus(e.target.value)}
-                      style={{ padding: '0.75rem 1rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '10px', color: '#fff', outline: 'none' }}
+                      style={{ padding: '0.75rem 1rem', background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '10px', color: '#fff', outline: 'none' }}
                     >
-                      <option value="None">Not Yet Accredited</option>
-                      <option value="Entry Level">NABH Entry Level Certified</option>
-                      <option value="Full">Full Accreditation Active</option>
+                      <option value="None" style={{ background: '#0f172a', color: '#fff' }}>Not Yet Accredited</option>
+                      <option value="Entry Level" style={{ background: '#0f172a', color: '#fff' }}>NABH Entry Level Certified</option>
+                      <option value="Full" style={{ background: '#0f172a', color: '#fff' }}>Full Accreditation Active</option>
                     </select>
                   </div>
                 </div>
@@ -459,10 +459,10 @@ export default function OnboardingWizard() {
           {/* STEP 3: DEPARTMENT SETUP */}
           {step === 3 && (
             <div style={{ animation: 'fadeIn 0.4s ease' }}>
-              <h2 style={{ fontSize: '1.8rem', fontWeight: 800, margin: '0 0 0.5rem 0', background: 'linear-gradient(135deg, #fff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              <h2 style={{ fontSize: '1.8rem', fontWeight: 800, margin: '0 0 0.5rem 0', background: 'linear-gradient(135deg, #fff, #cbd5e1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                 Active Departments & Owners
               </h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.25rem', lineHeight: '1.5' }}>
+              <p style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '1.25rem', lineHeight: '1.5' }}>
                 Select departments active in your hospital. Assign department heads to delegate checklist ownership.
               </p>
 
@@ -473,32 +473,32 @@ export default function OnboardingWizard() {
                     style={{ 
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
                       background: d.selected ? 'rgba(255,255,255,0.02)' : 'transparent',
-                      border: '1px solid var(--border-color)', padding: '0.6rem 1rem', borderRadius: '10px' 
+                      border: '1px solid rgba(255, 255, 255, 0.1)', padding: '0.6rem 1rem', borderRadius: '10px' 
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }} onClick={() => handleToggleDept(idx)}>
                       <div style={{
-                        width: '20px', height: '20px', borderRadius: '4px', border: '2px solid var(--border-color)',
+                        width: '20px', height: '20px', borderRadius: '4px', border: '2px solid rgba(255, 255, 255, 0.25)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         background: d.selected ? 'var(--primary)' : 'transparent',
-                        borderColor: d.selected ? 'var(--primary)' : 'var(--border-color)',
+                        borderColor: d.selected ? 'var(--primary)' : 'rgba(255, 255, 255, 0.25)',
                       }}>
                         {d.selected && <Check size={14} strokeWidth={3} color="#fff" />}
                       </div>
-                      <span style={{ fontSize: '13px', fontWeight: 600, color: d.selected ? '#fff' : 'var(--text-tertiary)' }}>{d.name}</span>
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: d.selected ? '#fff' : '#94a3b8' }}>{d.name}</span>
                     </div>
 
                     {d.selected && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Dept Head:</span>
+                        <span style={{ fontSize: '11px', color: '#cbd5e1' }}>Dept Head:</span>
                         <input 
                           type="text" 
                           placeholder="Name of Head"
                           value={d.head}
                           onChange={e => handleUpdateDeptHead(idx, e.target.value)}
                           style={{
-                            padding: '4px 8px', fontSize: '12px', background: 'var(--bg-secondary)',
-                            border: '1px solid var(--border-color)', borderRadius: '6px', color: '#fff',
+                            padding: '4px 8px', fontSize: '12px', background: 'rgba(15, 23, 42, 0.5)',
+                            border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '6px', color: '#fff',
                             width: '160px'
                           }}
                         />
@@ -515,12 +515,12 @@ export default function OnboardingWizard() {
                   placeholder="Add custom department..."
                   value={newDeptName}
                   onChange={e => setNewDeptName(e.target.value)}
-                  style={{ flex: 1, padding: '0.6rem 0.8rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', color: '#fff', fontSize: '13px' }}
+                  style={{ flex: 1, padding: '0.6rem 0.8rem', background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '8px', color: '#fff', fontSize: '13px' }}
                 />
                 <button 
                   onClick={handleAddDept}
                   className="btn btn-secondary"
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', padding: '0.6rem 1rem', borderRadius: '8px', cursor: 'pointer' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', padding: '0.6rem 1rem', borderRadius: '8px', cursor: 'pointer', background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff' }}
                 >
                   <Plus size={16} /> Add
                 </button>
@@ -531,10 +531,10 @@ export default function OnboardingWizard() {
           {/* STEP 4: INVITE TEAM */}
           {step === 4 && (
             <div style={{ animation: 'fadeIn 0.4s ease' }}>
-              <h2 style={{ fontSize: '1.8rem', fontWeight: 800, margin: '0 0 0.5rem 0', background: 'linear-gradient(135deg, #fff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              <h2 style={{ fontSize: '1.8rem', fontWeight: 800, margin: '0 0 0.5rem 0', background: 'linear-gradient(135deg, #fff, #cbd5e1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                 Build Your Quality Team
               </h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.25rem', lineHeight: '1.5' }}>
+              <p style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '1.25rem', lineHeight: '1.5' }}>
                 Quality is a collaborative effort. Invite key administrators and heads to VaidyaQ.
               </p>
 
@@ -545,29 +545,29 @@ export default function OnboardingWizard() {
                   placeholder="Email Address"
                   value={newEmail}
                   onChange={e => setNewEmail(e.target.value)}
-                  style={{ padding: '0.6rem 0.8rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', color: '#fff', fontSize: '13px' }}
+                  style={{ padding: '0.6rem 0.8rem', background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '8px', color: '#fff', fontSize: '13px' }}
                 />
                 <input 
                   type="text"
                   placeholder="Full Name"
                   value={newName}
                   onChange={e => setNewName(e.target.value)}
-                  style={{ padding: '0.6rem 0.8rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', color: '#fff', fontSize: '13px' }}
+                  style={{ padding: '0.6rem 0.8rem', background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '8px', color: '#fff', fontSize: '13px' }}
                 />
                 <select 
                   value={newRole}
                   onChange={e => setNewRole(e.target.value)}
-                  style={{ padding: '0.6rem 0.8rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', color: '#fff', fontSize: '13px', outline: 'none' }}
+                  style={{ padding: '0.6rem 0.8rem', background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '8px', color: '#fff', fontSize: '13px', outline: 'none' }}
                 >
-                  <option value="Quality Head">Quality Head</option>
-                  <option value="Department Head">Department Head</option>
-                  <option value="Consultant">Accreditation Consultant</option>
-                  <option value="Staff">Nursing/Clinical Staff</option>
+                  <option value="Quality Head" style={{ background: '#0f172a', color: '#fff' }}>Quality Head</option>
+                  <option value="Department Head" style={{ background: '#0f172a', color: '#fff' }}>Department Head</option>
+                  <option value="Consultant" style={{ background: '#0f172a', color: '#fff' }}>Accreditation Consultant</option>
+                  <option value="Staff" style={{ background: '#0f172a', color: '#fff' }}>Nursing/Clinical Staff</option>
                 </select>
                 <button 
                   onClick={handleAddInvite}
                   className="btn btn-secondary"
-                  style={{ padding: '0.6rem 1rem', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  style={{ padding: '0.6rem 1rem', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff' }}
                 >
                   <Plus size={16} />
                 </button>
@@ -576,7 +576,7 @@ export default function OnboardingWizard() {
               {/* Invites List */}
               <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {teamInvites.length === 0 ? (
-                  <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '13px', border: '1px dashed var(--border-color)', borderRadius: '10px' }}>
+                  <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b', fontSize: '13px', border: '1px dashed rgba(255, 255, 255, 0.15)', borderRadius: '10px' }}>
                     No pending invitations. Add members above.
                   </div>
                 ) : (
@@ -585,17 +585,17 @@ export default function OnboardingWizard() {
                       key={idx}
                       style={{ 
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        padding: '0.6rem 1rem', border: '1px solid var(--border-color)', borderRadius: '8px',
+                        padding: '0.6rem 1rem', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px',
                         background: 'rgba(255,255,255,0.01)'
                       }}
                     >
                       <div className="flex flex-col" style={{ textAlign: 'left' }}>
-                        <span style={{ fontSize: '13px', fontWeight: 600 }}>{invite.name}</span>
-                        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{invite.email}</span>
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>{invite.name}</span>
+                        <span style={{ fontSize: '11px', color: '#cbd5e1' }}>{invite.email}</span>
                       </div>
                       
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <span className="badge badge-neutral" style={{ fontSize: '0.65rem' }}>{invite.role}</span>
+                        <span className="badge badge-neutral" style={{ fontSize: '0.65rem', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)', color: '#cbd5e1' }}>{invite.role}</span>
                         <button 
                           onClick={() => handleRemoveInvite(idx)}
                           style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', padding: '4px' }}
@@ -635,14 +635,14 @@ export default function OnboardingWizard() {
                   </div>
 
                   <div>
-                    <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '0 0 8px 0' }}>AI Compliance Baseline Scanning...</h3>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic', maxWidth: '400px', margin: '0 auto', minHeight: '36px' }}>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '0 0 8px 0', color: '#fff' }}>AI Compliance Baseline Scanning...</h3>
+                    <div style={{ fontSize: '0.85rem', color: '#cbd5e1', fontStyle: 'italic', maxWidth: '400px', margin: '0 auto', minHeight: '36px' }}>
                       "{scanStatusText}"
                     </div>
                   </div>
 
                   {/* Progress bar */}
-                  <div style={{ width: '100%', maxWidth: '360px', height: '6px', background: 'var(--bg-secondary)', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ width: '100%', maxWidth: '360px', height: '6px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '3px', overflow: 'hidden' }}>
                     <div style={{ width: `${scanProgress}%`, height: '100%', background: 'linear-gradient(90deg, #7c3aed, #4f46e5)', transition: 'width 0.1s linear' }} />
                   </div>
                 </div>
@@ -659,7 +659,7 @@ export default function OnboardingWizard() {
 
                   <div>
                     <h2 style={{ fontSize: '1.6rem', fontWeight: 800, margin: '0 0 6px 0', color: 'var(--color-success)' }}>Hospital Scanned Successfully!</h2>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', maxWidth: '520px', margin: '0 auto', lineHeight: '1.5' }}>
+                    <p style={{ color: '#cbd5e1', fontSize: '0.85rem', maxWidth: '520px', margin: '0 auto', lineHeight: '1.5' }}>
                       VaidyaQ AI has compiled your custom accreditation roadmap. Based on your configuration of <strong>{beds} Beds</strong> and <strong>{depts.filter(d=>d.selected).length} departments</strong>, here is your starting compliance profile.
                     </p>
                   </div>
@@ -667,29 +667,29 @@ export default function OnboardingWizard() {
                   {/* Scoring Grid */}
                   <div style={{
                     display: 'grid', gridTemplateColumns: '1fr 2.5fr', gap: '1.5rem',
-                    width: '100%', maxWidth: '640px', background: 'var(--bg-secondary)',
-                    border: '1px solid var(--border-color)', borderRadius: '16px',
+                    width: '100%', maxWidth: '640px', background: 'rgba(15, 23, 42, 0.4)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '16px',
                     padding: '1.25rem', textAlign: 'left', marginTop: '0.5rem'
                   }}>
                     {/* Score Circle */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRight: '1px solid var(--border-color)', paddingRight: '1rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRight: '1px solid rgba(255, 255, 255, 0.1)', paddingRight: '1rem' }}>
                       <span style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--color-danger)' }}>{baselineScore}%</span>
-                      <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Readiness Score</span>
+                      <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Readiness Score</span>
                     </div>
 
                     {/* Report Bulletins */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', justifyContent: 'center' }}>
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '12px' }}>
                         <span style={{ color: 'var(--color-success)', fontWeight: 'bold' }}>✓ Quick Wins:</span>
-                        <span style={{ color: 'var(--text-secondary)' }}>Pre-mapped licenses loaded (6 statutory documents required).</span>
+                        <span style={{ color: '#cbd5e1' }}>Pre-mapped licenses loaded (6 statutory documents required).</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '12px' }}>
                         <span style={{ color: 'var(--color-warning)', fontWeight: 'bold' }}>⚠️ Critical Gaps:</span>
-                        <span style={{ color: 'var(--text-secondary)' }}>38 core SOP files missing. Chapter COP (Care of Patients) is high risk.</span>
+                        <span style={{ color: '#cbd5e1' }}>38 core SOP files missing. Chapter COP (Care of Patients) is high risk.</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '12px' }}>
                         <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>🤖 Recommended First Step:</span>
-                        <span style={{ color: 'var(--text-secondary)' }}>Generate clinical SOP template inside the Document Module.</span>
+                        <span style={{ color: '#cbd5e1' }}>Generate clinical SOP template inside the Document Module.</span>
                       </div>
                     </div>
                   </div>
