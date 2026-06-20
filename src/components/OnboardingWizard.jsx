@@ -17,13 +17,11 @@ export default function OnboardingWizard() {
     setOnboardingSteps,
     currentUser,
     logActivity,
-    loadDemoData,
     clearWorkspaceData
   } = useContext(QualiNABHContext);
 
   const [step, setStep] = useState(1);
   const [direction, setDirection] = useState('next'); // 'next' or 'prev'
-  const [initDataMode, setInitDataMode] = useState('empty'); // 'empty' or 'demo'
 
   // Step 1: Hospital Profile
   const [hName, setHName] = useState('City Central Hospital');
@@ -146,12 +144,8 @@ export default function OnboardingWizard() {
     const finalSelectedDepts = depts.filter(d => d.selected).map(d => d.name);
     setActiveDepts(finalSelectedDepts);
 
-    // Initialize workspace data based on selection
-    if (initDataMode === 'demo') {
-      loadDemoData();
-    } else {
-      clearWorkspaceData();
-    }
+    // Initialize workspace data - strictly a clean slate for new signups
+    clearWorkspaceData();
 
     // Set onboarding completed
     setOnboardingSteps({
@@ -163,7 +157,7 @@ export default function OnboardingWizard() {
 
     // Enter Command Center
     setHospitalMode('active');
-    logActivity(`Completed Onboarding for ${hName}. Beds: ${beds}. Accreditation Goal: ${goalTier} (${initDataMode === 'demo' ? 'With Demo Data' : 'Empty Slate'}).`);
+    logActivity(`Completed Onboarding for ${hName}. Beds: ${beds}. Accreditation Goal: ${goalTier} (Strict Clean Slate).`);
   };
 
   // Icon stepper renderer
@@ -696,57 +690,6 @@ export default function OnboardingWizard() {
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '12px' }}>
                         <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>🤖 Recommended First Step:</span>
                         <span style={{ color: 'var(--text-secondary)' }}>Generate clinical SOP template inside the Document Module.</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Workspace Initialization Option */}
-                  <div style={{
-                    display: 'flex', flexDirection: 'column', gap: '0.75rem',
-                    width: '100%', maxWidth: '640px', background: 'var(--bg-secondary)',
-                    border: '1px solid var(--border-color)', borderRadius: '16px',
-                    padding: '1.25rem', textAlign: 'left', marginTop: '0.75rem'
-                  }}>
-                    <h4 style={{ fontSize: '0.9rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Configure Initial Workspace Data</h4>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>
-                      Choose how you want to populate your compliance command center:
-                    </p>
-                    
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.25rem' }}>
-                      <div 
-                        onClick={() => setInitDataMode('empty')}
-                        style={{
-                          border: `2px solid ${initDataMode === 'empty' ? 'var(--primary)' : 'rgba(255,255,255,0.08)'}`,
-                          borderRadius: '10px', padding: '0.85rem', cursor: 'pointer',
-                          backgroundColor: initDataMode === 'empty' ? 'rgba(13, 148, 136, 0.05)' : 'rgba(30, 41, 59, 0.2)',
-                          transition: 'all 0.2s ease',
-                          display: 'flex', flexDirection: 'column', gap: '4px'
-                        }}
-                      >
-                        <div style={{ fontWeight: 'bold', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-primary)' }}>
-                          <span>🧹</span> Empty Slate
-                        </div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', lineHeight: '1.3' }}>
-                          Fresh start with zero documents, tasks, and audits.
-                        </div>
-                      </div>
-                      
-                      <div 
-                        onClick={() => setInitDataMode('demo')}
-                        style={{
-                          border: `2px solid ${initDataMode === 'demo' ? 'var(--primary)' : 'rgba(255,255,255,0.08)'}`,
-                          borderRadius: '10px', padding: '0.85rem', cursor: 'pointer',
-                          backgroundColor: initDataMode === 'demo' ? 'rgba(13, 148, 136, 0.05)' : 'rgba(30, 41, 59, 0.2)',
-                          transition: 'all 0.2s ease',
-                          display: 'flex', flexDirection: 'column', gap: '4px'
-                        }}
-                      >
-                        <div style={{ fontWeight: 'bold', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-primary)' }}>
-                          <span>📈</span> Demo Data
-                        </div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', lineHeight: '1.3' }}>
-                          Populate sample SOPs, scheduled audits, and mock tasks.
-                        </div>
                       </div>
                     </div>
                   </div>
