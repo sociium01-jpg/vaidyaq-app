@@ -164,6 +164,12 @@ export default function Dashboard() {
   };
 
   // Helper variables for dashboards
+  const isEmptyState = 
+    (documents || []).length === 0 && 
+    (audits || []).length === 0 && 
+    (capaItems || []).length === 0 && 
+    (tasks || []).length === 0;
+
   const activeCapas = capaItems ? capaItems.filter(c => c.status === 'Open') : [];
   const expiredLicenses = licenses ? licenses.filter(l => l.status === 'Expired') : [];
 
@@ -172,8 +178,115 @@ export default function Dashboard() {
   expiredLicenses.forEach(l => riskDepts.add(l.responsible || "Administration"));
   const highRiskDeptsCount = riskDepts.size;
 
+  const renderWelcomeChecklist = () => {
+    return (
+      <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '1rem', borderLeft: '6px solid var(--primary)', marginBottom: '1.5rem' }}>
+        <div>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
+            <Sparkles style={{ color: 'var(--primary)' }} />
+            <span>Getting Started: Your VaidyaQ Setup Guide</span>
+          </h3>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '4px' }}>
+            Accreditation is a journey. Follow these simple baseline setup actions to initialize your readiness score.
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', marginTop: '0.5rem' }}>
+          {/* Step 1: Onboarding Completed */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', fontSize: '0.85rem' }}>
+            <div style={{ color: 'var(--color-success)', marginTop: '2px' }}>
+              <CheckCircle2 size={16} />
+            </div>
+            <div>
+              <strong style={{ color: 'var(--text-primary)' }}>Hospital profile configured</strong>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Configured display name: "{hospitalName}" with {hospitalBeds} beds.</div>
+            </div>
+          </div>
+
+          {/* Step 2: Quality Team Setup */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', fontSize: '0.85rem' }}>
+            <div style={{ color: teamMembers.length > 0 ? 'var(--color-success)' : 'var(--text-tertiary)', marginTop: '2px' }}>
+              <CheckCircle2 size={16} />
+            </div>
+            <div>
+              <strong style={{ color: 'var(--text-primary)' }}>Coordinate Quality Committee team ({teamMembers.length} active)</strong>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Invite board members and coordinators to outline responsibilities.</div>
+            </div>
+          </div>
+
+          {/* Step 3: Template Importing */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', fontSize: '0.85rem' }}>
+            <div style={{ color: onboardingSteps.importTemplates ? 'var(--color-success)' : 'var(--text-tertiary)', marginTop: '2px' }}>
+              <CheckCircle2 size={16} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <strong style={{ color: 'var(--text-primary)' }}>Initialize NABH 6th Edition Templates</strong>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Preload default outline structures for statutory license requirements and SOP guides.</div>
+              {!onboardingSteps.importTemplates && (
+                <div style={{ marginTop: '0.5rem' }}>
+                  {isImporting ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', maxWidth: '250px' }}>
+                      <div style={{ height: '4px', width: '100%', backgroundColor: 'var(--bg-tertiary)', borderRadius: '2px', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${importProgress}%`, backgroundColor: 'var(--primary)', transition: 'width 0.3s ease' }}></div>
+                      </div>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--primary)', fontWeight: 'bold' }}>{importStatusText} ({importProgress}%)</span>
+                    </div>
+                  ) : (
+                    <button onClick={handleImportTemplates} className="btn btn-primary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.7rem', fontWeight: 'bold', cursor: 'pointer' }}>
+                      Import Checklists Now
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Step 4: First SOP Outline */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', fontSize: '0.85rem' }}>
+            <div style={{ color: (documents || []).length > 0 ? 'var(--color-success)' : 'var(--text-tertiary)', marginTop: '2px' }}>
+              <CheckCircle2 size={16} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <strong style={{ color: 'var(--text-primary)' }}>Draft your first Policy or SOP outline</strong>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Generate clinical guidelines using our integrated AI Co-Pilot assistant.</div>
+              {(documents || []).length === 0 && (
+                <button onClick={() => setCurrentRoute('/app/documents')} className="btn btn-secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.7rem', fontWeight: 'bold', cursor: 'pointer', marginTop: '0.5rem' }}>
+                  Open Document Control
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Step 5: First Mock Audit */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', fontSize: '0.85rem' }}>
+            <div style={{ color: (audits || []).length > 0 ? 'var(--color-success)' : 'var(--text-tertiary)', marginTop: '2px' }}>
+              <CheckCircle2 size={16} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <strong style={{ color: 'var(--text-primary)' }}>Schedule an Internal Audit or Drill</strong>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Coordinate checklists, register findings, and track corrective action plans (CAPA).</div>
+              {(audits || []).length === 0 && (
+                <button onClick={() => setCurrentRoute('/app/quality')} className="btn btn-secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.7rem', fontWeight: 'bold', cursor: 'pointer', marginTop: '0.5rem' }}>
+                  Schedule Audit Check
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Render SVG Circular Readiness Meter
   const renderReadinessMeter = (size = 120) => {
+    if (isEmptyState) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: size, width: size, textAlign: 'center' }}>
+          <div style={{ fontSize: `${size * 0.12}px`, fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', lineHeight: 1.2 }}>Not Available Yet</div>
+        </div>
+      );
+    }
+
     const radius = size * 0.38;
     const stroke = size * 0.08;
     const circ = 2 * Math.PI * radius;
@@ -332,6 +445,8 @@ export default function Dashboard() {
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '2px' }}>Accreditation readiness indicators, active team operations, and compliance status for {hospitalName}.</p>
         </div>
 
+        {isEmptyState && renderWelcomeChecklist()}
+
         {/* Top summary row */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1.5rem', flexWrap: 'wrap' }}>
           {/* Readiness dial card */}
@@ -454,6 +569,8 @@ export default function Dashboard() {
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '2px' }}>Monitor evidence document coverage, pending approvals, and corrective actions (CAPA) tracking.</p>
         </div>
 
+        {isEmptyState && renderWelcomeChecklist()}
+
         {/* Metrics Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
           <div className="card flex align-center gap-3" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
@@ -567,16 +684,24 @@ export default function Dashboard() {
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '2px' }}>Departmental compliance indicators, audits checklist, and open tasks.</p>
         </div>
 
+        {isEmptyState && renderWelcomeChecklist()}
+
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1.5rem', flexWrap: 'wrap' }}>
           {/* Dept Readiness score */}
           <div className="card flex flex-col align-center justify-center gap-3" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', textAlign: 'center' }}>
-            <div style={{ position: 'relative', width: 120, height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width={120} height={120} style={{ transform: 'rotate(-90deg)' }}>
-                <circle stroke="var(--bg-tertiary)" fill="transparent" strokeWidth={10} r={45} cx={60} cy={60} />
-                <circle stroke="var(--primary)" fill="transparent" strokeWidth={10} strokeDasharray={2 * Math.PI * 45} strokeDashoffset={(2 * Math.PI * 45) - (deptReadiness / 100) * (2 * Math.PI * 45)} strokeLinecap="round" r={45} cx={60} cy={60} />
-              </svg>
-              <div style={{ position: 'absolute', fontSize: '1.3rem', fontWeight: 800 }}>{deptReadiness}%</div>
-            </div>
+            {isEmptyState ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 120, width: 120, textAlign: 'center' }}>
+                <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', lineHeight: 1.2 }}>Not Available Yet</div>
+              </div>
+            ) : (
+              <div style={{ position: 'relative', width: 120, height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width={120} height={120} style={{ transform: 'rotate(-90deg)' }}>
+                  <circle stroke="var(--bg-tertiary)" fill="transparent" strokeWidth={10} r={45} cx={60} cy={60} />
+                  <circle stroke="var(--primary)" fill="transparent" strokeWidth={10} strokeDasharray={2 * Math.PI * 45} strokeDashoffset={(2 * Math.PI * 45) - (deptReadiness / 100) * (2 * Math.PI * 45)} strokeLinecap="round" r={45} cx={60} cy={60} />
+                </svg>
+                <div style={{ position: 'absolute', fontSize: '1.3rem', fontWeight: 800 }}>{deptReadiness}%</div>
+              </div>
+            )}
             <div>
               <strong style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>Departmental Score</strong>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>NABH Chapter compliance index</div>
@@ -628,7 +753,7 @@ export default function Dashboard() {
                   </div>
                   <button
                     onClick={() => {
-                      setCurrentRoute(`/app/${currentUser.hospitalId}/quality`);
+                      setCurrentRoute('/app/quality');
                       showToast({ title: "Navigated", message: "Opening Quality Module Audit checklist.", type: "info" });
                     }}
                     className="btn btn-secondary"
@@ -663,6 +788,8 @@ export default function Dashboard() {
           <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0 }}>Employee Compliance Work Center</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '2px' }}>Your assigned checklist tasks, document uploads, and incident logs.</p>
         </div>
+
+        {isEmptyState && renderWelcomeChecklist()}
 
         {/* Alerts panel */}
         {overdueCount > 0 && (
@@ -798,6 +925,8 @@ export default function Dashboard() {
           <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0 }}>Assessor Review Dashboard</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '2px' }}>Read-only quality indices, risk registers, and clinical outcome metrics for accreditation audits.</p>
         </div>
+
+        {isEmptyState && renderWelcomeChecklist()}
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1.5rem', flexWrap: 'wrap' }}>
           {/* Readiness gauge */}

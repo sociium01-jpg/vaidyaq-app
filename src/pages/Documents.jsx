@@ -5,6 +5,7 @@ import {
   Search,
   Upload,
   Eye,
+  EyeOff,
   CheckCircle2,
   Clock,
   History,
@@ -135,6 +136,7 @@ export default function Documents() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   
   const [authPin, setAuthPin] = useState('');
+  const [showAuthPin, setShowAuthPin] = useState(false);
   const [authName, setAuthName] = useState('');
   const [authError, setAuthError] = useState('');
 
@@ -844,6 +846,34 @@ INVESTIGATION STATUS: Closed - CAPA pending review.`;
       {/* VIEW 1: DOCUMENTS VAULT */}
       {activeMainTab === 'vault' && (
         <>
+          {documents.length === 0 ? (
+            <div className="card empty-state" style={{ padding: '3rem 2rem', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', border: '1px dashed var(--border-color)', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div className="empty-state-icon" style={{ margin: '0 auto 1.25rem auto' }}>
+                <FileText size={40} style={{ color: 'var(--primary)' }} />
+              </div>
+              <h3 className="empty-state-title" style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)' }}>Your Document Vault is Empty</h3>
+              <p className="empty-state-description" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', maxWidth: '450px', margin: '0.5rem auto 1.5rem auto', lineHeight: '1.5' }}>
+                Initialize your accreditation journey by drafting your first policy or importing our pre-constructed standard templates.
+              </p>
+              <div className="flex gap-2 justify-center">
+                <button 
+                  onClick={() => setCurrentRoute('/app/ai')}
+                  className="btn btn-primary"
+                  style={{ padding: '0.5rem 1.25rem', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}
+                >
+                  Draft SOP with AI Co-Pilot
+                </button>
+                <button 
+                  onClick={() => setCurrentRoute('/app/dashboard')}
+                  className="btn btn-secondary"
+                  style={{ padding: '0.5rem 1.25rem', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}
+                >
+                  Go to Command Center
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
           {/* Search Bar & Filter Options */}
           <div className="card flex flex-col gap-3" style={{ padding: '1.25rem' }}>
             <div className="flex align-center gap-2" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
@@ -1109,6 +1139,8 @@ INVESTIGATION STATUS: Closed - CAPA pending review.`;
               </div>
             )}
           </div>
+          </>
+          )}
         </>
       )}
 
@@ -1843,14 +1875,37 @@ INVESTIGATION STATUS: Closed - CAPA pending review.`;
 
                 <div className="form-group">
                   <label className="form-label">Verification PIN (Mock: 1234)</label>
-                  <input
-                    type="password"
-                    required
-                    className="form-control"
-                    placeholder="••••"
-                    value={authPin}
-                    onChange={(e) => setAuthPin(e.target.value)}
-                  />
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={showAuthPin ? "text" : "password"}
+                      required
+                      className="form-control"
+                      placeholder="••••"
+                      value={authPin}
+                      onChange={(e) => setAuthPin(e.target.value)}
+                      style={{ paddingRight: '2.5rem', width: '100%' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowAuthPin(prev => !prev)}
+                      style={{
+                        position: 'absolute',
+                        right: '10px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-secondary)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '4px'
+                      }}
+                      aria-label={showAuthPin ? "Hide PIN" : "Show PIN"}
+                    >
+                      {showAuthPin ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
 
                 {authError && (

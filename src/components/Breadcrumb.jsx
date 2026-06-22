@@ -32,12 +32,11 @@ export default function Breadcrumb() {
   // Hidden on mobile — mobile uses bottom nav instead
   if (isMobile) return null;
 
-  // Normalize currentRoute (e.g. /app/demo-hosp/tasks -> /app/tasks)
+  // Normalize currentRoute (e.g. /app/tasks -> /app/tasks)
   const parts = currentRoute.split('/').filter(Boolean);
   const isAppRoute = parts[0] === 'app';
-  const hospitalId = isAppRoute ? parts[1] : null;
-  const moduleName = isAppRoute ? parts[2] : null;
-  const subModuleName = isAppRoute ? parts[3] : null;
+  const moduleName = isAppRoute ? parts[1] : null;
+  const subModuleName = isAppRoute ? parts[2] : null;
 
   const lookupRoute = isAppRoute && moduleName ? `/app/${moduleName}` : currentRoute;
   let currentLabel = ROUTE_MAP[lookupRoute] || 'Dashboard';
@@ -92,10 +91,7 @@ export default function Breadcrumb() {
 
   const handleHomeClick = () => {
     if (!isHome) {
-      const homePath = currentUser && currentUser.hospitalId 
-        ? `/app/${currentUser.hospitalId}/dashboard` 
-        : '/app/dashboard';
-      setCurrentRoute(homePath);
+      setCurrentRoute('/app/dashboard');
     }
   };
 

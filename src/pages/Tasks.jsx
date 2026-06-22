@@ -59,7 +59,7 @@ export default function Tasks() {
 
   // Parse routing tabs
   const parts = currentRoute.split('/').filter(Boolean);
-  const activeTab = parts[3] || 'list'; // 'list', 'kanban', 'backlog'
+  const activeTab = parts[2] || 'list'; // 'list', 'kanban', 'backlog'
 
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showAiPlanner, setShowAiPlanner] = useState(false);
@@ -536,7 +536,7 @@ Please output your answer EXACTLY as a JSON array of objects conforming to this 
 
   // Change tab routing
   const navigateTab = (tab) => {
-    setCurrentRoute(`/app/${currentUser.hospitalId}/tasks/${tab}`);
+    setCurrentRoute(`/app/tasks/${tab}`);
   };
 
   return (

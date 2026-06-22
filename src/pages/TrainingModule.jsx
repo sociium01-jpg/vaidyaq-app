@@ -13,7 +13,9 @@ import {
   Search,
   BookOpen,
   HelpCircle,
-  UserCheck
+  UserCheck,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 export default function TrainingModule() {
@@ -57,6 +59,7 @@ export default function TrainingModule() {
   const [selectedSopTitle, setSelectedSopTitle] = useState('');
   const [generatedQuiz, setGeneratedQuiz] = useState(null);
   const [quizPin, setQuizPin] = useState('');
+  const [showQuizPin, setShowQuizPin] = useState(false);
   const [quizPinError, setQuizPinError] = useState('');
   const [activeQuizzes, setActiveQuizzes] = useState([
     { id: 'qz-1', sopTitle: 'Clinical Hand Segregation SOP', questionsCount: 5, status: 'Approved', author: 'Dr. Sarah Paul' }
@@ -700,14 +703,36 @@ export default function TrainingModule() {
                   </p>
                   
                   <div className="flex gap-2 align-center">
-                    <input
-                      type="password"
-                      placeholder="Verification PIN"
-                      value={quizPin}
-                      onChange={(e) => setQuizPin(e.target.value)}
-                      className="form-control"
-                      style={{ fontSize: '0.75rem', padding: '0.45rem', width: '160px', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
-                    />
+                    <div style={{ position: 'relative', width: '160px' }}>
+                      <input
+                        type={showQuizPin ? "text" : "password"}
+                        placeholder="Verification PIN"
+                        value={quizPin}
+                        onChange={(e) => setQuizPin(e.target.value)}
+                        className="form-control"
+                        style={{ fontSize: '0.75rem', padding: '0.45rem', paddingRight: '2.2rem', width: '100%', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowQuizPin(prev => !prev)}
+                        style={{
+                          position: 'absolute',
+                          right: '6px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-secondary)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '2px'
+                        }}
+                        aria-label={showQuizPin ? "Hide PIN" : "Show PIN"}
+                      >
+                        {showQuizPin ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
                     <button
                       onClick={handleApproveQuiz}
                       className="btn btn-primary"

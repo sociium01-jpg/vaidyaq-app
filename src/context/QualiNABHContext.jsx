@@ -200,6 +200,28 @@ const defaultTaskActivities = [
   { id: "act-1", taskId: "task-1", user: "Dr. Sarah Paul", action: "Created task", timestamp: "2026-06-11 11:20:10" }
 ];
 
+const assertNoMockDataForProductionTenant = (email, key, data) => {
+  if (!email) return data;
+  const isDemo = email === 'demo@vaidyaq.com' || email === 'quality.head@hospital.org';
+  if (!isDemo && data && Array.isArray(data) && data.length > 0) {
+    const hasMockId = data.some(item => 
+      item && typeof item.id === 'string' && (
+        item.id.startsWith('doc-') || 
+        item.id.startsWith('audit-') || 
+        item.id.startsWith('capa-') || 
+        item.id.startsWith('inc-') || 
+        item.id.startsWith('task-') || 
+        item.id.startsWith('tick-')
+      )
+    );
+    if (hasMockId) {
+      console.warn(`[Security Guard] Production tenant ${email} attempted to load mock data for key: ${key}. Enforcing clean slate.`);
+      return [];
+    }
+  }
+  return data;
+};
+
 export const QualiNABHProvider = ({ children }) => {
   // Get namespaced key loader helper
   const loadNamespacedState = (key, defaultValue) => {
@@ -213,73 +235,74 @@ export const QualiNABHProvider = ({ children }) => {
     }
     const prefix = activeEmail ? `${activeEmail}_` : '';
     const saved = localStorage.getItem(prefix + key);
+    let result;
     if (saved) {
       try {
-        return JSON.parse(saved);
+        result = JSON.parse(saved);
       } catch (e) {
-        return saved; // string fallback
+        result = saved; // string fallback
+      }
+    } else {
+      // Fallback logic for demo accounts (demo@vaidyaq.com or quality.head@hospital.org)
+      const isDemo = activeEmail === 'demo@vaidyaq.com' || activeEmail === 'quality.head@hospital.org';
+      if (isDemo) {
+        const globalSaved = localStorage.getItem(key);
+        if (globalSaved) {
+          try {
+            result = JSON.parse(globalSaved);
+          } catch (e) {}
+        }
+        if (result === undefined) {
+          result = defaultValue;
+        }
+      } else if (activeEmail) {
+        // For new signups, return blank templates
+        if (key === 'qn_standards') {
+          result = defaultStandards.map(s => ({ ...s, score: 0, status: "Not Met" }));
+        } else if (key === 'qn_licenses') {
+          result = defaultLicenses.map(l => ({
+            ...l,
+            issueDate: '',
+            expiryDate: '',
+            responsible: l.responsible.includes('(') ? l.responsible.substring(l.responsible.indexOf('(') + 1, l.responsible.length - 1) : l.responsible,
+            status: 'Expired'
+          }));
+        } else if (key === 'qn_compliance_flows') {
+          result = defaultComplianceFlows.map(flow => ({
+            ...flow,
+            stages: {
+              policy: "Not Started",
+              sop: "Not Started",
+              training: "Not Started",
+              implementation: "Not Started",
+              documentation: "Not Started",
+              audit: "Not Started",
+              findings: "Not Started",
+              capa: "Not Started",
+              review: "Not Started",
+              improvement: "Not Started",
+              updates: "Not Started"
+            },
+            linkedSops: [],
+            linkedForms: [],
+            linkedTraining: [],
+            linkedAudits: [],
+            linkedCapas: [],
+            linkedIncidents: []
+          }));
+        } else if (key === 'qn_committees') {
+          result = defaultCommittees.map(c => ({
+            ...c,
+            meetings: []
+          }));
+        } else {
+          result = Array.isArray(defaultValue) ? [] : typeof defaultValue === 'object' ? {} : defaultValue;
+        }
+      } else {
+        result = defaultValue;
       }
     }
-    
-    // Fallback logic for demo accounts (demo@vaidyaq.com or quality.head@hospital.org)
-    const isDemo = activeEmail === 'demo@vaidyaq.com' || activeEmail === 'quality.head@hospital.org';
-    if (isDemo) {
-      const globalSaved = localStorage.getItem(key);
-      if (globalSaved) {
-        try {
-          return JSON.parse(globalSaved);
-        } catch (e) {}
-      }
-      return defaultValue;
-    }
-    
-    // For new signups, return blank templates
-    if (activeEmail) {
-      if (key === 'qn_standards') {
-        return defaultStandards.map(s => ({ ...s, score: 0, status: "Not Met" }));
-      }
-      if (key === 'qn_licenses') {
-        return defaultLicenses.map(l => ({
-          ...l,
-          issueDate: '',
-          expiryDate: '',
-          responsible: l.responsible.includes('(') ? l.responsible.substring(l.responsible.indexOf('(') + 1, l.responsible.length - 1) : l.responsible,
-          status: 'Expired'
-        }));
-      }
-      if (key === 'qn_compliance_flows') {
-        return defaultComplianceFlows.map(flow => ({
-          ...flow,
-          stages: {
-            policy: "Not Started",
-            sop: "Not Started",
-            training: "Not Started",
-            implementation: "Not Started",
-            documentation: "Not Started",
-            audit: "Not Started",
-            findings: "Not Started",
-            capa: "Not Started",
-            review: "Not Started",
-            improvement: "Not Started",
-            updates: "Not Started"
-          },
-          linkedSops: [],
-          linkedForms: [],
-          linkedTraining: [],
-          linkedAudits: [],
-          linkedCapas: [],
-          linkedIncidents: []
-        }));
-      }
-      if (key === 'qn_committees') {
-        return defaultCommittees.map(c => ({
-          ...c,
-          meetings: []
-        }));
-      }
-      return Array.isArray(defaultValue) ? [] : typeof defaultValue === 'object' ? {} : defaultValue;
-    }
-    return defaultValue;
+    return assertNoMockDataForProductionTenant(activeEmail, key, result);
   };
 
   // Authentication Role - default to null (landing page marketing)
@@ -313,13 +336,7 @@ export const QualiNABHProvider = ({ children }) => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  useEffect(() => {
-    if (currentUser && currentUser.hospitalId) {
-      if (currentRoute === '/app/dashboard' || currentRoute === '/app') {
-        setCurrentRoute(`/app/${currentUser.hospitalId}/dashboard`);
-      }
-    }
-  }, [currentRoute, currentUser]);
+
 
   // Force early renewal payment block screen early flag
   const [forcePaymentScreen, setForcePaymentScreen] = useState(false);
@@ -348,6 +365,10 @@ export const QualiNABHProvider = ({ children }) => {
 
   const [onboardingSteps, setOnboardingSteps] = useState(() => {
     return loadNamespacedState('qn_onboarding_steps', { identity: false, departments: false, importTemplates: false, firstSop: false });
+  });
+
+  const [onboardingStep, setOnboardingStep] = useState(() => {
+    return Number(loadNamespacedState('qn_onboarding_step', 1));
   });
 
   // Databases States
@@ -638,6 +659,45 @@ export const QualiNABHProvider = ({ children }) => {
     }
   }, [aiSafetyLogs, currentUser]);
 
+  // Auto-heal legacy user sessions missing hospitalId or having string 'undefined'
+  useEffect(() => {
+    if (currentUser) {
+      const email = currentUser.email ? currentUser.email.toLowerCase() : '';
+      let correctHospitalId = currentUser.hospitalId;
+      
+      if (!correctHospitalId || correctHospitalId === 'undefined') {
+        if (email === 'demo@vaidyaq.com') {
+          correctHospitalId = 'demo-hosp';
+        } else if (email === 'quality.head@hospital.org' || email === 'director@hospital.org') {
+          correctHospitalId = 'sarah-hosp';
+        } else {
+          // Look up in clientsList
+          const client = clientsList.find(c => c.email.toLowerCase() === email);
+          if (client) {
+            correctHospitalId = client.hospitalId;
+          } else {
+            // Check sub users
+            const globalSubUsers = JSON.parse(localStorage.getItem('qn_global_sub_users') || '[]');
+            const subUser = globalSubUsers.find(u => u.email.toLowerCase() === email);
+            if (subUser) {
+              const parentClient = clientsList.find(c => c.email.toLowerCase() === subUser.parentEmail.toLowerCase());
+              correctHospitalId = parentClient ? parentClient.hospitalId : 'demo-hosp';
+            } else {
+              correctHospitalId = 'demo-hosp'; // default fallback
+            }
+          }
+        }
+        
+        // Auto-heal
+        setCurrentUser(prev => {
+          if (!prev) return prev;
+          if (prev.hospitalId === correctHospitalId) return prev;
+          return { ...prev, hospitalId: correctHospitalId };
+        });
+      }
+    }
+  }, [currentUser, clientsList]);
+
   // Sync states with local storage (namespaced if user is logged in)
   useEffect(() => {
     localStorage.setItem('qn_user', JSON.stringify(currentUser));
@@ -683,6 +743,12 @@ export const QualiNABHProvider = ({ children }) => {
       localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_onboarding_steps`, JSON.stringify(onboardingSteps));
     }
   }, [onboardingSteps, currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_onboarding_step`, String(onboardingStep));
+    }
+  }, [onboardingStep, currentUser]);
 
   useEffect(() => {
     if (currentUser) {
@@ -968,25 +1034,37 @@ export const QualiNABHProvider = ({ children }) => {
       
       const getSaved = (key, defaultVal) => {
         const saved = localStorage.getItem(prefix + key);
+        let result;
         if (saved) {
-          try { return JSON.parse(saved); } catch(e) { return saved; }
-        }
-        // Fallbacks
-        const isDemo = activeEmail === 'demo@vaidyaq.com' || activeEmail === 'quality.head@hospital.org';
-        if (isDemo) {
-          const globalSaved = localStorage.getItem(key);
-          if (globalSaved) {
-            try { return JSON.parse(globalSaved); } catch(e) {}
+          try { result = JSON.parse(saved); } catch(e) { result = saved; }
+        } else {
+          // Fallbacks
+          const isDemo = activeEmail === 'demo@vaidyaq.com' || activeEmail === 'quality.head@hospital.org';
+          if (isDemo) {
+            const globalSaved = localStorage.getItem(key);
+            if (globalSaved) {
+              try { result = JSON.parse(globalSaved); } catch(e) {}
+            }
+            if (result === undefined) {
+              result = defaultVal;
+            }
+          } else {
+            if (key === 'qn_standards') {
+              result = defaultStandards.map(s => ({ ...s, score: 0, status: "Not Met" }));
+            } else if (key === 'qn_licenses') {
+              result = defaultLicenses.map(l => ({
+                ...l,
+                issueDate: '',
+                expiryDate: '',
+                responsible: l.responsible.includes('(') ? l.responsible.substring(l.responsible.indexOf('(') + 1, l.responsible.length - 1) : l.responsible,
+                status: 'Expired'
+              }));
+            } else {
+              result = Array.isArray(defaultVal) ? [] : typeof defaultVal === 'object' ? {} : defaultVal;
+            }
           }
-          return defaultVal;
         }
-        if (key === 'qn_standards') {
-          return defaultStandards.map(s => ({ ...s, score: 0, status: "Not Met" }));
-        }
-        if (key === 'qn_licenses') {
-          return defaultLicenses.map(l => ({ ...l, status: 'Active' }));
-        }
-        return Array.isArray(defaultVal) ? [] : typeof defaultVal === 'object' ? {} : defaultVal;
+        return assertNoMockDataForProductionTenant(activeEmail, key, result);
       };
 
       setHospitalMode(getSaved('qn_hospital_mode', 'active'));
@@ -995,6 +1073,7 @@ export const QualiNABHProvider = ({ children }) => {
       setHospitalTier(getSaved('qn_hospital_tier', 'Full Accreditation'));
       setActiveDepts(getSaved('qn_active_depts', ['ICU', 'Pharmacy', 'Emergency', 'OT', 'Housekeeping / Facilities', 'HR / Staffing']));
       setOnboardingSteps(getSaved('qn_onboarding_steps', { identity: false, departments: false, importTemplates: false, firstSop: false }));
+      setOnboardingStep(Number(getSaved('qn_onboarding_step', 1)));
       setStandards(getSaved('qn_standards', defaultStandards));
       setIsSubscribed(getSaved('qn_is_subscribed', false));
       setTrialStartDate(getSaved('qn_trial_start_date', new Date().toISOString()));
@@ -2827,6 +2906,7 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
       hospitalTier, setHospitalTier,
       activeDepts, setActiveDepts,
       onboardingSteps, setOnboardingSteps,
+      onboardingStep, setOnboardingStep,
       importNABHTemplates,
       standards, setStandards, updateStandardScore,
       documents, setDocuments, addDocument,

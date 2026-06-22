@@ -33,7 +33,9 @@ import {
   MessageSquare,
   Gift,
   Copy,
-  Check
+  Check,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 export default function PublicPages() {
@@ -70,6 +72,9 @@ export default function PublicPages() {
   const [signInEmail, setSignInEmail] = useState('');
   const [signInPassword, setSignInPassword] = useState('');
   const [signInError, setSignInError] = useState(false);
+  const [showSignUpPassword, setShowSignUpPassword] = useState(false);
+  const [showSignUpConfirmPassword, setShowSignUpConfirmPassword] = useState(false);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
 
   const handleCustomSignIn = (e) => {
     e.preventDefault();
@@ -112,7 +117,7 @@ export default function PublicPages() {
       setCurrentUser(loggedUser);
       setSignInError(false);
       logActivity(`Logged in client: ${clientToLoad.hospitalName} (${clientToLoad.email})`);
-      setCurrentRoute(`/app/${clientToLoad.hospitalId}/dashboard`);
+      setCurrentRoute('/app/dashboard');
     } else {
       // Look up sub-users database
       const globalSubUsers = JSON.parse(localStorage.getItem('qn_global_sub_users') || '[]');
@@ -144,7 +149,7 @@ export default function PublicPages() {
         setCurrentUser(loggedUser);
         setSignInError(false);
         logActivity(`Logged in team member: ${subUser.name} (${subUser.email}) under parent ${subUser.parentEmail}`);
-        setCurrentRoute(`/app/${parentClient ? parentClient.hospitalId : 'demo-hosp'}/dashboard`);
+        setCurrentRoute('/app/dashboard');
       } else {
         setSignInError("No client or team member registered with this email address. Please sign up or try again.");
       }
@@ -502,7 +507,7 @@ Key Benefits of the SaaS Model:
     const selected = defaultUsers[role] || defaultUsers["Quality Head"];
     setCurrentUser(selected);
     logActivity("Logged in via Landing Page Quick Portal");
-    setCurrentRoute(`/app/${selected.hospitalId}/dashboard`);
+    setCurrentRoute('/app/dashboard');
   };
 
   const getQuizResult = () => {
@@ -1863,27 +1868,47 @@ Key Benefits of the SaaS Model:
                   </div>
                   <div className="form-group" style={{ textAlign: 'left' }}>
                     <label className="form-label" style={{ fontWeight: 'bold' }}>Password</label>
-                    <input
-                      type="password"
-                      required
-                      className="form-control"
-                      placeholder="••••••••"
-                      value={signUpForm.password}
-                      onChange={(e) => setSignUpForm({ ...signUpForm, password: e.target.value })}
-                      style={{ width: '100%' }}
-                    />
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                      <input
+                        type={showSignUpPassword ? "text" : "password"}
+                        required
+                        className="form-control"
+                        placeholder="••••••••"
+                        value={signUpForm.password}
+                        onChange={(e) => setSignUpForm({ ...signUpForm, password: e.target.value })}
+                        style={{ width: '100%', paddingRight: '2.5rem' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowSignUpPassword(prev => !prev)}
+                        style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', padding: '4px' }}
+                        aria-label={showSignUpPassword ? "Hide password" : "Show password"}
+                      >
+                        {showSignUpPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
                   </div>
                   <div className="form-group" style={{ textAlign: 'left' }}>
                     <label className="form-label" style={{ fontWeight: 'bold' }}>Confirm Password</label>
-                    <input
-                      type="password"
-                      required
-                      className="form-control"
-                      placeholder="••••••••"
-                      value={signUpForm.confirmPassword}
-                      onChange={(e) => setSignUpForm({ ...signUpForm, confirmPassword: e.target.value })}
-                      style={{ width: '100%' }}
-                    />
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                      <input
+                        type={showSignUpConfirmPassword ? "text" : "password"}
+                        required
+                        className="form-control"
+                        placeholder="••••••••"
+                        value={signUpForm.confirmPassword}
+                        onChange={(e) => setSignUpForm({ ...signUpForm, confirmPassword: e.target.value })}
+                        style={{ width: '100%', paddingRight: '2.5rem' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowSignUpConfirmPassword(prev => !prev)}
+                        style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', padding: '4px' }}
+                        aria-label={showSignUpConfirmPassword ? "Hide password" : "Show password"}
+                      >
+                        {showSignUpConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
                   </div>
                   <button type="submit" className="btn btn-primary glow-premium" style={{ width: '100%', marginTop: '1rem', padding: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}>
                     Register & Start 7-Day Trial
@@ -1907,15 +1932,25 @@ Key Benefits of the SaaS Model:
                     </div>
                     <div className="form-group" style={{ textAlign: 'left' }}>
                       <label className="form-label" style={{ fontWeight: 'bold' }}>Password</label>
-                      <input
-                        type="password"
-                        required
-                        className="form-control"
-                        placeholder="••••••••"
-                        value={signInPassword}
-                        onChange={(e) => setSignInPassword(e.target.value)}
-                        style={{ width: '100%' }}
-                      />
+                      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        <input
+                          type={showLoginPassword ? "text" : "password"}
+                          required
+                          className="form-control"
+                          placeholder="••••••••"
+                          value={signInPassword}
+                          onChange={(e) => setSignInPassword(e.target.value)}
+                          style={{ width: '100%', paddingRight: '2.5rem' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowLoginPassword(prev => !prev)}
+                          style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', padding: '4px' }}
+                          aria-label={showLoginPassword ? "Hide password" : "Show password"}
+                        >
+                          {showLoginPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
                     </div>
                     <button type="submit" className="btn btn-primary animate-fade-in" style={{ width: '100%', marginTop: '1rem', padding: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}>
                       Log In Securely

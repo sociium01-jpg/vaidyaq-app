@@ -28,13 +28,23 @@ export default function Reports() {
     aiMemory,
     aiOutputs,
     updateAiOutputStatus,
-    currentUser
+    currentUser,
+    tasks
   } = useContext(QualiNABHContext);
 
   const [exportSuccess, setExportSuccess] = useState('');
   const [isAnalyzingReport, setIsAnalyzingReport] = useState(false);
 
+  const isEmptyWorkspace = 
+    (documents || []).length === 0 && 
+    (capaItems || []).length === 0 && 
+    (tasks || []).length === 0;
+
   const handleAnalyzeReportWithAI = async () => {
+    if (isEmptyWorkspace) {
+      alert("Analysis Unavailable: Please populate your workspace (SOPs, Audits, CAPAs) before generating AI reports.");
+      return;
+    }
     setIsAnalyzingReport(true);
     try {
       const prompt = `Perform a comprehensive data analysis and compliance health audit for hospital leadership at ${hospitalName}. 

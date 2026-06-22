@@ -15,7 +15,9 @@ import {
   AlertCircle,
   Clock,
   Compass,
-  ArrowRight
+  ArrowRight,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 export default function CommitteeModule() {
@@ -52,6 +54,7 @@ export default function CommitteeModule() {
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
   const [draftApproved, setDraftApproved] = useState(false);
+  const [showPin, setShowPin] = useState(false);
   const [generating, setGenerating] = useState(false);
 
   // Success message feedback
@@ -683,14 +686,36 @@ export default function CommitteeModule() {
                   </p>
                   
                   <div className="flex gap-2 align-center">
-                    <input
-                      type="password"
-                      placeholder="Enter Signature PIN (1234)"
-                      value={pinInput}
-                      onChange={(e) => setPinInput(e.target.value)}
-                      className="form-control"
-                      style={{ fontSize: '0.75rem', padding: '0.45rem', width: '160px', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
-                    />
+                    <div style={{ position: 'relative', width: '160px' }}>
+                      <input
+                        type={showPin ? "text" : "password"}
+                        placeholder="Enter Signature PIN (1234)"
+                        value={pinInput}
+                        onChange={(e) => setPinInput(e.target.value)}
+                        className="form-control"
+                        style={{ fontSize: '0.75rem', padding: '0.45rem', paddingRight: '2.2rem', width: '100%', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPin(prev => !prev)}
+                        style={{
+                          position: 'absolute',
+                          right: '6px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-secondary)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '2px'
+                        }}
+                        aria-label={showPin ? "Hide PIN" : "Show PIN"}
+                      >
+                        {showPin ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
                     <button
                       onClick={handleApproveAIDraft}
                       disabled={draftApproved}

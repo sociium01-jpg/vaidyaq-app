@@ -39,6 +39,9 @@ export default function VendorAdminConsole() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [usernameInput, setUsernameInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showOnboardPassword, setShowOnboardPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loginError, setLoginError] = useState(false);
   const [currentOperator, setCurrentOperator] = useState(null);
 
@@ -1345,15 +1348,37 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
             </div>
             <div className="form-group" style={{ marginTop: '0.5rem' }}>
               <label className="form-label" style={{ fontWeight: 'bold' }}>Security Password</label>
-              <input 
-                type="password" 
-                required 
-                placeholder="••••••••"
-                className="form-control"
-                value={passwordInput}
-                onChange={(e) => setPasswordInput(e.target.value)}
-                style={{ width: '100%', padding: '0.7rem' }}
-              />
+              <div style={{ position: 'relative' }}>
+                <input 
+                  type={showLoginPassword ? "text" : "password"} 
+                  required 
+                  placeholder="••••••••"
+                  className="form-control"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  style={{ width: '100%', padding: '0.7rem', paddingRight: '2.5rem' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowLoginPassword(prev => !prev)}
+                  style={{
+                    position: 'absolute',
+                    right: '10px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '4px'
+                  }}
+                  aria-label={showLoginPassword ? "Hide password" : "Show password"}
+                >
+                  {showLoginPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
             <button type="submit" className="btn btn-primary glow-premium" style={{ padding: '0.8rem', width: '100%', marginTop: '1.5rem', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem' }}>
               Unlock Console
@@ -3306,10 +3331,33 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
 
                         <div className="form-group">
                           <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Secure Default Access Password</label>
-                          <input 
-                            type="password" placeholder="•••••••• (Temp password for onboarding login)" className="form-control"
-                            value={newClientPassword} onChange={(e) => setNewClientPassword(e.target.value)}
-                          />
+                          <div style={{ position: 'relative' }}>
+                            <input 
+                              type={showOnboardPassword ? "text" : "password"} placeholder="•••••••• (Temp password for onboarding login)" className="form-control"
+                              value={newClientPassword} onChange={(e) => setNewClientPassword(e.target.value)}
+                              style={{ paddingRight: '2.5rem', width: '100%' }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowOnboardPassword(prev => !prev)}
+                              style={{
+                                position: 'absolute',
+                                right: '10px',
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--text-secondary)',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                padding: '4px'
+                              }}
+                              aria-label={showOnboardPassword ? "Hide password" : "Show password"}
+                            >
+                              {showOnboardPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </button>
+                          </div>
                         </div>
 
                         <div className="form-group">
@@ -4923,14 +4971,36 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
                 
                 {/* Gemini key setup form inline */}
                 <form onSubmit={handleSaveApiKey} className="flex align-center gap-1">
-                  <input 
-                    type="password" 
-                    placeholder="Enter Google Gemini API Key" 
-                    className="form-control"
-                    value={apiKeyInput}
-                    onChange={(e) => setApiKeyInput(e.target.value)}
-                    style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', width: '220px' }}
-                  />
+                  <div style={{ position: 'relative', width: '220px' }}>
+                    <input 
+                      type={showConfirmPassword ? "text" : "password"} 
+                      placeholder="Enter Google Gemini API Key" 
+                      className="form-control"
+                      value={apiKeyInput}
+                      onChange={(e) => setApiKeyInput(e.target.value)}
+                      style={{ padding: '0.35rem 0.6rem', paddingRight: '2rem', fontSize: '0.75rem', width: '100%' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(prev => !prev)}
+                      style={{
+                        position: 'absolute',
+                        right: '6px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-secondary)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '2px'
+                      }}
+                      aria-label={showConfirmPassword ? "Hide key" : "Show key"}
+                    >
+                      {showConfirmPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
                   <button type="submit" className="btn btn-secondary" style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', cursor: 'pointer', borderRadius: '6px' }}>
                     Save Token
                   </button>

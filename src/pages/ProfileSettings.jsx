@@ -50,6 +50,9 @@ export default function ProfileSettings() {
   const [deactivatePassword, setDeactivatePassword] = useState('');
   const [deactivateError, setDeactivateError] = useState('');
   const [privacySuccess, setPrivacySuccess] = useState('');
+  const [showDeactivatePassword, setShowDeactivatePassword] = useState(false);
+  const [showGeminiApiKey, setShowGeminiApiKey] = useState(false);
+  const [showHimsApiKey, setShowHimsApiKey] = useState(false);
 
   // Hospital Profile Form states
   const [logoInput, setLogoInput] = useState(hospitalLogo);
@@ -553,14 +556,37 @@ export default function ProfileSettings() {
               <form onSubmit={handleDeactivate} className="flex flex-col gap-2">
                 <div className="form-group">
                   <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Enter Password to Confirm</label>
-                  <input 
-                    type="password" 
-                    placeholder="Enter password" 
-                    className="form-control"
-                    value={deactivatePassword}
-                    onChange={(e) => setDeactivatePassword(e.target.value)}
-                    required
-                  />
+                  <div style={{ position: 'relative' }}>
+                    <input 
+                      type={showDeactivatePassword ? "text" : "password"} 
+                      placeholder="Enter password" 
+                      className="form-control"
+                      value={deactivatePassword}
+                      onChange={(e) => setDeactivatePassword(e.target.value)}
+                      required
+                      style={{ paddingRight: '2.5rem' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowDeactivatePassword(prev => !prev)}
+                      style={{
+                        position: 'absolute',
+                        right: '10px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-secondary)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '4px'
+                      }}
+                      aria-label={showDeactivatePassword ? "Hide password" : "Show password"}
+                    >
+                      {showDeactivatePassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
                 <button type="submit" className="btn btn-danger" style={{ padding: '0.55rem', fontWeight: 'bold', cursor: 'pointer', marginTop: '0.5rem', width: '100%' }}>
                   Deactivate Profile Session
@@ -815,14 +841,36 @@ export default function ProfileSettings() {
           <form onSubmit={handleGeminiSubmit} className="flex flex-col gap-3" style={{ maxWidth: '600px' }}>
             <div className="form-group">
               <label className="form-label" style={{ fontWeight: 'bold' }}>Gemini API Key</label>
-              <input 
-                type="password" 
-                placeholder="e.g. AIzaSyB7..." 
-                className="form-control"
-                value={geminiKeyInput}
-                onChange={(e) => setGeminiKeyInput(e.target.value)}
-                style={{ fontFamily: 'monospace', width: '100%' }}
-              />
+              <div style={{ position: 'relative' }}>
+                <input 
+                  type={showGeminiApiKey ? "text" : "password"} 
+                  placeholder="e.g. AIzaSyB7..." 
+                  className="form-control"
+                  value={geminiKeyInput}
+                  onChange={(e) => setGeminiKeyInput(e.target.value)}
+                  style={{ fontFamily: 'monospace', width: '100%', paddingRight: '2.5rem' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowGeminiApiKey(prev => !prev)}
+                  style={{
+                    position: 'absolute',
+                    right: '10px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '4px'
+                  }}
+                  aria-label={showGeminiApiKey ? "Hide key" : "Show key"}
+                >
+                  {showGeminiApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
             <button type="submit" className="btn btn-primary" style={{ padding: '0.75rem', marginTop: '1rem', cursor: 'pointer', fontWeight: 700 }}>
               Verify & Save Token
@@ -942,14 +990,36 @@ export default function ProfileSettings() {
 
                   <div className="form-group" style={{ margin: 0 }}>
                     <label className="form-label" style={{ fontSize: '0.7rem' }}>Client API Token / Auth Key</label>
-                    <input 
-                      type="password" 
-                      className="form-control" 
-                      value={himsApiKey} 
-                      placeholder="••••••••••••••••"
-                      onChange={(e) => setHimsApiKey(e.target.value)}
-                      style={{ padding: '0.4rem', fontSize: '0.75rem' }}
-                    />
+                    <div style={{ position: 'relative' }}>
+                      <input 
+                        type={showHimsApiKey ? "text" : "password"} 
+                        className="form-control" 
+                        value={himsApiKey} 
+                        placeholder="••••••••••••••••"
+                        onChange={(e) => setHimsApiKey(e.target.value)}
+                        style={{ padding: '0.4rem', fontSize: '0.75rem', paddingRight: '2.5rem', width: '100%' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowHimsApiKey(prev => !prev)}
+                        style={{
+                          position: 'absolute',
+                          right: '10px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-secondary)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '4px'
+                        }}
+                        aria-label={showHimsApiKey ? "Hide key" : "Show key"}
+                      >
+                        {showHimsApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
                   </div>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem' }}>

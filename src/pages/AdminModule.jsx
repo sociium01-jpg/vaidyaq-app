@@ -18,7 +18,9 @@ import {
   History,
   DollarSign,
   Activity,
-  FileText
+  FileText,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 export default function AdminModule() {
@@ -43,6 +45,7 @@ export default function AdminModule() {
   // Form states for AI Key Verification
   const [selectedProvider, setSelectedProvider] = useState(aiSettings?.provider || 'mock');
   const [tempApiKey, setTempApiKey] = useState('');
+  const [showSecretKey, setShowSecretKey] = useState(false);
   const [tempCustomUrl, setTempCustomUrl] = useState(aiSettings?.customUrl || '');
   const [tempModel, setTempModel] = useState(aiSettings?.model || '');
   
@@ -393,13 +396,36 @@ export default function AdminModule() {
                   <div className="form-group">
                     <label className="form-label">Secure API Secret Key (Write-Only Input)</label>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <input 
-                        type="password" 
-                        className="form-control" 
-                        placeholder={aiSettings?.providerStatus === 'Connected' && selectedProvider === aiSettings.provider ? '••••••••••••••••••••••••••••' : 'Enter API token secret'}
-                        value={tempApiKey}
-                        onChange={(e) => setTempApiKey(e.target.value)}
-                      />
+                      <div style={{ position: 'relative', flex: 1 }}>
+                        <input 
+                          type={showSecretKey ? "text" : "password"} 
+                          className="form-control" 
+                          placeholder={aiSettings?.providerStatus === 'Connected' && selectedProvider === aiSettings.provider ? '••••••••••••••••••••••••••••' : 'Enter API token secret'}
+                          value={tempApiKey}
+                          onChange={(e) => setTempApiKey(e.target.value)}
+                          style={{ paddingRight: '2.5rem', width: '100%' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowSecretKey(prev => !prev)}
+                          style={{
+                            position: 'absolute',
+                            right: '10px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--text-secondary)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            padding: '4px'
+                          }}
+                          aria-label={showSecretKey ? "Hide key" : "Show key"}
+                        >
+                          {showSecretKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
                       {aiSettings?.providerStatus === 'Connected' && selectedProvider === aiSettings.provider && (
                         <button type="button" className="btn btn-danger" onClick={handleDisconnectKey} title="Delete stored credentials">
                           Disconnect

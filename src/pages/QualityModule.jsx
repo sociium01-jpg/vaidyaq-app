@@ -336,13 +336,13 @@ Please output the checklist items as a clean list with each item on a new line, 
       <div className="flex justify-between align-center" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.25rem' }}>
         <div className="tabs-container" style={{ margin: 0, border: 'none' }}>
           <button onClick={() => setActiveSubTab('audits')} className={`tab-btn ${activeSubTab === 'audits' ? 'active' : ''}`}>
-            Internal Audits ({audits.length})
+            Internal Audits ({(audits || []).length})
           </button>
           <button onClick={() => setActiveSubTab('capa')} className={`tab-btn ${activeSubTab === 'capa' ? 'active' : ''}`}>
-            CAPA Register ({capaItems.length})
+            CAPA Register ({(capaItems || []).length})
           </button>
           <button onClick={() => setActiveSubTab('incidents')} className={`tab-btn ${activeSubTab === 'incidents' ? 'active' : ''}`}>
-            Incident Desk ({incidents.length})
+            Incident Desk ({(incidents || []).length})
           </button>
           <button onClick={() => setActiveSubTab('indicators')} className={`tab-btn ${activeSubTab === 'indicators' ? 'active' : ''}`}>
             Quality Indicators
@@ -666,7 +666,7 @@ Please output the checklist items as a clean list with each item on a new line, 
                 <div className="table-container">
                   <div style={{ padding: '1rem', borderBottom: '1px solid var(--border-color)' }} className="flex justify-between align-center">
                     <h3 style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>Incident Logs Register</h3>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Total reported: {incidents.length}</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Total reported: {(incidents || []).length}</span>
                   </div>
                   <table className="table">
                     <thead>
@@ -963,11 +963,11 @@ Please output the checklist items as a clean list with each item on a new line, 
                 </h4>
                 {(() => {
                   const shiftCounts = { Morning: 0, Evening: 0, Night: 0 };
-                  incidents.forEach(inc => {
+                  (incidents || []).forEach(inc => {
                     const s = inc.shift || "Morning";
                     if (shiftCounts[s] !== undefined) shiftCounts[s]++;
                   });
-                  const total = Math.max(1, incidents.length);
+                  const total = Math.max(1, (incidents || []).length);
                   return (
                     <div className="flex flex-col gap-2.5">
                       {Object.entries(shiftCounts).map(([shift, count]) => {
@@ -995,11 +995,11 @@ Please output the checklist items as a clean list with each item on a new line, 
                 </h4>
                 {(() => {
                   const severityCounts = { Low: 0, Medium: 0, High: 0 };
-                  incidents.forEach(inc => {
+                  (incidents || []).forEach(inc => {
                     const s = inc.severity || "Medium";
                     if (severityCounts[s] !== undefined) severityCounts[s]++;
                   });
-                  const total = Math.max(1, incidents.length);
+                  const total = Math.max(1, (incidents || []).length);
                   return (
                     <div className="flex flex-col gap-2.5">
                       {Object.entries(severityCounts).map(([sev, count]) => {

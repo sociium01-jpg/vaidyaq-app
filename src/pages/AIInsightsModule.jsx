@@ -128,10 +128,17 @@ export default function AIInsightsModule() {
     reportsList,
     setReportsList,
     teamMembers,
-    addHospitalTask
+    addHospitalTask,
+    tasks,
+    setCurrentRoute
   } = useContext(QualiNABHContext);
 
   const { showToast } = useToast();
+
+  const isEmptyWorkspace = 
+    (documents || []).length === 0 && 
+    (capaItems || []).length === 0 && 
+    (tasks || []).length === 0;
 
   const [activeSubTab, setActiveSubTab] = useState('copilot'); // 'copilot', 'sop', 'gap', 'ceo'
   const [isAiTyping, setIsAiTyping] = useState(false);
@@ -363,6 +370,14 @@ Mapped Standard: ${sopStandard}`;
 
   // Re-engineered Gap Checker scanner
   const handleRunSystemGapCheck = () => {
+    if (isEmptyWorkspace) {
+      showToast({
+        title: "Analysis Unavailable",
+        message: "Please import compliance templates or add records (SOPs, Audits, CAPAs) before running a system gap scan.",
+        type: "warning"
+      });
+      return;
+    }
     setUploadChecking(true);
     setGapCheckResult(null);
     setTimeout(() => {
@@ -1094,7 +1109,26 @@ RECOMMENDED CORRECTIVE WORKFLOW ACTION PLAN:
       {/* 3. AI GAP CHECKER VIEW */}
       {activeSubTab === 'gap' && (
         <div className="flex flex-col gap-4 animate-fade-in" style={{ fontFamily: 'var(--font-body)' }}>
-          <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+          {isEmptyWorkspace ? (
+            <div className="card empty-state" style={{ padding: '3rem 2rem', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', border: '1px dashed var(--border-color)', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div className="empty-state-icon" style={{ margin: '0 auto 1.25rem auto' }}>
+                <Sparkles size={40} style={{ color: 'var(--primary)' }} />
+              </div>
+              <h3 className="empty-state-title" style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)' }}>AI Gap Scan Unavailable</h3>
+              <p className="empty-state-description" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', maxWidth: '400px', margin: '0.5rem auto 1.5rem auto', lineHeight: '1.5' }}>
+                Before the AI Gap Auditor can analyze your compliance status, you must import the default checklists or add records to your workspace.
+              </p>
+              <button 
+                onClick={() => setCurrentRoute('/app/dashboard')}
+                className="btn btn-primary"
+                style={{ padding: '0.5rem 1.25rem', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                Go to Command Center
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
               <div>
                 <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0 }}>AI Accreditation Gap Auditor</h3>
@@ -1214,6 +1248,8 @@ RECOMMENDED CORRECTIVE WORKFLOW ACTION PLAN:
               </div>
             )}
           </div>
+            </>
+          )}
         </div>
       )}
 
@@ -1259,7 +1295,25 @@ RECOMMENDED CORRECTIVE WORKFLOW ACTION PLAN:
       {/* 4. AI CEO BRIEFING VIEW */}
       {activeSubTab === 'ceo' && (
         <div className="flex flex-col gap-3" style={{ maxWidth: '750px', margin: '0 auto', fontFamily: 'var(--font-body)' }}>
-          <div className="card" style={{ borderTop: '6px solid var(--primary)', padding: '2.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+          {isEmptyWorkspace ? (
+            <div className="card empty-state" style={{ padding: '3rem 2rem', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', border: '1px dashed var(--border-color)', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div className="empty-state-icon" style={{ margin: '0 auto 1rem auto' }}>
+                <Brain size={40} style={{ color: 'var(--primary)' }} />
+              </div>
+              <h3 className="empty-state-title" style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)' }}>AI Board Briefing Unavailable</h3>
+              <p className="empty-state-description" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', maxWidth: '400px', margin: '0.5rem auto 1.5rem auto', lineHeight: '1.5' }}>
+                Board briefings summarize your hospital's operational and audit data. Please populate your workspace with SOPs or schedule mock audits first.
+              </p>
+              <button 
+                onClick={() => setCurrentRoute('/app/dashboard')}
+                className="btn btn-primary"
+                style={{ padding: '0.5rem 1.25rem', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                Go to Command Center
+              </button>
+            </div>
+          ) : (
+            <div className="card" style={{ borderTop: '6px solid var(--primary)', padding: '2.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
             <div className="flex justify-between align-center" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
               <div>
                 <span className="badge badge-success" style={{ marginBottom: '0.5rem' }}>Hospital Quality Briefing</span>
@@ -1391,6 +1445,7 @@ RECOMMENDED CORRECTIVE WORKFLOW ACTION PLAN:
               </button>
             </div>
           </div>
+          )}
         </div>
       )}
 

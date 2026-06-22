@@ -15,10 +15,13 @@ export default function OnboardingWizard() {
     setActiveDepts,
     setHospitalMode,
     setOnboardingSteps,
+    onboardingStep,
+    setOnboardingStep,
     currentUser,
     logActivity,
     clearWorkspaceData,
-    theme
+    theme,
+    setCurrentRoute
   } = useContext(QualiNABHContext);
 
   const isDark = theme === 'dark';
@@ -54,7 +57,8 @@ export default function OnboardingWizard() {
   // Section Headers background gradient
   const headerGrad = isDark ? 'linear-gradient(135deg, #fff, #cbd5e1)' : 'linear-gradient(135deg, #0f172a, #334155)';
 
-  const [step, setStep] = useState(1);
+  const step = onboardingStep;
+  const setStep = setOnboardingStep;
   const [direction, setDirection] = useState('next'); // 'next' or 'prev'
 
   // Step 1: Hospital Profile
@@ -191,6 +195,7 @@ export default function OnboardingWizard() {
 
     // Enter Command Center
     setHospitalMode('active');
+    setCurrentRoute('/app/dashboard');
     logActivity(`Completed Onboarding for ${hName}. Beds: ${beds}. Accreditation Goal: ${goalTier} (Strict Clean Slate).`);
   };
 
@@ -200,7 +205,7 @@ export default function OnboardingWizard() {
     { num: 2, label: 'Goal', icon: Target },
     { num: 3, label: 'Depts', icon: ClipboardList },
     { num: 4, label: 'Team', icon: Users2 },
-    { num: 5, label: 'Scan', icon: Sparkles },
+    { num: 5, label: 'Review', icon: ShieldCheck },
   ];
 
   return (
@@ -646,92 +651,63 @@ export default function OnboardingWizard() {
             </div>
           )}
 
-          {/* STEP 5: AI BASELINE SCAN */}
+          {/* STEP 5: INITIAL SETUP REVIEW */}
           {step === 5 && (
-            <div style={{ animation: 'fadeIn 0.4s ease', textAlign: 'center' }}>
-              
-              {scanning ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem', padding: '2rem 0' }}>
-                  {/* Rotating AI Logo */}
-                  <div style={{ position: 'relative', width: '100px', height: '100px' }}>
-                    <div style={{
-                      position: 'absolute', inset: 0, borderRadius: '50%',
-                      border: '4px solid rgba(124, 58, 237, 0.1)',
-                      borderTopColor: '#7c3aed',
-                      animation: 'spin 1.5s linear infinite'
-                    }} />
-                    <div style={{
-                      position: 'absolute', inset: '10px', borderRadius: '50%',
-                      background: 'radial-gradient(circle, #7c3aed 0%, #4f46e5 100%)',
-                      display: 'flex', alignItems: 'center', justifySelf: 'center', justifyContent: 'center',
-                      boxShadow: '0 0 20px rgba(124,58,237,0.5)'
-                    }}>
-                      <Sparkles size={36} color="#fff" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '0 0 8px 0', color: textColor }}>AI Compliance Baseline Scanning...</h3>
-                    <div style={{ fontSize: '0.85rem', color: textSecColor, fontStyle: 'italic', maxWidth: '400px', margin: '0 auto', minHeight: '36px' }}>
-                      "{scanStatusText}"
-                    </div>
-                  </div>
-
-                  {/* Progress bar */}
-                  <div style={{ width: '100%', maxWidth: '360px', height: '6px', background: isDark ? 'rgba(255, 255, 255, 0.1)' : '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
-                    <div style={{ width: `${scanProgress}%`, height: '100%', background: 'linear-gradient(90deg, #7c3aed, #4f46e5)', transition: 'width 0.1s linear' }} />
-                  </div>
+            <div style={{ animation: 'fadeIn 0.4s ease', textAlign: 'left', maxWidth: '640px', margin: '0 auto' }}>
+              <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                <div style={{
+                  width: '72px', height: '72px', borderRadius: '50%',
+                  background: 'rgba(13, 148, 136, 0.15)', color: 'var(--primary)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  margin: '0 auto 0.5rem auto'
+                }}>
+                  <ShieldCheck size={40} />
                 </div>
-              ) : (
-                <div style={{ animation: 'fadeIn 0.5s ease', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.25rem' }}>
-                  <div style={{
-                    width: '72px', height: '72px', borderRadius: '50%',
-                    background: 'rgba(16, 185, 129, 0.15)', color: 'var(--color-success)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    marginBottom: '0.5rem'
-                  }}>
-                    <CheckCircle2 size={40} />
-                  </div>
+                <h2 style={{ fontSize: '1.6rem', fontWeight: 800, margin: '0 0 6px 0', color: textColor }}>Initial Setup Review</h2>
+                <p style={{ color: textSecColor, fontSize: '0.85rem', lineHeight: '1.5' }}>
+                  Please confirm the initial configurations for <strong>{hName}</strong>. Once approved, your clean-slate workspace will be initialized.
+                </p>
+              </div>
 
-                  <div>
-                    <h2 style={{ fontSize: '1.6rem', fontWeight: 800, margin: '0 0 6px 0', color: 'var(--color-success)' }}>Hospital Scanned Successfully!</h2>
-                    <p style={{ color: textSecColor, fontSize: '0.85rem', maxWidth: '520px', margin: '0 auto', lineHeight: '1.5' }}>
-                      VaidyaQ AI has compiled your custom accreditation roadmap. Based on your configuration of <strong>{beds} Beds</strong> and <strong>{depts.filter(d=>d.selected).length} departments</strong>, here is your starting compliance profile.
-                    </p>
-                  </div>
-
-                  {/* Scoring Grid */}
-                  <div style={{
-                    display: 'grid', gridTemplateColumns: '1fr 2.5fr', gap: '1.5rem',
-                    width: '100%', maxWidth: '640px', background: isDark ? 'rgba(15, 23, 42, 0.4)' : '#f8fafc',
-                    border: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #cbd5e1', borderRadius: '16px',
-                    padding: '1.25rem', textAlign: 'left', marginTop: '0.5rem', transition: 'all 0.3s ease'
-                  }}>
-                    {/* Score Circle */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRight: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #cbd5e1', paddingRight: '1rem' }}>
-                      <span style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--color-danger)' }}>{baselineScore}%</span>
-                      <span style={{ fontSize: '10px', color: textMutedColor, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Readiness Score</span>
-                    </div>
-
-                    {/* Report Bulletins */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', justifyContent: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '12px' }}>
-                        <span style={{ color: 'var(--color-success)', fontWeight: 'bold' }}>✓ Quick Wins:</span>
-                        <span style={{ color: textSecColor }}>Pre-mapped licenses loaded (6 statutory documents required).</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '12px' }}>
-                        <span style={{ color: 'var(--color-warning)', fontWeight: 'bold' }}>⚠️ Critical Gaps:</span>
-                        <span style={{ color: textSecColor }}>38 core SOP files missing. Chapter COP (Care of Patients) is high risk.</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '12px' }}>
-                        <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>🤖 Recommended First Step:</span>
-                        <span style={{ color: textSecColor }}>Generate clinical SOP template inside the Document Module.</span>
-                      </div>
-                    </div>
-                  </div>
+              {/* Review card */}
+              <div style={{
+                background: isDark ? 'rgba(15, 23, 42, 0.4)' : '#f8fafc',
+                border: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #cbd5e1',
+                borderRadius: '16px', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem',
+                fontSize: '0.85rem', color: textSecColor
+              }}>
+                <div style={{ display: 'flex', borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>
+                  <div style={{ width: '150px', fontWeight: 'bold', color: textColor }}>Hospital Name:</div>
+                  <div>{hName}</div>
                 </div>
-              )}
+                <div style={{ display: 'flex', borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>
+                  <div style={{ width: '150px', fontWeight: 'bold', color: textColor }}>Bed Capacity:</div>
+                  <div>{beds} Beds ({hType})</div>
+                </div>
+                <div style={{ display: 'flex', borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>
+                  <div style={{ width: '150px', fontWeight: 'bold', color: textColor }}>Location:</div>
+                  <div>{city}, {state}</div>
+                </div>
+                <div style={{ display: 'flex', borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>
+                  <div style={{ width: '150px', fontWeight: 'bold', color: textColor }}>Accreditation Goal:</div>
+                  <div>{goalTier}</div>
+                </div>
+                <div style={{ display: 'flex', borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>
+                  <div style={{ width: '150px', fontWeight: 'bold', color: textColor }}>Active Wards:</div>
+                  <div style={{ flex: 1 }}>{depts.filter(d => d.selected).map(d => d.name).join(', ') || 'None selected'}</div>
+                </div>
+                <div style={{ display: 'flex', paddingBottom: '0.25rem' }}>
+                  <div style={{ width: '150px', fontWeight: 'bold', color: textColor }}>Invited Team:</div>
+                  <div>{teamInvites.length} members registered</div>
+                </div>
+              </div>
 
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '11px', color: textMutedColor, marginTop: '1rem', padding: '0 0.5rem' }}>
+                <input type="checkbox" defaultChecked required id="certify-check" style={{ marginTop: '2px', cursor: 'pointer' }} />
+                <label htmlFor="certify-check" style={{ cursor: 'pointer', lineHeight: 1.4 }}>
+                  I certify that the above clinical setup details are correct. Initialize VaidyaQ in clean slate mode (no dummy/mock records will be preloaded).
+                </label>
+              </div>
             </div>
           )}
 

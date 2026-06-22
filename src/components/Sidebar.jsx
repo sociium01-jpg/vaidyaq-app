@@ -46,8 +46,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
   const unreadNotifsCount = feedNotifications ? feedNotifications.filter(n => !n.read).length : 0;
 
   const getTenantPath = (moduleName) => {
-    const hospitalId = currentUser?.hospitalId || 'demo-hosp';
-    return `/app/${hospitalId}/${moduleName}`;
+    return `/app/${moduleName}`;
   };
 
   const mainNavItems = [
@@ -120,7 +119,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
   };
 
   const parts = currentRoute.split('/').filter(Boolean);
-  const currentModule = parts[2] || 'dashboard';
+  const currentModule = parts[1] || 'dashboard';
 
   return (
     <div className={`sidebar ${sidebarOpen ? 'mobile-open' : ''}`}>

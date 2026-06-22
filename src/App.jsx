@@ -74,8 +74,7 @@ function AppContent() {
   // Parse route parameters
   const parts = currentRoute.split('/').filter(Boolean);
   const isAppRoute = parts[0] === 'app';
-  const hospitalIdFromUrl = isAppRoute ? parts[1] : null;
-  const moduleFromUrl = isAppRoute ? parts[2] : null;
+  const moduleFromUrl = isAppRoute ? parts[1] : null;
 
   // Enforce logged in session for app routes
   useEffect(() => {
@@ -84,55 +83,18 @@ function AppContent() {
     }
   }, [isAppRoute, currentUser]);
 
-  // Log cross-tenant security events
+  // Handle redirects for incomplete or broken app routes
   useEffect(() => {
-    if (isAppRoute && hospitalIdFromUrl && currentUser && currentUser.hospitalId) {
-      if (hospitalIdFromUrl !== currentUser.hospitalId) {
-        logActivity(`SECURITY WARNING: Cross-tenant access blocked. User ${currentUser.email} tried to access hospital: ${hospitalIdFromUrl}`);
+    if (isAppRoute && currentUser) {
+      if (!moduleFromUrl || moduleFromUrl === 'undefined') {
+        setCurrentRoute('/app/dashboard');
       }
     }
-  }, [isAppRoute, hospitalIdFromUrl, currentUser]);
-
-  // Handle redirects for incomplete app routes
-  useEffect(() => {
-    if (isAppRoute && currentUser && currentUser.hospitalId) {
-      if (!hospitalIdFromUrl || hospitalIdFromUrl === 'dashboard') {
-        setCurrentRoute(`/app/${currentUser.hospitalId}/dashboard`);
-      }
-    }
-  }, [isAppRoute, hospitalIdFromUrl, currentUser]);
-
-  // Tenant boundary protection check
-  const isCrossTenant = isAppRoute && currentUser && hospitalIdFromUrl && hospitalIdFromUrl !== currentUser.hospitalId;
+  }, [isAppRoute, moduleFromUrl, currentUser]);
 
   // 1. PUBLIC MARKETING ROUTE HANDLER - enforce currentUser session
   if (currentRoute === '/' || !currentRoute.startsWith('/app') || !currentUser) {
     return <PublicPages />;
-  }
-
-  // Cross tenant blocker view
-  if (isCrossTenant) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: 'var(--bg-primary)', padding: '2rem', color: 'var(--text-primary)' }}>
-        <div className="card shadow-lg" style={{ maxWidth: '500px', width: '100%', padding: '2rem', textAlign: 'center', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-secondary)', fontFamily: 'var(--font-body)' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🛑</div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-danger)', marginBottom: '1rem' }}>Access Denied</h2>
-          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: '1.6' }}>
-            Tenant Security Exception: You are authenticated under <strong>{currentUser.hospitalId}</strong> but attempted to access resources for tenant <strong>{hospitalIdFromUrl}</strong>.
-          </p>
-          <div style={{ padding: '0.75rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '6px', fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '1.5rem' }}>
-            This event has been logged in the audit journal for compliance auditing.
-          </div>
-          <button 
-            className="btn btn-primary glow-premium" 
-            onClick={() => setCurrentRoute(`/app/${currentUser.hospitalId}/dashboard`)}
-            style={{ width: '100%', padding: '0.75rem', fontWeight: 'bold', cursor: 'pointer' }}
-          >
-            Return to My Dashboard
-          </button>
-        </div>
-      </div>
-    );
   }
 
   // 2. TRIAL & SUBSCRIPTION SaaS BILLING BLOCKER
@@ -295,7 +257,7 @@ function AppContent() {
                   <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
                     The compliance section you are looking for does not exist or has been relocated.
                   </p>
-                  <button className="btn btn-primary" onClick={() => setCurrentRoute(`/app/${currentUser.hospitalId}/dashboard`)}>
+                  <button className="btn btn-primary" onClick={() => setCurrentRoute('/app/dashboard')}>
                     Back to Dashboard
                   </button>
                 </div>
