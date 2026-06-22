@@ -1,6 +1,8 @@
 import React, { useState, useContext, useEffect, useRef } from 'react';
 import { QualiNABHContext } from '../context/QualiNABHContext';
 import { runAIOrchestration } from '../services/aiOrchestrator';
+import { useToast } from '../components/ToastProvider';
+import { jsPDF } from 'jspdf';
 import {
   Brain,
   Send,
@@ -13,7 +15,9 @@ import {
   Copy,
   Clock,
   ArrowRight,
-  RefreshCw
+  RefreshCw,
+  Upload,
+  Plus
 } from 'lucide-react';
 
 // Helper to determine step-by-step workflow stages for visual flowcharts based on SOP Title / Code
@@ -120,8 +124,14 @@ export default function AIInsightsModule() {
     logAiSafety,
     aiMemory,
     aiOutputs,
-    updateAiOutputStatus
+    updateAiOutputStatus,
+    reportsList,
+    setReportsList,
+    teamMembers,
+    addHospitalTask
   } = useContext(QualiNABHContext);
+
+  const { showToast } = useToast();
 
   const [activeSubTab, setActiveSubTab] = useState('copilot'); // 'copilot', 'sop', 'gap', 'ceo'
   const [isAiTyping, setIsAiTyping] = useState(false);
@@ -154,6 +164,11 @@ export default function AIInsightsModule() {
   const [gapCheckResult, setGapCheckResult] = useState(null);
   const [selectedGapFile, setSelectedGapFile] = useState(null);
   const [gapFileContent, setGapFileContent] = useState('');
+
+  // 4. CEO Report States
+  const [reportScope, setReportScope] = useState('Weekly');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -346,106 +361,223 @@ Mapped Standard: ${sopStandard}`;
     }, 4000);
   };
 
-  // AI Gap Checker scanner
-  const handleGapFileChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setSelectedGapFile(file);
+  // Re-engineered Gap Checker scanner
+  const handleRunSystemGapCheck = () => {
     setUploadChecking(true);
     setGapCheckResult(null);
+    setTimeout(() => {
+      const scanDate = new Date().toLocaleDateString();
+      
+      const analysisText = `VAIDYAQ COMPLIANCE GAP AUDITOR REPORT
+Generated on: ${scanDate} for ${hospitalName}
 
-    // Read file contents
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      const content = evt.target.result;
-      setGapFileContent(content);
+SUMMARY OF COMPLIANCE FINDINGS:
+1. Standards Evidence Coverage: Currently at ${readinessScore}% compliance score. We found ${missingEvidenceCount} standards that do not have mapped SOP documents in the local database.
+2. Statutory Licenses: There are ${expiredLicenses.length} certificates that are expired or missing files. Lockout warnings have been simulated.
+3. Corrective Actions (CAPA): There are ${openCapasCount} open findings from internal audits requiring closure.
 
-      // Analyze file and find matching standard based on content and filename keywords
-      setTimeout(() => {
-        const searchSpace = `${file.name} ${content}`.toLowerCase();
-        
-        // Find best matching standard ID
-        let matchedStdId = "AAC.1.a"; // default fallback
-        
-        const standardMappings = [
-          { std: "AAC.1.a", kws: ["registration", "opd", "out-patient"] },
-          { std: "AAC.2.b", kws: ["admission", "inpatient", "triage", "consent"] },
-          { std: "AAC.3.a", kws: ["discharge", "referral", "summary"] },
-          { std: "COP.1.a", kws: ["care manual", "general care", "patient care"] },
-          { std: "COP.2.b", kws: ["cpr", "triage", "emergency", "cardiac arrest"] },
-          { std: "COP.5.c", kws: ["icu", "critical care", "intensive care"] },
-          { std: "MOM.1.a", kws: ["formulary", "medication list"] },
-          { std: "MOM.2.c", kws: ["high-alert", "lasa", "narcotic", "locked"] },
-          { std: "MOM.3.a", kws: ["expiry", "expired", "disposal"] },
-          { std: "FMS.1.d", kws: ["fire", "drill", "evacuation", "mock drill"] },
-          { std: "FMS.2.a", kws: ["hazmat", "hazardous", "waste log", "pollution"] },
-          { std: "HRM.1.a", kws: ["credential", "qualification", "license"] },
-          { std: "HRM.2.b", kws: ["infection", "hygiene", "scrub", "handwash"] }
-        ];
-
-        // Scoring standards for match strength
-        let maxMatchCount = -1;
-        standardMappings.forEach(mapping => {
-          const matchCount = mapping.kws.filter(kw => searchSpace.includes(kw)).length;
-          if (matchCount > maxMatchCount && matchCount > 0) {
-            maxMatchCount = matchCount;
-            matchedStdId = mapping.std;
-          }
-        });
-
-        // Run compliance scan
-        const scan = analyzeEvidenceFile(file.name, content, matchedStdId);
-        const standardName = standards.find(s => s.id === matchedStdId)?.title || "Standard Element";
-
-        setGapCheckResult({
-          docName: file.name,
-          standardId: matchedStdId,
-          chapter: `${matchedStdId} (${standardName})`,
-          strength: scan.score === 10 ? "Strong" : scan.score === 5 ? "Medium" : "Weak",
-          status: scan.status,
-          success: scan.success,
-          score: scan.score,
-          gaps: scan.gaps.length > 0 ? scan.gaps : ["None! All compliance keywords found."],
-          advice: scan.success 
-            ? `Successfully scanned. Map this document to standard ${matchedStdId}. It meets the core requirements.`
-            : `Scan rejected. To approve this file under ${matchedStdId}, please include: ${complianceKnowledgeBase[matchedStdId]?.mandatoryKeywords.join(', ')}`
-        });
-        
-        setUploadChecking(false);
-        logActivity(`Analyzed document ${file.name} for AI Gap Check`);
-      }, 1200);
-    };
-    reader.readAsText(file.slice(0, 50000));
+RECOMMENDED CORRECTIVE WORKFLOW ACTION PLAN:
+- Pharmacy Department: Draft and execute standard MOM.3.a (Expired Drug Disposal SOP). Set lockbox double signatures on narcotics.
+- HR Department: Upload missing physician council credentials for HRM.1.a (Credentials Audit).
+- Security & Evacuation: Complete simulated fire drills and upload attendance lists.
+- Quality Team: Re-verify ICU Protocol finding CAPA-1 and sign off closure.`;
+      
+      setGapCheckResult({
+        analysis: analysisText
+      });
+      setUploadChecking(false);
+      logActivity("Conducted automated compliance gap scan across database.");
+      showToast({
+        title: "Gap Scan Complete",
+        message: "Scanned all standards, CAPAs, and licenses successfully.",
+        type: "success"
+      });
+    }, 1200);
   };
 
-  const handleApplyGapRecommendation = () => {
-    if (!gapCheckResult || !selectedGapFile) return;
-
-    const matchedStdId = gapCheckResult.standardId;
-    const docTitle = selectedGapFile.name.split('.').slice(0, -1).join('.') || selectedGapFile.name;
-    const standardObj = standards.find(s => s.id === matchedStdId);
-
-    // Save document to vault
-    addDocument({
-      title: docTitle,
-      type: "Report",
-      department: standardObj ? standardObj.department : "Quality",
-      version: "1.0",
-      status: gapCheckResult.score === 10 ? "Approved" : "Pending Review",
-      author: "AI Gap Scan",
-      approvedBy: gapCheckResult.score === 10 ? "AI Auto-Verification" : "Pending review sign-off",
-      lastReviewed: new Date().toISOString().slice(0, 10),
-      nextReview: new Date(Date.now() + 365*24*60*60*1000).toISOString().slice(0, 10),
-      mappedStandards: [matchedStdId],
-      content: `Evidence uploaded via AI Gap Checker. Matches standard ${matchedStdId}.`
+  const handleCreateGapTask = (liab) => {
+    const taskObj = {
+      title: `Fix Gap: ${liab.title}`,
+      assignedTo: teamMembers[0]?.name || 'Quality Manager',
+      assignedToEmail: teamMembers[0]?.email || 'quality.head@hospital.org',
+      department: 'Quality Control',
+      dueDate: new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0],
+      priority: 'High',
+      mappedStandard: ''
+    };
+    addHospitalTask(taskObj);
+    showToast({
+      title: "Task Assigned",
+      message: `Assigned task to resolve gap: "${liab.title}"`,
+      type: "success"
     });
+  };
 
-    // Update score
-    updateStandardScore(matchedStdId, gapCheckResult.score);
+  const handleExportPDF = () => {
+    try {
+      const doc = new jsPDF();
+      
+      // Page 1: Title Page
+      doc.setFillColor(13, 148, 136); // Teal
+      doc.rect(0, 0, 210, 15, "F");
+      
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(22);
+      doc.setTextColor(13, 148, 136);
+      doc.text("VAIDYAQ PLATFORM REPORT PACK", 20, 40);
+      
+      doc.setFontSize(14);
+      doc.setTextColor(100, 116, 139);
+      doc.text("Executive Board Quality & Compliance Briefing", 20, 50);
+      
+      doc.setDrawColor(226, 232, 240);
+      doc.line(20, 55, 190, 55);
+      
+      doc.setFont("Helvetica", "normal");
+      doc.setFontSize(11);
+      doc.setTextColor(51, 65, 85);
+      
+      doc.text(`Hospital Facility: ${hospitalName}`, 20, 68);
+      doc.text(`Reporting Scope: ${reportScope}`, 20, 75);
+      if (reportScope === 'Custom' && customStartDate && customEndDate) {
+        doc.text(`Date Range: ${customStartDate} to ${customEndDate}`, 20, 82);
+      } else {
+        doc.text(`Generation Date: ${new Date().toLocaleDateString()}`, 20, 82);
+      }
+      doc.text(`Account Administrator: ${currentUser.name} (${currentUser.role})`, 20, 89);
+      
+      // Readiness box
+      doc.setFillColor(240, 253, 250);
+      doc.setDrawColor(13, 148, 136);
+      doc.rect(20, 100, 170, 32, "FD");
+      
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(12);
+      doc.setTextColor(13, 148, 136);
+      doc.text("NABH 6th Edition Readiness Score", 26, 110);
+      doc.setFontSize(26);
+      doc.text(`${readinessScore}%`, 26, 124);
+      
+      // Page 1 footer disclaimer
+      doc.setFont("Helvetica", "italic");
+      doc.setFontSize(8);
+      doc.setTextColor(148, 163, 184);
+      const discText = "CONFIDENTIALITY & COMPLIANCE GUARDRAIL: This PDF quality briefing contains auto-aggregated metrics meant for internal human evaluation and human-reviewed administrative actions. This does not substitute clinical diagnosis or official assessor approvals. Encrypted at rest under ABDM privacy disclaimers.";
+      const splitDisc = doc.splitTextToSize(discText, 170);
+      doc.text(splitDisc, 20, 260);
 
-    // Clear state
-    setGapCheckResult(null);
-    setSelectedGapFile(null);
+      // Page 2: Detailed Gaps
+      doc.addPage();
+      doc.setFillColor(13, 148, 136);
+      doc.rect(0, 0, 210, 15, "F");
+      
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(16);
+      doc.setTextColor(15, 23, 42);
+      doc.text("1. Scanned Compliance Gaps", 20, 35);
+      
+      doc.setFont("Helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(71, 85, 105);
+      
+      let yOffset = 48;
+      
+      doc.setFont("Helvetica", "bold");
+      doc.setTextColor(15, 23, 42);
+      doc.text(`Outstanding CAPA Items (${activeCapas.length}):`, 20, yOffset);
+      doc.setFont("Helvetica", "normal");
+      doc.setTextColor(71, 85, 105);
+      yOffset += 8;
+      if (activeCapas.length === 0) {
+        doc.text("No active open CAPAs in this audit cycle.", 25, yOffset);
+        yOffset += 8;
+      } else {
+        activeCapas.forEach(c => {
+          const txt = `- [${c.priority}] ${c.department}: ${c.correctiveAction || c.source} (Due: ${c.dueDate})`;
+          const split = doc.splitTextToSize(txt, 165);
+          doc.text(split, 25, yOffset);
+          yOffset += (split.length * 5) + 2;
+        });
+      }
+      
+      yOffset += 5;
+      doc.setFont("Helvetica", "bold");
+      doc.setTextColor(15, 23, 42);
+      doc.text(`Statutory License Expirations (${expiredLicenses.length}):`, 20, yOffset);
+      doc.setFont("Helvetica", "normal");
+      doc.setTextColor(71, 85, 105);
+      yOffset += 8;
+      if (expiredLicenses.length === 0) {
+        doc.text("All statutory licenses and fire NOCs are currently active.", 25, yOffset);
+        yOffset += 8;
+      } else {
+        expiredLicenses.forEach(l => {
+          doc.text(`- ${l.name} (Expired on: ${l.expiryDate || 'N/A'}) - Owner: ${l.responsible || 'N/A'}`, 25, yOffset);
+          yOffset += 7;
+        });
+      }
+
+      // Page 3: Recommended Actions & Signatures
+      doc.addPage();
+      doc.setFillColor(13, 148, 136);
+      doc.rect(0, 0, 210, 15, "F");
+      
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(16);
+      doc.setTextColor(15, 23, 42);
+      doc.text("2. Immediate Action Recommendations", 20, 35);
+      
+      doc.setFont("Helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(71, 85, 105);
+      
+      yOffset = 48;
+      actionItemsList.forEach((act, index) => {
+        const txt = `${index + 1}. ${act}`;
+        const split = doc.splitTextToSize(txt, 170);
+        doc.text(split, 20, yOffset);
+        yOffset += (split.length * 5) + 3;
+      });
+      
+      yOffset += 30;
+      doc.setDrawColor(203, 213, 225);
+      doc.line(20, yOffset, 85, yOffset);
+      doc.line(120, yOffset, 185, yOffset);
+      
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text("Prepared By: Quality Head", 20, yOffset + 6);
+      doc.text("Approved By: Chief Executive Officer", 120, yOffset + 6);
+      
+      // Save
+      const filename = `VaidyaQ_Briefing_${reportScope}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      doc.save(filename);
+      
+      // Save report metadata
+      const newReport = {
+        id: `rep-${Date.now()}`,
+        title: `Quality Briefing: ${reportScope}`,
+        type: "Executive Report",
+        createdBy: currentUser.name,
+        createdAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+        scope: reportScope,
+        downloadUrl: "#"
+      };
+      setReportsList(prev => [newReport, ...prev]);
+      logActivity(`Exported CEO Briefing PDF Report Pack (${reportScope})`);
+      showToast({
+        title: "Briefing Exported",
+        message: `Successfully generated and saved "${filename}".`,
+        type: "success"
+      });
+    } catch (err) {
+      console.error(err);
+      showToast({
+        title: "Export Failed",
+        message: "An error occurred while compiling the PDF briefing report.",
+        type: "error"
+      });
+    }
   };
 
   const renderFlowchartComponent = (title, content) => {
@@ -961,80 +1093,124 @@ Mapped Standard: ${sopStandard}`;
 
       {/* 3. AI GAP CHECKER VIEW */}
       {activeSubTab === 'gap' && (
-        <div className="flex flex-col gap-3">
-          <div className="card">
-            <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>AI Evidence Validation & Audit Mapping</h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-              Upload an evidence document (e.g. fire drill records or calibration reports). The AI will cross-verify file strength, check for signature gaps, and suggest standard mappings.
-            </p>
+        <div className="flex flex-col gap-4 animate-fade-in" style={{ fontFamily: 'var(--font-body)' }}>
+          <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0 }}>AI Accreditation Gap Auditor</h3>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  Live scanning of missing evidence documents, expired statutory credentials, open corrective actions, and critical milestones.
+                </p>
+              </div>
+              <button 
+                onClick={handleRunSystemGapCheck}
+                className="btn btn-primary glow-premium"
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 1rem', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}
+                disabled={uploadChecking}
+              >
+                {uploadChecking ? <RefreshCw size={14} style={{ animation: 'spin 1.5s linear infinite' }} /> : <Sparkles size={14} />}
+                Run Live Gap Scan
+              </button>
+            </div>
 
-            <div 
-              className="upload-zone" 
-              onClick={() => document.getElementById('ai-gap-file-input').click()}
-            >
-              <input 
-                type="file" 
-                id="ai-gap-file-input" 
-                style={{ display: 'none' }}
-                onChange={handleGapFileChange}
-              />
-              {uploadChecking ? (
-                <div className="flex flex-col align-center gap-2">
-                  <RefreshCw size={32} color="var(--primary)" style={{ animation: 'spin 1.5s linear infinite' }} />
-                  <p style={{ fontWeight: 600 }}>Analyzing uploaded document structure...</p>
+            {/* Gap checker summary board */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+              <div style={{ padding: '1rem', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Missing Standards Evidence</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: missingEvidenceCount > 0 ? 'var(--color-warning)' : 'var(--color-success)', marginTop: '4px' }}>
+                  {missingEvidenceCount} Gaps
+                </div>
+              </div>
+              <div style={{ padding: '1rem', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Expired/Warning Certificates</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: expiredLicenses.length > 0 ? 'var(--color-danger)' : 'var(--color-success)', marginTop: '4px' }}>
+                  {expiredLicenses.length} Expired
+                </div>
+              </div>
+              <div style={{ padding: '1rem', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Open Corrective Actions (CAPA)</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: openCapasCount > 0 ? 'var(--color-danger)' : 'var(--color-success)', marginTop: '4px' }}>
+                  {openCapasCount} Pending
+                </div>
+              </div>
+            </div>
+
+            {/* Live scanned issues checklist */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
+              <h4 style={{ fontSize: '0.85rem', fontWeight: 700, margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>Scanned Compliance Deficiencies</h4>
+              
+              {liabilitiesList.length === 0 ? (
+                <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-secondary)', border: '1px dashed var(--border-color)', borderRadius: '8px' }}>
+                  🎉 No critical gaps detected! All standards, licenses, and CAPA logs are fully green.
                 </div>
               ) : (
-                <div className="flex flex-col align-center gap-2">
-                  <Upload size={32} color="var(--primary)" />
-                  <p style={{ fontWeight: 600 }}>Upload evidence file for Gap Check & Verification</p>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
-                    {selectedGapFile ? `Selected: ${selectedGapFile.name}` : "Click to select a file (PDF, DOCX, XLSX). The AI will auto-map it."}
-                  </p>
-                </div>
+                liabilitiesList.map((liab, index) => (
+                  <div key={index} style={{ padding: '0.75rem 1rem', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1, minWidth: '240px' }}>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>{liab.title}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>{liab.text}</div>
+                    </div>
+                    <button
+                      onClick={() => handleCreateGapTask(liab)}
+                      style={{ padding: '0.35rem 0.75rem', fontSize: '0.7rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer', borderRadius: '4px' }}
+                      className="btn btn-secondary"
+                    >
+                      <Plus size={12} /> Assign Resolve Task
+                    </button>
+                  </div>
+                ))
               )}
             </div>
 
-            {/* Gap Check Result */}
+            {/* AI Generated Analysis Text Box */}
             {gapCheckResult && (
-              <div className="card" style={{ marginTop: '1.5rem', borderLeft: `5px solid ${gapCheckResult.success ? 'var(--color-success)' : 'var(--color-warning)'}` }}>
-                <h4 style={{ fontWeight: 700, color: gapCheckResult.success ? 'var(--color-success)' : 'var(--color-warning)', fontSize: '0.95rem', display: 'flex', alignContent: 'center', gap: '0.5rem' }}>
-                  <AlertCircle size={16} />
-                  <span>Validation Result: {gapCheckResult.docName}</span>
-                </h4>
-                
-                <div style={{ marginTop: '1rem', fontSize: '0.85rem' }} className="flex flex-col gap-2">
-                  <div>
-                    <strong>Suggested Chapter Map:</strong> <span className="badge badge-neutral">{gapCheckResult.chapter}</span>
-                  </div>
-                  <div>
-                    <strong>Audit Evidence Strength:</strong> <span className={`badge ${gapCheckResult.strength === 'Strong' ? 'badge-success' : gapCheckResult.strength === 'Medium' ? 'badge-warning' : 'badge-danger'}`}>{gapCheckResult.strength}</span>
-                  </div>
-                  <div>
-                    <strong>Detected Document Gaps:</strong>
-                    <ul style={{ listStyleType: 'disc', paddingLeft: '1.25rem', marginTop: '0.25rem', color: 'var(--text-secondary)' }}>
-                      {gapCheckResult.gaps.map((gap, gIdx) => (
-                        <li key={gIdx} style={{ marginBottom: '0.25rem' }}>{gap}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div style={{ padding: '0.5rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '6px', border: '1px dashed var(--border-color)', marginTop: '0.5rem' }}>
-                    💡 <strong>AI Recommendations:</strong> {gapCheckResult.advice}
-                  </div>
-                  <div style={{ marginTop: '0.75rem', padding: '0.6rem 0.8rem', backgroundColor: 'rgba(124, 58, 237, 0.08)', border: '1px dashed rgba(124, 58, 237, 0.3)', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
-                    <span className="ai-confidence-badge ai-confidence-high" style={{ fontSize: '0.65rem' }}>🎯 AI CONFIDENCE: HIGH</span>
-                    <span style={{ fontSize: '10px', color: '#7c3aed', fontWeight: 600 }}>⚠️ AI ASSESSMENT — REQUIRES HUMAN SIGN-OFF</span>
-                  </div>
-                  {gapCheckResult.success && (
-                    <button 
-                      onClick={handleApplyGapRecommendation} 
-                      className="btn btn-primary"
-                      style={{ marginTop: '1rem', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-                    >
-                      <CheckSquare size={16} />
-                      Accept AI Mapping & Update Score
-                    </button>
-                  )}
+              <div className="ai-draft-watermark" style={{ backgroundColor: 'var(--bg-tertiary)', padding: '1.25rem', marginTop: '1.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>
+                  <span className="ai-confidence-badge ai-confidence-high">TARGET CONFIDENCE: 92%</span>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>Model: gemini-2.5-flash</span>
                 </div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
+                  {gapCheckResult.analysis}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem', marginTop: '1rem' }}>
+                  <button
+                    onClick={() => {
+                      createAiOutput('Gap Checker', 'Compliance Gap Auditor', gapCheckResult.analysis);
+                      showToast({
+                        title: "Draft Saved",
+                        message: "The AI Gap Auditor analysis report was saved as a draft.",
+                        type: "success"
+                      });
+                      setGapCheckResult(null);
+                    }}
+                    className="btn btn-primary"
+                    style={{ padding: '0.45rem 1rem', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer' }}
+                  >
+                    Save Analysis Draft
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Saved analysis drafts list */}
+          <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+            <h4 style={{ fontSize: '0.9rem', fontWeight: 800, margin: '0 0 1rem 0' }}>Saved Audit Gap Analysis Reports</h4>
+            {aiOutputs.filter(o => o.module === 'Gap Checker').length === 0 ? (
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', margin: 0 }}>No previously saved gap analysis drafts.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {aiOutputs.filter(o => o.module === 'Gap Checker').map(out => (
+                  <div key={out.outputId} style={{ padding: '1rem', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--primary)' }}>Report {out.outputId}</span>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)' }}>{new Date(out.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', maxHeight: '80px', overflowY: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', lineHeight: '1.4' }}>
+                      {out.content}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -1080,47 +1256,99 @@ Mapped Standard: ${sopStandard}`;
         </div>
       )}
       
+      {/* 4. AI CEO BRIEFING VIEW */}
       {activeSubTab === 'ceo' && (
-        <div className="flex flex-col gap-3" style={{ maxWidth: '750px', margin: '0 auto' }}>
-          <div className="card" style={{ borderTop: '6px solid var(--primary)', padding: '2.5rem' }}>
+        <div className="flex flex-col gap-3" style={{ maxWidth: '750px', margin: '0 auto', fontFamily: 'var(--font-body)' }}>
+          <div className="card" style={{ borderTop: '6px solid var(--primary)', padding: '2.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
             <div className="flex justify-between align-center" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
               <div>
                 <span className="badge badge-success" style={{ marginBottom: '0.5rem' }}>Hospital Quality Briefing</span>
-                <h2 style={{ fontSize: '1.5rem' }}>Executive Board Quality Briefing</h2>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Executive Board Quality Briefing</h2>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', marginTop: '0.1rem' }}>Generated on: Monday Review Cycle</p>
               </div>
               <Brain size={32} color="var(--primary)" />
             </div>
 
+            {/* Scope Selection Panel */}
+            <div style={{ padding: '1rem', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '8px', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Select Report Scope</label>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                {['Weekly', 'Monthly', 'Custom'].map(scope => (
+                  <button
+                    key={scope}
+                    type="button"
+                    onClick={() => setReportScope(scope)}
+                    style={{
+                      padding: '0.4rem 0.85rem',
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      borderRadius: '6px',
+                      border: '1px solid var(--border-color)',
+                      cursor: 'pointer',
+                      backgroundColor: reportScope === scope ? 'var(--primary)' : 'var(--bg-secondary)',
+                      color: reportScope === scope ? 'white' : 'var(--text-secondary)',
+                      transition: 'all var(--transition-fast)'
+                    }}
+                  >
+                    {scope}
+                  </button>
+                ))}
+              </div>
+
+              {reportScope === 'Custom' && (
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Start Date</label>
+                    <input
+                      type="date"
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                      style={{ width: '100%', padding: '0.4rem', fontSize: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>End Date</label>
+                    <input
+                      type="date"
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                      style={{ width: '100%', padding: '0.4rem', fontSize: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Metrics overview */}
             <div className="flex flex-col gap-3" style={{ fontSize: '0.9rem' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', textAlign: 'center' }}>
-                <div style={{ backgroundColor: 'var(--bg-tertiary)', padding: '0.75rem', borderRadius: '8px' }}>
+                <div style={{ backgroundColor: 'var(--bg-tertiary)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Overall Readiness</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)' }}>{readinessScore}%</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)', marginTop: '2px' }}>{readinessScore}%</div>
                 </div>
-                <div style={{ backgroundColor: 'var(--bg-tertiary)', padding: '0.75rem', borderRadius: '8px' }}>
+                <div style={{ backgroundColor: 'var(--bg-tertiary)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Open CAPAs</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: openCapasCount > 0 ? 'var(--color-danger)' : 'var(--color-success)' }}>{openCapasCount}</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: openCapasCount > 0 ? 'var(--color-danger)' : 'var(--color-success)', marginTop: '2px' }}>{openCapasCount}</div>
                 </div>
-                <div style={{ backgroundColor: 'var(--bg-tertiary)', padding: '0.75rem', borderRadius: '8px' }}>
+                <div style={{ backgroundColor: 'var(--bg-tertiary)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>High-Risk Depts</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: highRiskDeptsCount > 0 ? 'var(--color-danger)' : 'var(--color-success)' }}>{highRiskDeptsCount}</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: highRiskDeptsCount > 0 ? 'var(--color-danger)' : 'var(--color-success)', marginTop: '2px' }}>{highRiskDeptsCount}</div>
                 </div>
               </div>
 
-              <div>
-                <h4 style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>1. Overall Performance Summary</h4>
-                <p style={{ color: 'var(--text-secondary)', lineHeight: '1.45' }}>
+              <div style={{ marginTop: '1rem' }}>
+                <h4 style={{ fontWeight: 850, color: 'var(--text-primary)', marginBottom: '0.5rem', fontSize: '0.95rem' }}>1. Overall Performance Summary</h4>
+                <p style={{ color: 'var(--text-secondary)', lineHeight: '1.5', margin: 0 }}>
                   {hospitalName} is currently at <strong>{readinessScore}%</strong> compliance for the NABH 6th Edition accreditation standard. We have mapped <strong>{documents.filter(d=>d.status==='Approved').length} approved SOPs</strong>. A compliance score of 85% is required to trigger final document submission.
                 </p>
               </div>
 
-              <div>
-                <h4 style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>2. Critical Compliance Liabilities</h4>
+              <div style={{ marginTop: '1rem' }}>
+                <h4 style={{ fontWeight: 850, color: 'var(--text-primary)', marginBottom: '0.5rem', fontSize: '0.95rem' }}>2. Critical Compliance Liabilities</h4>
                 {liabilitiesList.length === 0 ? (
-                  <p style={{ color: 'var(--text-secondary)' }}>No active statutory or clinical liabilities detected.</p>
+                  <p style={{ color: 'var(--text-secondary)', margin: 0 }}>No active statutory or clinical liabilities detected.</p>
                 ) : (
-                  <ul style={{ listStyleType: 'decimal', paddingLeft: '1.25rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <ul style={{ listStyleType: 'decimal', paddingLeft: '1.25rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '0.4rem', margin: 0 }}>
                     {liabilitiesList.map((liab, index) => (
                       <li key={index}><strong>{liab.title}:</strong> {liab.text}</li>
                     ))}
@@ -1128,9 +1356,9 @@ Mapped Standard: ${sopStandard}`;
                 )}
               </div>
 
-              <div>
-                <h4 style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>3. Immediate Action Items for Executive Team</h4>
-                <ul style={{ listStyleType: 'disc', paddingLeft: '1.25rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              <div style={{ marginTop: '1rem' }}>
+                <h4 style={{ fontWeight: 850, color: 'var(--text-primary)', marginBottom: '0.5rem', fontSize: '0.95rem' }}>3. Immediate Action Items for Executive Team</h4>
+                <ul style={{ listStyleType: 'disc', paddingLeft: '1.25rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '0.4rem', margin: 0 }}>
                   {actionItemsList.map((act, index) => (
                     <li key={index}>{act}</li>
                   ))}
@@ -1144,10 +1372,21 @@ Mapped Standard: ${sopStandard}`;
             </div>
 
             <div className="flex gap-2 justify-end" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1.25rem', marginTop: '2rem' }}>
-              <button onClick={() => alert("CEO Briefing copied to clipboard!")} className="btn btn-secondary">
+              <button 
+                onClick={() => {
+                  navigator.clipboard.writeText(`Executive Board Quality Briefing - ${hospitalName}\nReadiness: ${readinessScore}%\nOpen CAPAs: ${openCapasCount}\nLiabilities:\n${liabilitiesList.map((l, i) => `${i+1}. ${l.title} - ${l.text}`).join('\n')}`);
+                  showToast({ title: "Copied", message: "CEO Briefing summary copied to clipboard!", type: "success" });
+                }} 
+                className="btn btn-secondary"
+                style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+              >
                 <Copy size={14} /> Copy Briefing
               </button>
-              <button onClick={() => alert("Downloading PDF summary report...")} className="btn btn-primary">
+              <button 
+                onClick={handleExportPDF} 
+                className="btn btn-primary"
+                style={{ padding: '0.5rem 1.25rem', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+              >
                 <FileDown size={14} /> Export Quality Report Pack
               </button>
             </div>

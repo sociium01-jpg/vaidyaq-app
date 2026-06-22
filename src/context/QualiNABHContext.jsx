@@ -186,6 +186,20 @@ const defaultRisks = [
   { id: "risk-2", category: "Facility Fire Safety", description: "Obstructed emergency egress pathways in OPD consulting wings due to backup furniture storage.", department: "Security & Facility", impact: "High", likelihood: "Low", rating: "Orange", correctiveAction: "Cleared corridors and arranged basement storage." }
 ];
 
+const defaultSprints = [
+  { id: "sprint-1", name: "Sprint 1 - Statutory Renewal", status: "Active", startDate: "2026-06-15", endDate: "2026-06-25", targets: ["task-1", "task-2"] },
+  { id: "sprint-2", name: "Sprint 2 - Quality Audit Preparation", status: "Planned", startDate: "2026-06-26", endDate: "2026-07-06", targets: ["task-3"] }
+];
+
+const defaultReportsList = [
+  { id: "rep-1", title: "NABH 6th Edition Gap Analysis", type: "AI Output", createdBy: "quality.head@hospital.org", createdAt: "2026-06-12 10:15", scope: "Comprehensive", downloadUrl: "#" },
+  { id: "rep-2", title: "Weekly CEO Quality Briefing - May W4", type: "Executive Report", createdBy: "super@vaidyaq.com", createdAt: "2026-05-30 18:00", scope: "Weekly", downloadUrl: "#" }
+];
+
+const defaultTaskActivities = [
+  { id: "act-1", taskId: "task-1", user: "Dr. Sarah Paul", action: "Created task", timestamp: "2026-06-11 11:20:10" }
+];
+
 export const QualiNABHProvider = ({ children }) => {
   // Get namespaced key loader helper
   const loadNamespacedState = (key, defaultValue) => {
@@ -280,7 +294,32 @@ export const QualiNABHProvider = ({ children }) => {
   });
 
   // Current Router Tab
-  const [currentRoute, setCurrentRoute] = useState('/');
+  const [currentRoute, setCurrentRouteState] = useState(() => {
+    return window.location.pathname || '/';
+  });
+
+  const setCurrentRoute = (route) => {
+    if (window.location.pathname !== route) {
+      window.history.pushState(null, '', route);
+    }
+    setCurrentRouteState(route);
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentRouteState(window.location.pathname || '/');
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  useEffect(() => {
+    if (currentUser && currentUser.hospitalId) {
+      if (currentRoute === '/app/dashboard' || currentRoute === '/app') {
+        setCurrentRoute(`/app/${currentUser.hospitalId}/dashboard`);
+      }
+    }
+  }, [currentRoute, currentUser]);
 
   // Force early renewal payment block screen early flag
   const [forcePaymentScreen, setForcePaymentScreen] = useState(false);
@@ -511,6 +550,18 @@ export const QualiNABHProvider = ({ children }) => {
     ]);
   });
 
+  const [sprints, setSprints] = useState(() => {
+    return loadNamespacedState('qn_sprints', defaultSprints);
+  });
+
+  const [reportsList, setReportsList] = useState(() => {
+    return loadNamespacedState('qn_reports_list', defaultReportsList);
+  });
+
+  const [taskActivities, setTaskActivities] = useState(() => {
+    return loadNamespacedState('qn_task_activities', defaultTaskActivities);
+  });
+
   const defaultAiSettings = {
     enabled: false,
     provider: 'mock',
@@ -738,6 +789,30 @@ export const QualiNABHProvider = ({ children }) => {
       localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_tasks`, JSON.stringify(tasks));
     }
   }, [tasks, currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      const activeEmail = currentUser.parentEmail || currentUser.email;
+      const prefix = activeEmail ? `${activeEmail}_` : '';
+      localStorage.setItem(`${prefix}qn_sprints`, JSON.stringify(sprints));
+    }
+  }, [sprints, currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      const activeEmail = currentUser.parentEmail || currentUser.email;
+      const prefix = activeEmail ? `${activeEmail}_` : '';
+      localStorage.setItem(`${prefix}qn_reports_list`, JSON.stringify(reportsList));
+    }
+  }, [reportsList, currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      const activeEmail = currentUser.parentEmail || currentUser.email;
+      const prefix = activeEmail ? `${activeEmail}_` : '';
+      localStorage.setItem(`${prefix}qn_task_activities`, JSON.stringify(taskActivities));
+    }
+  }, [taskActivities, currentUser]);
 
   useEffect(() => {
     if (currentUser) {
@@ -1113,7 +1188,7 @@ export const QualiNABHProvider = ({ children }) => {
     setHospitalTier(Number(bedsInput) <= 20 ? 'Tier A: Clinics' : Number(bedsInput) <= 150 ? 'Tier B: Secondary Care' : 'Tier C: Tertiary Chains');
     
     // Set first team member as Super Admin
-    const superAdminUser = { email: email, name: "Hospital Director", role: "Super Admin", department: "Board" };
+    const superAdminUser = { email: email, name: "Hospital Director", role: "Super Admin", department: "Board", hospitalId: newHospitalId };
     setTeamMembers([superAdminUser]);
     setCurrentUser(superAdminUser);
 
@@ -1554,7 +1629,7 @@ export const QualiNABHProvider = ({ children }) => {
       dueDate: taskObj.dueDate,
       priority: taskObj.priority || 'Medium',
       mappedStandard: taskObj.mappedStandard || '',
-      status: 'Pending'
+      status: taskObj.status || 'To Do'
     };
     setTasks(prev => [newTask, ...prev]);
     logActivity(`Assigned task: "${taskObj.title}" to ${taskObj.assignedTo}`);
@@ -1567,7 +1642,7 @@ export const QualiNABHProvider = ({ children }) => {
         if (t.id === taskId) {
           logActivity(`Updated task "${t.title}" status to ${status}`);
           
-          if (status === "Completed") {
+          if (status === "Completed" || status === "Done" || status === "Closed") {
             // Relational update: close CAPA
             if (t.capaId) {
               setCapaItems(prevCapa => prevCapa.map(c => {
@@ -1644,6 +1719,34 @@ export const QualiNABHProvider = ({ children }) => {
       }
       return prev.filter(t => t.id !== taskId);
     });
+  };
+
+  const addTaskComment = (taskId, commentText, author) => {
+    setTasks(prev => prev.map(t => {
+      if (t.id === taskId) {
+        const comments = t.comments || [];
+        const newComment = {
+          id: `comment-${Date.now()}`,
+          author: author || currentUser?.name || "System",
+          text: commentText,
+          timestamp: new Date().toISOString()
+        };
+        return { ...t, comments: [...comments, newComment] };
+      }
+      return t;
+    }));
+    logActivity(`Added comment on task ${taskId}`);
+  };
+
+  const addTaskActivity = (taskId, action, user) => {
+    const newActivity = {
+      id: `act-${Date.now()}`,
+      taskId,
+      user: user || currentUser?.name || "System",
+      action,
+      timestamp: new Date().toISOString()
+    };
+    setTaskActivities(prev => [newActivity, ...prev]);
   };
 
   const checkForComplianceUpdates = () => {
@@ -2705,7 +2808,11 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
 
   const missingEvidenceCount = totalStandardsCount - evidenceUploadedCount;
   const openCapasCount = capaItems.filter(c => c.status === "Open").length;
-  const overdueTasksCount = tasks.filter(t => t.status === "Pending" && new Date(t.dueDate) < new Date()).length;
+  const overdueTasksCount = tasks.filter(t => {
+    const isLegacyOpen = t.status === "Pending";
+    const isOpen = !["Completed", "Done", "Closed"].includes(t.status) && t.status !== "Pending";
+    return (isLegacyOpen || isOpen) && t.dueDate && new Date(t.dueDate) < new Date();
+  }).length;
   const pendingAuditsCount = audits.filter(a => a.status === "Scheduled").length;
   const incidentsThisMonthCount = incidents.length;
 
@@ -2804,7 +2911,12 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
       updateAiOutputStatus,
       deleteAiOutput,
       logAiUsage,
-      logAiSafety
+      logAiSafety,
+      sprints, setSprints,
+      reportsList, setReportsList,
+      taskActivities, setTaskActivities,
+      addTaskComment,
+      addTaskActivity
     }}>
       {children}
     </QualiNABHContext.Provider>

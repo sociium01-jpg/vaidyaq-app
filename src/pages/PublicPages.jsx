@@ -106,12 +106,13 @@ export default function PublicPages() {
         name: "Hospital Director",
         email: clientToLoad.email,
         role: "Super Admin",
-        department: "Board"
+        department: "Board",
+        hospitalId: clientToLoad.hospitalId
       };
       setCurrentUser(loggedUser);
       setSignInError(false);
       logActivity(`Logged in client: ${clientToLoad.hospitalName} (${clientToLoad.email})`);
-      setCurrentRoute('/app/dashboard');
+      setCurrentRoute(`/app/${clientToLoad.hospitalId}/dashboard`);
     } else {
       // Look up sub-users database
       const globalSubUsers = JSON.parse(localStorage.getItem('qn_global_sub_users') || '[]');
@@ -137,12 +138,13 @@ export default function PublicPages() {
           email: subUser.email,
           role: subUser.role,
           department: subUser.department,
-          parentEmail: subUser.parentEmail
+          parentEmail: subUser.parentEmail,
+          hospitalId: parentClient ? parentClient.hospitalId : 'demo-hosp'
         };
         setCurrentUser(loggedUser);
         setSignInError(false);
         logActivity(`Logged in team member: ${subUser.name} (${subUser.email}) under parent ${subUser.parentEmail}`);
-        setCurrentRoute('/app/dashboard');
+        setCurrentRoute(`/app/${parentClient ? parentClient.hospitalId : 'demo-hosp'}/dashboard`);
       } else {
         setSignInError("No client or team member registered with this email address. Please sign up or try again.");
       }
@@ -493,14 +495,14 @@ Key Benefits of the SaaS Model:
 
   const handleLogin = (role) => {
     const defaultUsers = {
-      "Quality Head": { name: "Dr. Sarah Paul", email: "quality.head@hospital.org", role: "Quality Head" },
-      "Super Admin": { name: "Col. Roy (COO)", email: "super@vaidyaq.com", role: "Super Admin" },
-      "Auditor": { name: "Ramesh Kumar (Officer)", email: "auditor@hospital.org", role: "Auditor" }
+      "Quality Head": { name: "Dr. Sarah Paul", email: "quality.head@hospital.org", role: "Quality Head", hospitalId: "sarah-hosp" },
+      "Super Admin": { name: "Col. Roy (COO)", email: "super@vaidyaq.com", role: "Super Admin", hospitalId: "demo-hosp", parentEmail: "demo@vaidyaq.com" },
+      "Auditor": { name: "Ramesh Kumar (Officer)", email: "auditor@hospital.org", role: "Auditor", hospitalId: "demo-hosp", parentEmail: "demo@vaidyaq.com" }
     };
     const selected = defaultUsers[role] || defaultUsers["Quality Head"];
     setCurrentUser(selected);
     logActivity("Logged in via Landing Page Quick Portal");
-    setCurrentRoute('/app/dashboard');
+    setCurrentRoute(`/app/${selected.hospitalId}/dashboard`);
   };
 
   const getQuizResult = () => {

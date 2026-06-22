@@ -97,7 +97,7 @@ export default function NotificationPanel({ isOpen, onClose }) {
 
     // Overdue tasks
     (tasks || []).forEach(t => {
-      if (t.dueDate && t.status !== 'Completed') {
+      if (t.dueDate && t.status !== 'Completed' && t.status !== 'Done' && t.status !== 'Closed') {
         const due = new Date(t.dueDate);
         if (due < today) {
           items.push({

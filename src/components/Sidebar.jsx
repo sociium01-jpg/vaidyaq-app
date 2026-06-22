@@ -45,22 +45,27 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
 
   const unreadNotifsCount = feedNotifications ? feedNotifications.filter(n => !n.read).length : 0;
 
+  const getTenantPath = (moduleName) => {
+    const hospitalId = currentUser?.hospitalId || 'demo-hosp';
+    return `/app/${hospitalId}/${moduleName}`;
+  };
+
   const mainNavItems = [
-    { label: 'Dashboard', path: '/app/dashboard', icon: LayoutDashboard },
-    { label: 'Quality Management', path: '/app/quality', icon: Activity },
-    { label: 'Compliance Management', path: '/app/compliance', icon: ShieldAlert },
-    { label: 'Accreditation Readiness', path: '/app/accreditation', icon: ShieldCheck },
-    { label: 'Committee Meetings', path: '/app/committees', icon: BookOpen },
-    { label: 'Staff Training', path: '/app/training', icon: GraduationCap },
-    { label: 'AI Insights', path: '/app/ai', icon: Brain }
+    { label: 'Dashboard', module: 'dashboard', icon: LayoutDashboard },
+    { label: 'Quality Management', module: 'quality', icon: Activity },
+    { label: 'Compliance Management', module: 'compliance', icon: ShieldAlert },
+    { label: 'Accreditation Readiness', module: 'accreditation', icon: ShieldCheck },
+    { label: 'Committee Meetings', module: 'committees', icon: BookOpen },
+    { label: 'Staff Training', module: 'training', icon: GraduationCap },
+    { label: 'AI Insights', module: 'ai-insights', icon: Brain }
   ];
 
   const secondaryNavItems = [
-    { label: 'Documents', path: '/app/documents', icon: FileText },
-    { label: 'Tasks', path: '/app/tasks', icon: ListTodo },
-    { label: 'Reports', path: '/app/reports', icon: BarChart3 },
-    { label: 'Hospital Settings', path: '/app/profile', icon: Settings },
-    { label: 'Help & Support', path: '/app/support', icon: ShieldAlert }
+    { label: 'Documents', module: 'documents', icon: FileText },
+    { label: 'Tasks', module: 'tasks', icon: ListTodo },
+    { label: 'Reports', module: 'reports', icon: BarChart3 },
+    { label: 'Hospital Settings', module: 'profile', icon: Settings },
+    { label: 'Help & Support', module: 'support', icon: ShieldAlert }
   ];
 
   const handleRoleChange = (e) => {
@@ -75,21 +80,28 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
       "External Consultant": "Mr. Vinay (NABH Assessor)",
       "Viewer": "Guest Auditor"
     };
+    
+    const activeHospitalId = currentUser?.hospitalId || 'demo-hosp';
+    const activeParentEmail = activeHospitalId === 'sarah-hosp' ? 'quality.head@hospital.org' : 'demo@vaidyaq.com';
+    const activeEmail = activeHospitalId === 'sarah-hosp' ? 'quality.head@hospital.org' : 'demo@vaidyaq.com';
+
     const emails = {
-      "Super Admin": "super@vaidyaq.com",
-      "Hospital Admin": "director@hospital.org",
-      "Quality Head": "quality.head@hospital.org",
-      "Department Head": "pharmacy@hospital.org",
-      "Auditor": "auditor@hospital.org",
-      "Staff": "nurse@hospital.org",
-      "External Consultant": "vinay.consultant@gmail.com",
-      "Viewer": "viewer@hospital.org"
+      "Super Admin": activeHospitalId === 'sarah-hosp' ? 'super@vaidyaq.com' : 'super@vaidyaq.com', // wait, let's keep emails aligned to tenant or map them
+      "Hospital Admin": activeHospitalId === 'sarah-hosp' ? 'director@hospital.org' : 'director@hospital.org',
+      "Quality Head": activeHospitalId === 'sarah-hosp' ? 'quality.head@hospital.org' : 'quality.head@hospital.org',
+      "Department Head": activeHospitalId === 'sarah-hosp' ? 'pharmacy@hospital.org' : 'pharmacy@hospital.org',
+      "Auditor": activeHospitalId === 'sarah-hosp' ? 'auditor@hospital.org' : 'auditor@hospital.org',
+      "Staff": activeHospitalId === 'sarah-hosp' ? 'nurse@hospital.org' : 'nurse@hospital.org',
+      "External Consultant": 'vinay.consultant@gmail.com',
+      "Viewer": 'viewer@hospital.org'
     };
 
     setCurrentUser({
       role: newRole,
       name: names[newRole] || "User",
-      email: emails[newRole] || "user@hospital.org"
+      email: emails[newRole] || activeEmail,
+      hospitalId: activeHospitalId,
+      parentEmail: activeParentEmail
     });
     logActivity(`Simulated role switched to: ${newRole}`);
   };
@@ -106,6 +118,9 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
       setSidebarOpen(false);
     }
   };
+
+  const parts = currentRoute.split('/').filter(Boolean);
+  const currentModule = parts[2] || 'dashboard';
 
   return (
     <div className={`sidebar ${sidebarOpen ? 'mobile-open' : ''}`}>
@@ -144,11 +159,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
         <span className="sidebar-section-title">Core Pillars</span>
         {mainNavItems.map(item => {
           const IconComponent = item.icon;
-          const isActive = currentRoute.startsWith(item.path);
+          const isActive = currentModule === item.module;
           return (
             <button
-              key={item.path}
-              onClick={() => handleLinkClick(item.path)}
+              key={item.module}
+              onClick={() => handleLinkClick(getTenantPath(item.module))}
               className={`sidebar-link ${isActive ? 'active' : ''}`}
             >
               <IconComponent size={18} />
@@ -166,11 +181,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
         <span className="sidebar-section-title" style={{ marginTop: '1rem' }}>Modules</span>
         {secondaryNavItems.map(item => {
           const IconComponent = item.icon;
-          const isActive = currentRoute === item.path;
+          const isActive = currentModule === item.module;
           return (
             <button
-              key={item.path}
-              onClick={() => handleLinkClick(item.path)}
+              key={item.module}
+              onClick={() => handleLinkClick(getTenantPath(item.module))}
               className={`sidebar-link ${isActive ? 'active' : ''}`}
             >
               <IconComponent size={18} />
@@ -217,6 +232,13 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
                 </div>
               ))}
             </div>
+
+            <button 
+              onClick={() => handleLinkClick(getTenantPath('compliance-feed'))}
+              style={{ width: '100%', padding: '0.35rem', fontSize: '0.7rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--primary)', border: 'none', color: 'white', borderRadius: '4px', marginTop: '0.25rem' }}
+            >
+              View All Feed
+            </button>
 
             <button 
               onClick={() => {

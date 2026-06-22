@@ -19,7 +19,7 @@ const ROUTE_MAP = {
 };
 
 export default function Breadcrumb() {
-  const { currentRoute, setCurrentRoute } = useContext(QualiNABHContext);
+  const { currentRoute, setCurrentRoute, currentUser } = useContext(QualiNABHContext);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -32,8 +32,21 @@ export default function Breadcrumb() {
   // Hidden on mobile — mobile uses bottom nav instead
   if (isMobile) return null;
 
-  const currentLabel = ROUTE_MAP[currentRoute] || 'Dashboard';
-  const isHome = currentRoute === '/app/dashboard';
+  // Normalize currentRoute (e.g. /app/demo-hosp/tasks -> /app/tasks)
+  const parts = currentRoute.split('/').filter(Boolean);
+  const isAppRoute = parts[0] === 'app';
+  const hospitalId = isAppRoute ? parts[1] : null;
+  const moduleName = isAppRoute ? parts[2] : null;
+  const subModuleName = isAppRoute ? parts[3] : null;
+
+  const lookupRoute = isAppRoute && moduleName ? `/app/${moduleName}` : currentRoute;
+  let currentLabel = ROUTE_MAP[lookupRoute] || 'Dashboard';
+  if (subModuleName) {
+    const formattedSub = subModuleName.charAt(0).toUpperCase() + subModuleName.slice(1);
+    currentLabel = `${currentLabel} > ${formattedSub}`;
+  }
+
+  const isHome = lookupRoute === '/app/dashboard' || currentRoute === '/app/dashboard' || currentRoute === '/';
 
   const containerStyle = {
     display: 'flex',
@@ -77,12 +90,21 @@ export default function Breadcrumb() {
     fontSize: '0.8rem',
   };
 
+  const handleHomeClick = () => {
+    if (!isHome) {
+      const homePath = currentUser && currentUser.hospitalId 
+        ? `/app/${currentUser.hospitalId}/dashboard` 
+        : '/app/dashboard';
+      setCurrentRoute(homePath);
+    }
+  };
+
   return (
     <nav style={containerStyle} aria-label="Breadcrumb">
       {/* Home segment */}
       <button
         style={homeLinkStyle}
-        onClick={() => { if (!isHome) setCurrentRoute('/app/dashboard'); }}
+        onClick={handleHomeClick}
         onMouseEnter={e => {
           if (!isHome) {
             e.currentTarget.style.color = 'var(--primary)';
