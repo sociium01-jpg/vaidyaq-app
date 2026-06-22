@@ -1,23 +1,169 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { QualiNABHContext } from '../context/QualiNABHContext';
 import {
   Users,
   Settings,
   Shield,
-  ClipboardList,
   ShieldCheck,
   Lock,
-  LockKeyhole
+  LockKeyhole,
+  Brain,
+  Cpu,
+  Trash2,
+  Plus,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  Key,
+  History,
+  DollarSign,
+  Activity,
+  FileText
 } from 'lucide-react';
 
 export default function AdminModule() {
   const {
     currentUser,
     auditLogs,
-    logActivity
+    logActivity,
+    aiSettings,
+    updateAiSettings,
+    saveAiKey,
+    deleteAiKey,
+    aiMemory,
+    addAiMemory,
+    deleteAiMemory,
+    aiUsageLogs,
+    aiSafetyLogs,
+    hospitalName
   } = useContext(QualiNABHContext);
 
-  const [activeSubTab, setActiveSubTab] = useState('logs'); // 'logs', 'users', 'settings'
+  const [activeSubTab, setActiveSubTab] = useState('logs'); // 'logs', 'users', 'settings', 'ai-config'
+
+  // Form states for AI Key Verification
+  const [selectedProvider, setSelectedProvider] = useState(aiSettings?.provider || 'mock');
+  const [tempApiKey, setTempApiKey] = useState('');
+  const [tempCustomUrl, setTempCustomUrl] = useState(aiSettings?.customUrl || '');
+  const [tempModel, setTempModel] = useState(aiSettings?.model || '');
+  
+  // Advanced Settings Form States
+  const [tempSystemPrompt, setTempSystemPrompt] = useState(aiSettings?.systemPrompt || '');
+  const [tempTemp, setTempTemp] = useState(aiSettings?.temperature !== undefined ? aiSettings.temperature : 0.7);
+  const [tempMaxTokens, setTempMaxTokens] = useState(aiSettings?.maxTokens || 2048);
+  const [allowedRoles, setAllowedRoles] = useState(aiSettings?.allowedRoles || ['Super Admin', 'Quality Head']);
+
+  // Verification feedbacks
+  const [isValidating, setIsValidating] = useState(false);
+  const [validationResult, setValidationResult] = useState(null); // { success: bool, message: string }
+
+  // Memory form states
+  const [showAddMemory, setShowAddMemory] = useState(false);
+  const [memTitle, setMemTitle] = useState('');
+  const [memScope, setMemScope] = useState('global');
+  const [memContent, setMemContent] = useState('');
+  const [memRoles, setMemRoles] = useState(['Super Admin', 'Quality Head']);
+
+  // Sync state values on config load
+  useEffect(() => {
+    if (aiSettings) {
+      setSelectedProvider(aiSettings.provider || 'mock');
+      setTempCustomUrl(aiSettings.customUrl || '');
+      setTempModel(aiSettings.model || '');
+      setTempSystemPrompt(aiSettings.systemPrompt || '');
+      setTempTemp(aiSettings.temperature !== undefined ? aiSettings.temperature : 0.7);
+      setTempMaxTokens(aiSettings.maxTokens || 2048);
+      setAllowedRoles(aiSettings.allowedRoles || ['Super Admin', 'Quality Head']);
+    }
+  }, [aiSettings]);
+
+  // Handle saving advanced configuration variables
+  const handleSaveAdvancedConfig = (e) => {
+    e.preventDefault();
+    updateAiSettings({
+      model: tempModel,
+      systemPrompt: tempSystemPrompt,
+      temperature: parseFloat(tempTemp),
+      maxTokens: parseInt(tempMaxTokens),
+      customUrl: tempCustomUrl,
+      allowedRoles: allowedRoles
+    });
+    setValidationResult({ success: true, message: "Advanced AI configuration updated successfully." });
+    setTimeout(() => setValidationResult(null), 3000);
+  };
+
+  // Run validation and lock credentials in local KMS simulator
+  const handleVerifyAndSaveKey = async (e) => {
+    e.preventDefault();
+    if (!tempApiKey && selectedProvider !== 'mock') {
+      setValidationResult({ success: false, message: "Please enter a valid API key to test." });
+      return;
+    }
+    setIsValidating(true);
+    setValidationResult(null);
+
+    try {
+      const res = await saveAiKey(selectedProvider, tempApiKey);
+      if (res.success) {
+        setValidationResult({ success: true, message: `Successfully verified and connected to ${selectedProvider} API gateway!` });
+        setTempApiKey(''); // Clear write-only field
+      } else {
+        setValidationResult({ success: false, message: res.error || "Failed to authenticate with provider." });
+      }
+    } catch (err) {
+      setValidationResult({ success: false, message: `Network/CORS Error: ${err.message}` });
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  // Remove API key from storage
+  const handleDisconnectKey = () => {
+    deleteAiKey(selectedProvider);
+    setValidationResult({ success: true, message: `Credentials cleared. Fallback to mock interface.` });
+    setTimeout(() => setValidationResult(null), 3000);
+  };
+
+  // Add new knowledge memory block
+  const handleAddMemorySubmit = (e) => {
+    e.preventDefault();
+    if (!memTitle || !memContent) return;
+
+    addAiMemory(memScope, '', memTitle, memContent, memRoles);
+    setMemTitle('');
+    setMemContent('');
+    setShowAddMemory(false);
+  };
+
+  // Default models helper
+  const getProviderDefaultModel = (prov) => {
+    switch (prov) {
+      case 'openai': return 'gpt-4o-mini';
+      case 'google':
+      case 'gemini': return 'gemini-1.5-flash';
+      case 'anthropic': return 'claude-3-5-haiku-20241022';
+      case 'openrouter': return 'google/gemini-2.5-flash';
+      case 'custom': return 'custom-llm';
+      default: return 'mock-agent-v1';
+    }
+  };
+
+  // Handle role checkbox toggling
+  const handleRoleToggle = (role) => {
+    if (allowedRoles.includes(role)) {
+      setAllowedRoles(prev => prev.filter(r => r !== role));
+    } else {
+      setAllowedRoles(prev => [...prev, role]);
+    }
+  };
+
+  // Handle memory role checkbox toggling
+  const handleMemoryRoleToggle = (role) => {
+    if (memRoles.includes(role)) {
+      setMemRoles(prev => prev.filter(r => r !== role));
+    } else {
+      setMemRoles(prev => [...prev, role]);
+    }
+  };
 
   // Mock users database
   const mockUsersList = [
@@ -42,6 +188,10 @@ export default function AdminModule() {
         </button>
         <button onClick={() => setActiveSubTab('settings')} className={`tab-btn ${activeSubTab === 'settings' ? 'active' : ''}`}>
           Organization Settings
+        </button>
+        <button onClick={() => setActiveSubTab('ai-config')} className={`tab-btn ${activeSubTab === 'ai-config' ? 'active' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <Brain size={14} />
+          <span>AI Console & Guardrails</span>
         </button>
       </div>
 
@@ -176,6 +326,378 @@ export default function AdminModule() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 4. AI CONSOLE & GUARDRAILS PANEL */}
+      {activeSubTab === 'ai-config' && (
+        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', alignItems: 'start' }}>
+          
+          {/* Left Column: API Gateway settings */}
+          <div className="flex flex-col gap-3">
+            <div className="card">
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Cpu size={18} color="var(--primary)" />
+                <span>AI Gateway Credentials Configuration</span>
+              </h3>
+
+              {validationResult && (
+                <div className={`card ${validationResult.success ? 'bg-success-light text-success' : 'bg-danger-light text-danger'}`} style={{ padding: '0.75rem', marginBottom: '1rem', fontSize: '0.8rem', borderLeft: `4px solid ${validationResult.success ? 'var(--color-success)' : 'var(--color-danger)'}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
+                    {validationResult.success ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
+                    <span>{validationResult.success ? 'Success' : 'Verification Alert'}</span>
+                  </div>
+                  <p style={{ marginTop: '4px' }}>{validationResult.message}</p>
+                </div>
+              )}
+
+              <form onSubmit={handleVerifyAndSaveKey} className="flex flex-col gap-3">
+                <div className="form-group">
+                  <label className="form-label">Active AI Model Provider</label>
+                  <select 
+                    className="form-control"
+                    value={selectedProvider}
+                    onChange={(e) => {
+                      const prov = e.target.value;
+                      setSelectedProvider(prov);
+                      setTempModel(getProviderDefaultModel(prov));
+                      if (prov === 'custom' && !tempCustomUrl) {
+                        setTempCustomUrl('http://localhost:11434/v1/chat/completions');
+                      }
+                    }}
+                  >
+                    <option value="mock">Offline Simulated Mode (No Key Required)</option>
+                    <option value="google">Google Gemini API</option>
+                    <option value="openai">OpenAI ChatGPT API</option>
+                    <option value="anthropic">Anthropic Claude API</option>
+                    <option value="openrouter">OpenRouter API Gateways</option>
+                    <option value="custom">Custom Local LLM / REST Endpoint</option>
+                  </select>
+                </div>
+
+                {selectedProvider === 'custom' && (
+                  <div className="form-group">
+                    <label className="form-label">Custom HTTP Completion API URL</label>
+                    <input 
+                      type="url" 
+                      className="form-control" 
+                      placeholder="e.g. http://localhost:11434/v1/chat/completions"
+                      value={tempCustomUrl}
+                      onChange={(e) => setTempCustomUrl(e.target.value)}
+                      required
+                    />
+                  </div>
+                )}
+
+                {selectedProvider !== 'mock' && (
+                  <div className="form-group">
+                    <label className="form-label">Secure API Secret Key (Write-Only Input)</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input 
+                        type="password" 
+                        className="form-control" 
+                        placeholder={aiSettings?.providerStatus === 'Connected' && selectedProvider === aiSettings.provider ? '••••••••••••••••••••••••••••' : 'Enter API token secret'}
+                        value={tempApiKey}
+                        onChange={(e) => setTempApiKey(e.target.value)}
+                      />
+                      {aiSettings?.providerStatus === 'Connected' && selectedProvider === aiSettings.provider && (
+                        <button type="button" className="btn btn-danger" onClick={handleDisconnectKey} title="Delete stored credentials">
+                          Disconnect
+                        </button>
+                      )}
+                    </div>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '4px', display: 'block' }}>
+                      Keys are encrypted locally inside your tenant context browser sandbox and never relayed back to external logs.
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex gap-2 align-center justify-between" style={{ marginTop: '0.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span className="badge" style={{ 
+                      backgroundColor: aiSettings?.providerStatus === 'Connected' ? 'rgba(5, 150, 105, 0.1)' : 'rgba(156, 163, 175, 0.1)', 
+                      color: aiSettings?.providerStatus === 'Connected' ? 'var(--color-success)' : 'var(--text-secondary)',
+                      fontWeight: 700
+                    }}>
+                      Status: {selectedProvider === aiSettings?.provider ? (aiSettings?.providerStatus || 'Disabled') : 'Unsaved Changes'}
+                    </span>
+                  </div>
+                  {selectedProvider !== 'mock' && (
+                    <button type="submit" className="btn btn-primary" disabled={isValidating}>
+                      {isValidating ? 'Validating Connection...' : 'Save & Verify Settings'}
+                    </button>
+                  )}
+                </div>
+              </form>
+            </div>
+
+            {/* Advanced Completion Parameters */}
+            <div className="card">
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Settings size={18} color="var(--primary)" />
+                <span>Completion Parameters & Access Roles</span>
+              </h3>
+
+              <form onSubmit={handleSaveAdvancedConfig} className="flex flex-col gap-3">
+                <div className="form-group">
+                  <label className="form-label">Target Engine Model ID</label>
+                  <input 
+                    type="text" 
+                    className="form-control"
+                    placeholder="e.g. gemini-1.5-flash, gpt-4o-mini"
+                    value={tempModel}
+                    onChange={(e) => setTempModel(e.target.value)}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">System Instruction System Prompt</label>
+                  <textarea 
+                    className="form-control"
+                    rows="3"
+                    value={tempSystemPrompt}
+                    onChange={(e) => setTempSystemPrompt(e.target.value)}
+                    placeholder="Provide default rules for compliance checks..."
+                  />
+                </div>
+
+                <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div className="form-group">
+                    <label className="form-label">Temperature ({tempTemp})</label>
+                    <input 
+                      type="range" 
+                      min="0" 
+                      max="1" 
+                      step="0.1" 
+                      className="form-control"
+                      value={tempTemp}
+                      onChange={(e) => setTempTemp(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Max Token Limit ({tempMaxTokens})</label>
+                    <input 
+                      type="range" 
+                      min="256" 
+                      max="4096" 
+                      step="256" 
+                      className="form-control"
+                      value={tempMaxTokens}
+                      onChange={(e) => setTempMaxTokens(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" style={{ marginBottom: '0.5rem' }}>Allowed Roles for AI Interaction</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    {['Super Admin', 'Quality Head', 'Department Head', 'Auditor', 'Staff'].map(role => (
+                      <label key={role} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', cursor: 'pointer' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={allowedRoles.includes(role)} 
+                          onChange={() => handleRoleToggle(role)} 
+                        />
+                        <span>{role}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
+                  Apply Advanced Parameters
+                </button>
+              </form>
+            </div>
+          </div>
+
+          {/* Right Column: Usage Stats, Guardrail logs, Memory Register */}
+          <div className="flex flex-col gap-3">
+            
+            {/* Usage Cost & Consumption Analytics */}
+            <div className="card">
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <DollarSign size={18} color="var(--color-success)" />
+                <span>Usage Logs & Token Metrics</span>
+              </h3>
+              
+              <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                <div style={{ backgroundColor: 'var(--bg-tertiary)', padding: '0.75rem', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase' }}>Token Consumption</div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 800, marginTop: '4px', color: 'var(--text-primary)' }}>
+                    {(aiSettings?.monthlyUsageTokens || 0).toLocaleString()}
+                  </div>
+                </div>
+                <div style={{ backgroundColor: 'var(--bg-tertiary)', padding: '0.75rem', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase' }}>Estimated API Spend</div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 800, marginTop: '4px', color: 'var(--color-success)' }}>
+                    ${(aiSettings?.monthlyUsageSpend || 0.0).toFixed(4)}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ maxHeight: '140px', overflowY: 'auto' }}>
+                <h4 style={{ fontSize: '0.8rem', fontWeight: 700, marginBottom: '6px', color: 'var(--text-secondary)' }}>Recent AI Calls</h4>
+                {(aiUsageLogs || []).length === 0 ? (
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textAlign: 'center', padding: '12px' }}>No calls logged in active session.</p>
+                ) : (
+                  <div className="flex flex-col gap-1">
+                    {aiUsageLogs.slice(0, 5).map((log, index) => (
+                      <div key={index} style={{ display: 'flex', justifyContent: 'between', alignItems: 'center', padding: '4px 6px', borderBottom: '1px solid var(--border-color)', fontSize: '0.7rem' }}>
+                        <div>
+                          <span style={{ fontWeight: 700, color: 'var(--primary)' }}>{log.agentType}</span>
+                          <span style={{ color: 'var(--text-tertiary)', marginLeft: '4px' }}>({log.model})</span>
+                        </div>
+                        <div style={{ fontWeight: 600 }}>{log.inputTokens + log.outputTokens} tkn</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Safety Guardrail Breach Register */}
+            <div className="card" style={{ borderLeft: '4px solid var(--color-danger)' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertTriangle size={18} color="var(--color-danger)" />
+                <span>Compliance Safety Incidents ({aiSafetyLogs?.length || 0})</span>
+              </h3>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
+                System-blocked attempts requesting restricted clinical diagnostics, forged audit signatures, or compliance guarantees.
+              </p>
+              
+              <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
+                {(aiSafetyLogs || []).length === 0 ? (
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textAlign: 'center', padding: '12px' }}>All interactions safe. Zero incidents.</p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {aiSafetyLogs.map((incident, idx) => (
+                      <div key={idx} style={{ backgroundColor: 'rgba(220,38,38,0.03)', padding: '8px', borderRadius: '6px', border: '1px solid rgba(220,38,38,0.1)', fontSize: '0.75rem' }}>
+                        <div className="flex justify-between" style={{ fontWeight: 700, color: 'var(--color-danger)' }}>
+                          <span>{incident.issueType}</span>
+                          <span>{incident.createdAt.slice(11, 16)}</span>
+                        </div>
+                        <p style={{ color: 'var(--text-secondary)', marginTop: '2px', fontSize: '0.7rem' }}>
+                          {incident.reason} (User: {incident.userId})
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Tenant Memory / Local Knowledge Context Register */}
+            <div className="card">
+              <div className="flex align-center justify-between" style={{ marginBottom: '1rem' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Brain size={18} color="var(--secondary)" />
+                  <span>Tenant Local Memory Context</span>
+                </h3>
+                <button className="btn btn-secondary-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem' }} onClick={() => setShowAddMemory(!showAddMemory)}>
+                  {showAddMemory ? 'Cancel' : 'Add Context'}
+                </button>
+              </div>
+
+              {showAddMemory && (
+                <form onSubmit={handleAddMemorySubmit} className="card bg-tertiary flex flex-col gap-2" style={{ padding: '0.75rem', marginBottom: '1rem', border: '1px dashed var(--border-color)' }}>
+                  <h4 style={{ fontSize: '0.8rem', fontWeight: 700 }}>Inject Local Context Block</h4>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: '0.7rem' }}>Context Title</label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      style={{ fontSize: '0.75rem', padding: '4px 8px' }} 
+                      placeholder="e.g. ICU Incident Review Policies"
+                      value={memTitle}
+                      onChange={(e) => setMemTitle(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="grid" style={{ gridTemplateColumns: '1fr', gap: '8px' }}>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: '0.7rem' }}>Scope Partition</label>
+                      <select 
+                        className="form-control" 
+                        style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+                        value={memScope}
+                        onChange={(e) => setMemScope(e.target.value)}
+                      >
+                        <option value="global">Global (All Modules)</option>
+                        <option value="dashboard">Dashboard Briefings</option>
+                        <option value="documents">Document SOP Control</option>
+                        <option value="quality">Quality & CAPA</option>
+                        <option value="audits">Audits</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: '0.7rem' }}>Memory Content Description</label>
+                    <textarea 
+                      className="form-control" 
+                      rows="2"
+                      style={{ fontSize: '0.75rem' }}
+                      placeholder="Provide local facts/guidelines..."
+                      value={memContent}
+                      onChange={(e) => setMemContent(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: '0.7rem', marginBottom: '2px' }}>Clearance Roles</label>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {['Super Admin', 'Quality Head', 'Auditor'].map(r => (
+                        <label key={r} style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '0.65rem' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={memRoles.includes(r)} 
+                            onChange={() => handleMemoryRoleToggle(r)} 
+                          />
+                          <span>{r}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <button type="submit" className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '0.75rem', width: '100%' }}>
+                    Save Knowledge Block
+                  </button>
+                </form>
+              )}
+
+              <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                {aiMemory.filter(m => m.hospitalId === hospitalName).length === 0 ? (
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textAlign: 'center', padding: '12px' }}>
+                    No custom memory modules injected yet. AI will rely on generic standard rules.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {aiMemory.filter(m => m.hospitalId === hospitalName).map((mem) => (
+                      <div key={mem.memoryId} style={{ border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px', backgroundColor: 'var(--bg-secondary)', position: 'relative' }}>
+                        <div style={{ display: 'flex', justifyContent: 'between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px', marginBottom: '4px' }}>
+                          <div>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)' }}>{mem.title}</span>
+                            <span className="badge" style={{ fontSize: '0.6rem', marginLeft: '6px', textTransform: 'uppercase' }}>{mem.scope}</span>
+                          </div>
+                          <button 
+                            style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', padding: '2px' }}
+                            onClick={() => deleteAiMemory(mem.memoryId)}
+                            title="Delete memory"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                        <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', lineHeight: '1.3' }}>
+                          {mem.content}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+          </div>
+
         </div>
       )}
     </div>

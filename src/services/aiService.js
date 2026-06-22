@@ -1,12 +1,11 @@
 /**
  * aiService.js
- * Service layer for executing AI completions with client-owned API tokens.
- * Supports Google Gemini, OpenAI, and Anthropic Claude.
- * Automatically falls back to high-fidelity simulated response generators if keys are not provided.
+ * Service layer for executing AI completions with client-configured API tokens.
+ * Supports Google Gemini, OpenAI, Anthropic Claude, OpenRouter, Custom Adapter, and high-fidelity mock fallbacks.
  */
 
 // Simulated fallbacks for high-fidelity responses
-const getMockResponse = (type, prompt, contextData = {}) => {
+export const getMockResponse = (type, prompt, contextData = {}) => {
   const query = (prompt || '').toLowerCase();
   const hospital = contextData.hospitalName || 'the hospital';
 
@@ -89,8 +88,281 @@ The uploaded file was cross-checked against the NABH 6th Edition guidelines.
 To automate this requirement, you can create a daily cron job that scans the incident registers and logs corrective action reminders automatically. Let me know if you would like me to draft the automation scripts or outline a specific chapter requirement!`;
 };
 
+// 1. OpenAI Adapter
+export async function openaiAdapter({ model, apiKey, systemPrompt, prompt, chatHistory, contextData, options = {} }) {
+  const modelName = model || 'gpt-4o-mini';
+  const messages = [{ role: 'system', content: systemPrompt }];
+
+  (chatHistory || []).forEach(msg => {
+    messages.push({
+      role: msg.sender === 'user' ? 'user' : 'assistant',
+      content: msg.text
+    });
+  });
+
+  let content = prompt;
+  if (contextData && Object.keys(contextData).length > 0) {
+    content = `[Context Data: ${JSON.stringify(contextData)}]\n\n${prompt}`;
+  }
+  messages.push({ role: 'user', content });
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: modelName,
+      messages,
+      temperature: options.temperature !== undefined ? options.temperature : 0.7,
+      max_tokens: options.maxTokens || 2048
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenAI API returned status ${response.status}: ${errorText}`);
+  }
+
+  const data = await response.json();
+  const text = data.choices[0].message.content;
+  const promptTokens = data.usage?.prompt_tokens || 0;
+  const completionTokens = data.usage?.completion_tokens || 0;
+
+  return { text, usage: { promptTokens, completionTokens }, model: modelName };
+}
+
+// 2. Google Gemini Adapter
+export async function geminiAdapter({ model, apiKey, systemPrompt, prompt, chatHistory, contextData, options = {} }) {
+  const modelName = model || 'gemini-1.5-flash';
+  const contents = [];
+
+  let lastRole = null;
+  (chatHistory || []).forEach(msg => {
+    const role = msg.sender === 'user' ? 'user' : 'model';
+    if (role !== lastRole) {
+      contents.push({
+        role: role,
+        parts: [{ text: msg.text }]
+      });
+      lastRole = role;
+    }
+  });
+
+  let textPrompt = prompt;
+  if (contextData && Object.keys(contextData).length > 0) {
+    textPrompt = `[Context Data: ${JSON.stringify(contextData)}]\n\n${prompt}`;
+  }
+
+  if (lastRole === 'user') {
+    if (contents.length > 0) {
+      contents[contents.length - 1].parts[0].text += `\n\n${textPrompt}`;
+    } else {
+      contents.push({ role: 'user', parts: [{ text: textPrompt }] });
+    }
+  } else {
+    contents.push({ role: 'user', parts: [{ text: textPrompt }] });
+  }
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [{ text: systemPrompt }]
+        },
+        contents: contents,
+        generationConfig: {
+          temperature: options.temperature !== undefined ? options.temperature : 0.7,
+          maxOutputTokens: options.maxTokens || 2048
+        }
+      })
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gemini API returned status ${response.status}: ${errorText}`);
+  }
+
+  const data = await response.json();
+  const text = data.candidates[0].content.parts[0].text;
+  const promptTokens = data.usageMetadata?.promptTokenCount || 0;
+  const completionTokens = data.usageMetadata?.candidatesTokenCount || 0;
+
+  return { text, usage: { promptTokens, completionTokens }, model: modelName };
+}
+
+// 3. Anthropic Adapter
+export async function anthropicAdapter({ model, apiKey, systemPrompt, prompt, chatHistory, contextData, options = {} }) {
+  const modelName = model || 'claude-3-5-sonnet-20241022';
+  const messages = [];
+
+  (chatHistory || []).forEach(msg => {
+    messages.push({
+      role: msg.sender === 'user' ? 'user' : 'assistant',
+      content: msg.text
+    });
+  });
+
+  let textPrompt = prompt;
+  if (contextData && Object.keys(contextData).length > 0) {
+    textPrompt = `[Context Data: ${JSON.stringify(contextData)}]\n\n${prompt}`;
+  }
+  messages.push({ role: 'user', content: textPrompt });
+
+  // Clean consecutive roles and start with user
+  const cleanMessages = [];
+  messages.forEach((msg, idx) => {
+    if (idx === 0 && msg.role === 'assistant') {
+      cleanMessages.push({ role: 'user', content: 'Hello' });
+    }
+    if (cleanMessages.length > 0 && cleanMessages[cleanMessages.length - 1].role === msg.role) {
+      cleanMessages[cleanMessages.length - 1].content += `\n\n${msg.content}`;
+    } else {
+      cleanMessages.push(msg);
+    }
+  });
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'dangerously-allow-browser': 'true'
+    },
+    body: JSON.stringify({
+      model: modelName,
+      max_tokens: options.maxTokens || 2048,
+      system: systemPrompt,
+      messages: cleanMessages,
+      temperature: options.temperature !== undefined ? options.temperature : 0.7
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Anthropic API returned status ${response.status}: ${errorText}`);
+  }
+
+  const data = await response.json();
+  const text = data.content[0].text;
+  const promptTokens = data.usage?.input_tokens || 0;
+  const completionTokens = data.usage?.output_tokens || 0;
+
+  return { text, usage: { promptTokens, completionTokens }, model: modelName };
+}
+
+// 4. OpenRouter Adapter
+export async function openRouterAdapter({ model, apiKey, systemPrompt, prompt, chatHistory, contextData, options = {} }) {
+  const modelName = model || 'google/gemini-2.5-flash';
+  const messages = [{ role: 'system', content: systemPrompt }];
+
+  (chatHistory || []).forEach(msg => {
+    messages.push({
+      role: msg.sender === 'user' ? 'user' : 'assistant',
+      content: msg.text
+    });
+  });
+
+  let content = prompt;
+  if (contextData && Object.keys(contextData).length > 0) {
+    content = `[Context Data: ${JSON.stringify(contextData)}]\n\n${prompt}`;
+  }
+  messages.push({ role: 'user', content });
+
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+      'HTTP-Referer': 'https://vaidyaq.com',
+      'X-Title': 'VaidyaQ'
+    },
+    body: JSON.stringify({
+      model: modelName,
+      messages,
+      temperature: options.temperature !== undefined ? options.temperature : 0.7,
+      max_tokens: options.maxTokens || 2048
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenRouter API returned status ${response.status}: ${errorText}`);
+  }
+
+  const data = await response.json();
+  const text = data.choices[0].message.content;
+  const promptTokens = data.usage?.prompt_tokens || 0;
+  const completionTokens = data.usage?.completion_tokens || 0;
+
+  return { text, usage: { promptTokens, completionTokens }, model: modelName };
+}
+
+// 5. Custom URL Endpoint Adapter
+export async function customAdapter({ model, apiKey, systemPrompt, prompt, chatHistory, contextData, options = {}, customUrl }) {
+  const modelName = model || 'custom-model';
+  const url = customUrl || 'http://localhost:11434/v1/chat/completions';
+  
+  const messages = [{ role: 'system', content: systemPrompt }];
+
+  (chatHistory || []).forEach(msg => {
+    messages.push({
+      role: msg.sender === 'user' ? 'user' : 'assistant',
+      content: msg.text
+    });
+  });
+
+  let content = prompt;
+  if (contextData && Object.keys(contextData).length > 0) {
+    content = `[Context Data: ${JSON.stringify(contextData)}]\n\n${prompt}`;
+  }
+  messages.push({ role: 'user', content });
+
+  const headers = { 'Content-Type': 'application/json' };
+  if (apiKey) {
+    headers['Authorization'] = `Bearer ${apiKey}`;
+  }
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      model: modelName,
+      messages,
+      temperature: options.temperature !== undefined ? options.temperature : 0.7,
+      max_tokens: options.maxTokens || 2048
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Custom LLM endpoint returned status ${response.status}: ${errorText}`);
+  }
+
+  const data = await response.json();
+  const text = data.choices?.[0]?.message?.content || data.response || JSON.stringify(data);
+  const promptTokens = data.usage?.prompt_tokens || Math.round(content.length / 4);
+  const completionTokens = data.usage?.completion_tokens || Math.round(text.length / 4);
+
+  return { text, usage: { promptTokens, completionTokens }, model: modelName };
+}
+
+// 6. Mock Adapter
+export async function mockAdapter({ type, prompt, contextData }) {
+  const text = getMockResponse(type, prompt, contextData);
+  const promptTokens = Math.round((prompt || '').length / 4) + 50;
+  const completionTokens = Math.round(text.length / 4);
+  return { text, usage: { promptTokens, completionTokens }, model: 'mock-agent-v1' };
+}
+
 /**
- * Call external AI service provider
+ * Main AI Gateway function
  */
 export async function callAIService({
   provider = 'mock',
@@ -99,90 +371,56 @@ export async function callAIService({
   systemPrompt = 'You are a hospital quality inspector.',
   prompt = '',
   type = 'chat',
-  contextData = {}
+  chatHistory = [],
+  contextData = {},
+  options = {},
+  customUrl = '',
+  returnFullResponse = false
 }) {
-  if (!apiKey || provider === 'mock') {
-    // Return high-fidelity mockup if no API key is specified
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(getMockResponse(type, prompt, contextData));
-      }, 1000);
-    });
+  const normalizedProvider = (provider || 'mock').toLowerCase();
+
+  if (!apiKey && normalizedProvider !== 'mock') {
+    console.warn(`No API key provided for provider '${provider}'. Falling back to local mock adapter.`);
+    const mockRes = await mockAdapter({ type, prompt, contextData });
+    return returnFullResponse ? mockRes : mockRes.text;
   }
 
-  const fullPrompt = `${systemPrompt}\n\nContext Data:\n${JSON.stringify(contextData)}\n\nQuery:\n${prompt}`;
-
   try {
-    if (provider === 'google') {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model || 'gemini-2.5-flash'}:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: fullPrompt }] }]
-          })
-        }
-      );
-      if (!response.ok) {
-        throw new Error(`Google API returned status ${response.status}`);
-      }
-      const data = await response.json();
-      return data.candidates[0].content.parts[0].text;
+    let result;
+    switch (normalizedProvider) {
+      case 'openai':
+        result = await openaiAdapter({ model, apiKey, systemPrompt, prompt, chatHistory, contextData, options });
+        break;
+      case 'google':
+      case 'gemini':
+        result = await geminiAdapter({ model, apiKey, systemPrompt, prompt, chatHistory, contextData, options });
+        break;
+      case 'anthropic':
+        result = await anthropicAdapter({ model, apiKey, systemPrompt, prompt, chatHistory, contextData, options });
+        break;
+      case 'openrouter':
+        result = await openRouterAdapter({ model, apiKey, systemPrompt, prompt, chatHistory, contextData, options });
+        break;
+      case 'custom':
+        result = await customAdapter({ model, apiKey, systemPrompt, prompt, chatHistory, contextData, options, customUrl });
+        break;
+      case 'mock':
+      default:
+        result = await mockAdapter({ type, prompt, contextData });
+        break;
     }
-
-    if (provider === 'openai') {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: model || 'gpt-4o-mini',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: `Context Details: ${JSON.stringify(contextData)}\n\n${prompt}` }
-          ],
-          temperature: 0.7
-        })
-      });
-      if (!response.ok) {
-        throw new Error(`OpenAI API returned status ${response.status}`);
-      }
-      const data = await response.json();
-      return data.choices[0].message.content;
-    }
-
-    if (provider === 'anthropic') {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: model || 'claude-3-5-haiku-20241022',
-          max_tokens: 3000,
-          system: systemPrompt,
-          messages: [
-            { role: 'user', content: `Context Details: ${JSON.stringify(contextData)}\n\n${prompt}` }
-          ]
-        })
-      });
-      if (!response.ok) {
-        throw new Error(`Anthropic API returned status ${response.status}`);
-      }
-      const data = await response.json();
-      return data.content[0].text;
-    }
-
-    // Default fallback
-    return getMockResponse(type, prompt, contextData);
-
+    return returnFullResponse ? result : result.text;
   } catch (error) {
-    console.error('Error calling AI service API:', error);
-    return `⚠️ Error executing live AI query (${error.message}). Displaying local simulated response:\n\n${getMockResponse(type, prompt, contextData)}`;
+    console.error(`AI API Gateway Exception (${provider}):`, error);
+    // Safe fallback to mock response with error prefixed
+    const fallbackText = `⚠️ Connection error with ${provider} (${error.message}). Displaying local simulation:\n\n`;
+    const mockRes = await mockAdapter({ type, prompt, contextData });
+    const fallbackResult = {
+      text: fallbackText + mockRes.text,
+      usage: mockRes.usage,
+      model: `${mockRes.model}-fallback`,
+      error: error.message
+    };
+    return returnFullResponse ? fallbackResult : fallbackResult.text;
   }
 }

@@ -1,0 +1,24 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper: checks if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper: checks if user belongs to the target hospital
+    // Assumes file paths are structured as "hospitals/{hospitalId}/{allPaths=**}"
+    function isMemberOf(hospitalId) {
+      return isAuthenticated() && 
+        request.auth.token.hospitalId == hospitalId;
+    }
+
+    match /hospitals/{hospitalId}/{allPaths=**} {
+      allow read: if isMemberOf(hospitalId);
+      allow write: if isMemberOf(hospitalId) && 
+                   request.resource.size < 10 * 1024 * 1024 && // Max 10MB
+                   request.resource.contentType in ['application/pdf', 'image/png', 'image/jpeg', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    }
+  }
+}

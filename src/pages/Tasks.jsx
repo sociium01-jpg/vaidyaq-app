@@ -1,8 +1,10 @@
 import React, { useContext, useState } from 'react';
 import { QualiNABHContext } from '../context/QualiNABHContext';
+import { runAIOrchestration } from '../services/aiOrchestrator';
 import {
   ListTodo, Plus, CheckCircle2, Circle, Calendar, AlertCircle, 
-  ArrowRight, Check, X, ShieldAlert, Tag, User, Clock, CheckCircle
+  ArrowRight, Check, X, ShieldAlert, Tag, User, Clock, CheckCircle,
+  Sparkles, RefreshCw
 } from 'lucide-react';
 import EmptyState from '../components/EmptyState';
 export default function Tasks() {
@@ -16,10 +18,23 @@ export default function Tasks() {
     setStandards,
     currentUser,
     documents,
-    logActivity
+    logActivity,
+    aiSettings,
+    getDecryptedKey,
+    createAiOutput,
+    logAiUsage,
+    logAiSafety,
+    aiMemory,
+    aiOutputs,
+    updateAiOutputStatus,
+    hospitalName
   } = useContext(QualiNABHContext);
 
   const [showTaskModal, setShowTaskModal] = useState(false);
+  const [showAiPlanner, setShowAiPlanner] = useState(false);
+  const [aiGoalText, setAiGoalText] = useState('');
+  const [aiPlannerLoading, setAiPlannerLoading] = useState(false);
+  const [suggestedTasks, setSuggestedTasks] = useState([]);
   const [newForm, setNewForm] = useState({ 
     title: '', 
     assignedMemberEmail: '', 
@@ -31,10 +46,154 @@ export default function Tasks() {
   const [filterDept, setFilterDept] = useState('All');
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [activeDragOverCol, setActiveDragOverCol] = useState(null);
+
+  const handleDragStart = (e, taskId) => {
+    e.dataTransfer.setData('text/plain', taskId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e, colName) => {
+    e.preventDefault();
+    if (activeDragOverCol !== colName) {
+      setActiveDragOverCol(colName);
+    }
+  };
+
+  const handleDrop = (e, targetStatus) => {
+    e.preventDefault();
+    const taskId = e.dataTransfer.getData('text/plain');
+    if (taskId) {
+      const task = tasks.find(t => t.id === taskId);
+      if (task) {
+        if (targetStatus === 'Completed') {
+          handleVerifyAndApprove(task);
+        } else {
+          updateHospitalTaskStatus(taskId, targetStatus);
+          logActivity(`Dragged task "${task.title}" to stage: ${targetStatus}`);
+        }
+      }
+    }
+    setActiveDragOverCol(null);
+  };
 
   // Check user privileges
   const canAssignTasks = currentUser && (currentUser.role === 'Super Admin' || currentUser.role === 'Quality Head' || currentUser.role === 'Department Head');
   
+  const handleGenerateAiTasks = async (e) => {
+    e.preventDefault();
+    if (!aiGoalText.trim()) return;
+    setAiPlannerLoading(true);
+    setSuggestedTasks([]);
+    try {
+      const prompt = `Act as an expert hospital quality auditor and task planner. Break down the following accreditation readiness goal or standard criteria into a list of 3-4 specific department tasks.
+Goal: ${aiGoalText}
+For each task, provide:
+- A descriptive title
+- Priority level (High, Medium, or Low)
+- Target role responsible (e.g. Quality Head, Super Admin, Department Head, Auditor, Staff)
+- Mapped Standard ID (if applicable)
+
+Please output your answer EXACTLY as a JSON array of objects conforming to this schema, with no other text or markdown wrapping:
+[{"title": "Task Action Name", "priority": "High"|"Medium"|"Low", "assignedRole": "Quality Head"|"Super Admin"|"Auditor"|"Department Head"|"Staff", "mappedStandard": "Standard ID"}]`;
+
+      const result = await runAIOrchestration({
+        module: 'tasks',
+        agentType: 'Task Breakdown',
+        prompt: prompt,
+        chatHistory: [],
+        contextData: {
+          goal: aiGoalText,
+          hospitalName
+        },
+        aiSettings,
+        currentUser,
+        hospitalName,
+        aiMemory,
+        getDecryptedKey,
+        createAiOutput,
+        logAiUsage,
+        logAiSafety
+      });
+
+      if (result.success) {
+        const text = result.text.trim();
+        const jsonMatch = text.match(/\[[\s\S]*\]/);
+        const jsonText = jsonMatch ? jsonMatch[0] : text;
+        try {
+          const parsed = JSON.parse(jsonText);
+          if (Array.isArray(parsed)) {
+            const suggestionWithDetails = parsed.map((item, index) => {
+              const matchedMember = teamMembers.find(m => m.role.toLowerCase().includes(item.assignedRole.toLowerCase())) || teamMembers[0];
+              return {
+                id: `s-task-${Date.now()}-${index}`,
+                title: item.title,
+                priority: item.priority || 'Medium',
+                assignedTo: matchedMember.name,
+                assignedToEmail: matchedMember.email,
+                department: matchedMember.department || 'Quality Control',
+                mappedStandard: item.mappedStandard || '',
+                selected: true
+              };
+            });
+            setSuggestedTasks(suggestionWithDetails);
+          } else {
+            throw new Error("Response was not a JSON array.");
+          }
+        } catch (jsonErr) {
+          console.error("JSON parsing error:", jsonErr, text);
+          const lines = text.split('\n').filter(l => l.trim().length > 0);
+          const customList = lines.slice(0, 4).map((line, idx) => {
+            const cleanTitle = line.replace(/^\d+[\.\s\-]+/, '');
+            const matchedMember = teamMembers[0];
+            return {
+              id: `s-task-${Date.now()}-${idx}`,
+              title: cleanTitle.substring(0, 100),
+              priority: 'Medium',
+              assignedTo: matchedMember.name,
+              assignedToEmail: matchedMember.email,
+              department: matchedMember.department || 'Quality Control',
+              mappedStandard: '',
+              selected: true
+            };
+          });
+          setSuggestedTasks(customList);
+        }
+        logActivity(`Generated AI task breakdown suggestions for goal: "${aiGoalText}"`);
+      } else {
+        alert(`Failed to plan tasks: ${result.error}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert(`Error planning tasks: ${err.message}`);
+    } finally {
+      setAiPlannerLoading(false);
+    }
+  };
+
+  const handleApplyAiTasks = () => {
+    const selected = suggestedTasks.filter(t => t.selected);
+    if (selected.length === 0) return;
+    
+    selected.forEach(task => {
+      addHospitalTask({
+        title: task.title,
+        assignedTo: task.assignedTo,
+        assignedToEmail: task.assignedToEmail,
+        department: task.department,
+        dueDate: new Date(Date.now() + 7*24*60*60*1000).toISOString().slice(0, 10),
+        priority: task.priority,
+        mappedStandard: task.mappedStandard
+      });
+    });
+
+    setSuggestedTasks([]);
+    setAiGoalText('');
+    setShowAiPlanner(false);
+    setSuccessMsg(`Successfully created ${selected.length} AI planned tasks!`);
+    setTimeout(() => setSuccessMsg(''), 3000);
+  };
+
   // Filter tasks based on logged-in user department and assignments
   const getFilteredTasks = () => {
     let list = [...tasks];
@@ -172,12 +331,123 @@ export default function Tasks() {
           </select>
 
           {canAssignTasks && (
-            <button onClick={() => setShowTaskModal(true)} className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-              <Plus size={16} /> Assign Action Task
-            </button>
+            <>
+              <button 
+                onClick={() => setShowAiPlanner(!showAiPlanner)} 
+                className="btn btn-secondary flex align-center gap-1" 
+                style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 'bold', border: '1px solid var(--border-color)', cursor: 'pointer' }}
+                title="AI Task Breakdown Agent"
+              >
+                <Sparkles size={14} color="var(--primary)" />
+                <span>AI Planner</span>
+              </button>
+              <button onClick={() => setShowTaskModal(true)} className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
+                <Plus size={16} /> Assign Action Task
+              </button>
+            </>
           )}
         </div>
       </div>
+
+      {/* AI Task Planner panel */}
+      {showAiPlanner && (
+        <div className="card" style={{ border: '1px dashed var(--primary)', background: 'var(--bg-tertiary)', display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '1rem', borderRadius: '12px' }}>
+          <h3 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Sparkles size={16} color="var(--primary)" />
+            <span>AI Task Breakdown Agent</span>
+          </h3>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>
+            Enter a high-level goal, department objective, or standard ID (e.g. MOM.2.c) and let the AI breakdown agent suggest specific assignments for your team.
+          </p>
+
+          <form onSubmit={handleGenerateAiTasks} style={{ display: 'flex', gap: '0.5rem' }}>
+            <input 
+              type="text" 
+              className="form-control" 
+              placeholder="e.g. Conduct fire exit inspection drills and calibration audits"
+              value={aiGoalText}
+              onChange={(e) => setAiGoalText(e.target.value)}
+              required
+              disabled={aiPlannerLoading}
+              style={{ flex: 1, padding: '0.5rem', fontSize: '0.8rem' }}
+            />
+            <button type="submit" className="btn btn-primary flex align-center gap-1" style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', cursor: 'pointer' }} disabled={aiPlannerLoading || !aiSettings?.enabled}>
+              {aiPlannerLoading ? <RefreshCw size={12} className="animate-spin" /> : null}
+              <span>{aiPlannerLoading ? 'Planning...' : 'Break Down'}</span>
+            </button>
+          </form>
+
+          {suggestedTasks.length > 0 && (
+            <div className="flex flex-col gap-3 animate-fade-in" style={{ backgroundColor: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)', marginTop: '0.5rem' }}>
+              <h4 style={{ fontSize: '0.8rem', fontWeight: 700, margin: 0 }}>AI Suggested Assignments (Verify details before approving)</h4>
+              <div className="flex flex-col gap-2">
+                {suggestedTasks.map((t, idx) => (
+                  <div key={t.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '8px 0', borderBottom: '1px solid var(--border-color)' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={t.selected}
+                      onChange={() => {
+                        setSuggestedTasks(prev => prev.map((item, i) => i === idx ? { ...item, selected: !item.selected } : item));
+                      }}
+                      style={{ marginTop: '4px' }}
+                    />
+                    <div style={{ flex: 1 }} className="flex flex-col gap-1">
+                      <input 
+                        type="text" 
+                        className="form-control" 
+                        style={{ fontSize: '0.8rem', padding: '4px 8px', width: '100%' }}
+                        value={t.title}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSuggestedTasks(prev => prev.map((item, i) => i === idx ? { ...item, title: val } : item));
+                        }}
+                      />
+                      <div className="flex gap-3 align-center" style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+                        <label className="flex align-center gap-1">
+                          <span>Priority: </span>
+                          <select 
+                            value={t.priority}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setSuggestedTasks(prev => prev.map((item, i) => i === idx ? { ...item, priority: val } : item));
+                            }}
+                            style={{ padding: '2px 4px', fontSize: '0.7rem', backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '4px' }}
+                          >
+                            <option value="High">High</option>
+                            <option value="Medium">Medium</option>
+                            <option value="Low">Low</option>
+                          </select>
+                        </label>
+                        <label className="flex align-center gap-1">
+                          <span>Assignee: </span>
+                          <select 
+                            value={t.assignedToEmail}
+                            onChange={(e) => {
+                              const email = e.target.value;
+                              const member = teamMembers.find(m => m.email === email);
+                              setSuggestedTasks(prev => prev.map((item, i) => i === idx ? { ...item, assignedTo: member.name, assignedToEmail: member.email, department: member.department } : item));
+                            }}
+                            style={{ padding: '2px 4px', fontSize: '0.7rem', backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '4px' }}
+                          >
+                            {teamMembers.map(m => (
+                              <option key={m.email} value={m.email}>{m.name} ({m.role})</option>
+                            ))}
+                          </select>
+                        </label>
+                        {t.mappedStandard && <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>NABH: {t.mappedStandard}</span>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-end gap-2" style={{ marginTop: '0.5rem' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setSuggestedTasks([])} style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', cursor: 'pointer' }}>Clear</button>
+                <button type="button" className="btn btn-primary" onClick={handleApplyAiTasks} style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', cursor: 'pointer' }}>Approve & Create Tasks</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Message alerts */}
       {errorMsg && (
@@ -210,7 +480,23 @@ export default function Tasks() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem', marginTop: '0.5rem' }}>
           {Object.entries(columns).map(([colName, taskList]) => (
-            <div key={colName} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', backgroundColor: 'var(--bg-secondary)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border-color)', minHeight: '400px' }}>
+            <div 
+              key={colName} 
+              onDragOver={(e) => handleDragOver(e, colName)}
+              onDragLeave={() => setActiveDragOverCol(null)}
+              onDrop={(e) => handleDrop(e, colName)}
+              style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: '0.75rem', 
+                backgroundColor: activeDragOverCol === colName ? 'rgba(13, 148, 136, 0.08)' : 'var(--bg-secondary)', 
+                padding: '1rem', 
+                borderRadius: '12px', 
+                border: activeDragOverCol === colName ? '2px dashed var(--primary)' : '1px solid var(--border-color)', 
+                minHeight: '400px',
+                transition: 'all 0.2s ease'
+              }}
+            >
               {/* Column Header */}
               <div className="flex align-center justify-between" style={{ borderBottom: '2px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.25rem' }}>
                 <span style={{ fontWeight: 800, fontSize: '0.9rem', color: colName === 'Completed' ? 'var(--color-success)' : colName === 'Verification' ? 'var(--primary)' : 'var(--text-primary)' }}>
@@ -229,7 +515,23 @@ export default function Tasks() {
                   </div>
                 ) : (
                   taskList.map((task) => (
-                    <div key={task.id} className="card animate-fade-in" style={{ padding: '1rem', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '0.6rem', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                    <div 
+                      key={task.id} 
+                      draggable={true}
+                      onDragStart={(e) => handleDragStart(e, task.id)}
+                      className="card animate-fade-in" 
+                      style={{ 
+                        padding: '1rem', 
+                        backgroundColor: 'var(--bg-tertiary)', 
+                        border: '1px solid var(--border-color)', 
+                        borderRadius: '10px', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        gap: '0.6rem', 
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                        cursor: 'grab'
+                      }}
+                    >
                       {/* Priority & Delete button */}
                       <div className="flex align-center justify-between">
                         <span className={`badge ${task.priority === 'High' ? 'badge-danger' : task.priority === 'Medium' ? 'badge-warning' : 'badge-success'}`} style={{ fontSize: '0.65rem' }}>

@@ -511,6 +511,82 @@ export const QualiNABHProvider = ({ children }) => {
     ]);
   });
 
+  const defaultAiSettings = {
+    enabled: false,
+    provider: 'mock',
+    defaultModel: 'gemini-2.5-flash',
+    monthlyTokenLimit: 1000000,
+    monthlySpendLimit: 10,
+    memoryEnabled: false,
+    memoryScope: 'hospital',
+    allowedRoles: ['Super Admin', 'Quality Head'],
+    dataSharingConsent: false,
+    monthlyUsageTokens: 0,
+    monthlyUsageSpend: 0,
+    providerStatus: 'Disabled'
+  };
+
+  const [aiSettings, setAiSettings] = useState(() => {
+    return loadNamespacedState('qn_ai_settings', defaultAiSettings);
+  });
+
+  const [aiMemory, setAiMemory] = useState(() => {
+    return loadNamespacedState('qn_ai_memory', []);
+  });
+
+  const [aiOutputs, setAiOutputs] = useState(() => {
+    return loadNamespacedState('qn_ai_outputs', []);
+  });
+
+  const [aiUsageLogs, setAiUsageLogs] = useState(() => {
+    return loadNamespacedState('qn_ai_usage_logs', []);
+  });
+
+  const [aiSafetyLogs, setAiSafetyLogs] = useState(() => {
+    return loadNamespacedState('qn_ai_safety_logs', []);
+  });
+
+  // Sync AI states with local storage (namespaced)
+  useEffect(() => {
+    if (currentUser) {
+      const activeEmail = currentUser.parentEmail || currentUser.email;
+      const prefix = activeEmail ? `${activeEmail}_` : '';
+      localStorage.setItem(`${prefix}qn_ai_settings`, JSON.stringify(aiSettings));
+    }
+  }, [aiSettings, currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      const activeEmail = currentUser.parentEmail || currentUser.email;
+      const prefix = activeEmail ? `${activeEmail}_` : '';
+      localStorage.setItem(`${prefix}qn_ai_memory`, JSON.stringify(aiMemory));
+    }
+  }, [aiMemory, currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      const activeEmail = currentUser.parentEmail || currentUser.email;
+      const prefix = activeEmail ? `${activeEmail}_` : '';
+      localStorage.setItem(`${prefix}qn_ai_outputs`, JSON.stringify(aiOutputs));
+    }
+  }, [aiOutputs, currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      const activeEmail = currentUser.parentEmail || currentUser.email;
+      const prefix = activeEmail ? `${activeEmail}_` : '';
+      localStorage.setItem(`${prefix}qn_ai_usage_logs`, JSON.stringify(aiUsageLogs));
+    }
+  }, [aiUsageLogs, currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      const activeEmail = currentUser.parentEmail || currentUser.email;
+      const prefix = activeEmail ? `${activeEmail}_` : '';
+      localStorage.setItem(`${prefix}qn_ai_safety_logs`, JSON.stringify(aiSafetyLogs));
+    }
+  }, [aiSafetyLogs, currentUser]);
+
   // Sync states with local storage (namespaced if user is logged in)
   useEffect(() => {
     localStorage.setItem('qn_user', JSON.stringify(currentUser));
@@ -871,6 +947,11 @@ export const QualiNABHProvider = ({ children }) => {
       setFeedNotifications(getSaved('qn_feed_notifications', [
         { id: "notif-1", title: "ABDM Update", message: "New ABDM v3.0 guidelines released. Check the News Feed.", type: "warning", read: false }
       ]));
+      setAiSettings(getSaved('qn_ai_settings', defaultAiSettings));
+      setAiMemory(getSaved('qn_ai_memory', []));
+      setAiOutputs(getSaved('qn_ai_outputs', []));
+      setAiUsageLogs(getSaved('qn_ai_usage_logs', []));
+      setAiSafetyLogs(getSaved('qn_ai_safety_logs', []));
     }
   }, [currentUser]);
 
@@ -1043,6 +1124,43 @@ export const QualiNABHProvider = ({ children }) => {
     setCapaItems([]);
     setIncidents([]);
     setTasks([]);
+    setQualityIndicators([]);
+    setRisks([]);
+    setLicenses(defaultLicenses.map(l => ({
+      ...l,
+      issueDate: '',
+      expiryDate: '',
+      responsible: l.responsible.includes('(') ? l.responsible.substring(l.responsible.indexOf('(') + 1, l.responsible.length - 1) : l.responsible,
+      status: 'Expired'
+    })));
+    setTrainings([]);
+    setCommittees(defaultCommittees.map(c => ({
+      ...c,
+      meetings: []
+    })));
+    setComplianceFlows(defaultComplianceFlows.map(flow => ({
+      ...flow,
+      stages: {
+        policy: "Not Started",
+        sop: "Not Started",
+        training: "Not Started",
+        implementation: "Not Started",
+        documentation: "Not Started",
+        audit: "Not Started",
+        findings: "Not Started",
+        capa: "Not Started",
+        review: "Not Started",
+        improvement: "Not Started",
+        updates: "Not Started"
+      },
+      linkedSops: [],
+      linkedForms: [],
+      linkedTraining: [],
+      linkedAudits: [],
+      linkedCapas: [],
+      linkedIncidents: []
+    })));
+    setAuditLogs([]);
     setHospitalMode('new'); // start in onboarding wizard
     
     setCurrentRoute('/app/dashboard');
@@ -1198,6 +1316,232 @@ export const QualiNABHProvider = ({ children }) => {
       localStorage.setItem('qn_global_sub_users', JSON.stringify(updatedList));
     }
     logActivity(`Updated profile name to ${name}`);
+  };
+
+  // ── AI SYSTEM HELPER ACTIONS ──
+
+  // Validate API Key
+  const validateAiKey = async (provider, apiKey) => {
+    if (!apiKey) return { success: false, error: "API Key is empty." };
+    if (provider === 'mock') return { success: true };
+    
+    // Simulate backend connection validation request
+    try {
+      let endpoint = '';
+      let headers = {};
+      if (provider === 'google') {
+        endpoint = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+      } else if (provider === 'openai') {
+        endpoint = 'https://api.openai.com/v1/models';
+        headers = { 'Authorization': `Bearer ${apiKey}` };
+      } else if (provider === 'anthropic') {
+        endpoint = 'https://api.anthropic.com/v1/models';
+        headers = { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' };
+      } else {
+        // OpenRouter or Custom
+        endpoint = 'https://openrouter.ai/api/v1/models';
+        headers = { 'Authorization': `Bearer ${apiKey}` };
+      }
+      
+      const res = await fetch(endpoint, { method: 'GET', headers });
+      if (res.status === 200 || res.ok) {
+        return { success: true };
+      } else {
+        const errText = await res.text();
+        return { success: false, error: `Validation failed with status ${res.status}: ${errText.substring(0, 100)}` };
+      }
+    } catch (e) {
+      return { success: false, error: `Network/CORS error validating token: ${e.message}` };
+    }
+  };
+
+  // Encrypt and Save Provider Key
+  const saveAiKey = async (provider, apiKey) => {
+    const testResult = await validateAiKey(provider, apiKey);
+    if (!testResult.success) {
+      setAiSettings(prev => ({ ...prev, providerStatus: 'Invalid Key' }));
+      return testResult;
+    }
+
+    // Encryption simulation: Simple XOR/Base64 to keep key secure from plain text reads in localstorage
+    const encryptSim = (text) => {
+      return btoa(text.split('').map((char, index) => String.fromCharCode(char.charCodeAt(0) ^ (5 + index % 10))).join(''));
+    };
+
+    const encryptedVal = encryptSim(apiKey);
+    const activeEmail = currentUser.parentEmail || currentUser.email;
+    const prefix = activeEmail ? `${activeEmail}_` : '';
+    
+    localStorage.setItem(`${prefix}qn_encrypted_key_${provider}`, encryptedVal);
+    
+    setAiSettings(prev => ({
+      ...prev,
+      provider: provider,
+      providerStatus: 'Connected',
+      enabled: true
+    }));
+
+    logActivity(`Configured secure API token for AI provider: ${provider}`);
+    return { success: true };
+  };
+
+  // Delete API Key
+  const deleteAiKey = (provider) => {
+    const activeEmail = currentUser.parentEmail || currentUser.email;
+    const prefix = activeEmail ? `${activeEmail}_` : '';
+    localStorage.removeItem(`${prefix}qn_encrypted_key_${provider}`);
+    
+    setAiSettings(prev => ({
+      ...prev,
+      provider: 'mock',
+      providerStatus: 'Disabled',
+      enabled: false
+    }));
+
+    logActivity(`Deleted API token configuration for AI provider: ${provider}`);
+  };
+
+  // Load decrypt key simulation
+  const getDecryptedKey = (provider) => {
+    const activeEmail = currentUser ? (currentUser.parentEmail || currentUser.email) : null;
+    if (!activeEmail) return '';
+    const prefix = activeEmail ? `${activeEmail}_` : '';
+    const encrypted = localStorage.getItem(`${prefix}qn_encrypted_key_${provider}`);
+    if (!encrypted) return '';
+    try {
+      const decryptSim = (text) => {
+        return atob(text).split('').map((char, index) => String.fromCharCode(char.charCodeAt(0) ^ (5 + index % 10))).join('');
+      };
+      return decryptSim(encrypted);
+    } catch(e) {
+      return '';
+    }
+  };
+
+  // Update Settings
+  const updateAiSettings = (newSettings) => {
+    setAiSettings(prev => ({ ...prev, ...newSettings }));
+    logActivity("Updated AI settings parameters.");
+  };
+
+  // Memory CRUD
+  const addAiMemory = (scope, scopeId, title, content, allowedRoles = [], allowedUserIds = []) => {
+    const newMemory = {
+      memoryId: `mem-${Date.now()}`,
+      hospitalId: hospitalName,
+      scope,
+      scopeId: scopeId || '',
+      title,
+      content,
+      allowedRoles: allowedRoles || [],
+      allowedUserIds: allowedUserIds || [],
+      createdBy: currentUser.email,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    setAiMemory(prev => [newMemory, ...prev]);
+    logActivity(`Added AI memory item: "${title}" under scope: ${scope}`);
+    return newMemory.memoryId;
+  };
+
+  const deleteAiMemory = (memoryId) => {
+    setAiMemory(prev => prev.filter(m => m.memoryId !== memoryId));
+    logActivity("Deleted AI memory item.");
+  };
+
+  const clearAiMemory = (scope, scopeId) => {
+    setAiMemory(prev => prev.filter(m => !(m.scope === scope && m.scopeId === scopeId)));
+    logActivity(`Cleared AI memories for scope: ${scope}`);
+  };
+
+  // AI Outputs (Drafts) & Review Workflow
+  const createAiOutput = (module, agentType, content, sourceRecordIds = [], structuredOutput = null) => {
+    const newOutput = {
+      outputId: `out-${Date.now()}`,
+      hospitalId: hospitalName,
+      userId: currentUser.email,
+      module,
+      agentType,
+      content,
+      structuredOutput,
+      sourceRecordIds: sourceRecordIds || [],
+      status: 'draft',
+      reviewedBy: '',
+      reviewedAt: '',
+      createdAt: new Date().toISOString()
+    };
+    setAiOutputs(prev => [newOutput, ...prev]);
+    logActivity(`Logged AI draft output for ${module} (${agentType} Agent)`);
+    return newOutput;
+  };
+
+  const updateAiOutputStatus = (outputId, status, reviewerName) => {
+    setAiOutputs(prev => prev.map(out => {
+      if (out.outputId === outputId) {
+        if (status === 'approved') {
+          logActivity(`Approved AI-generated output for ${out.module} (${out.agentType})`);
+        } else if (status === 'rejected') {
+          logActivity(`Rejected AI-generated output for ${out.module} (${out.agentType})`);
+        }
+        
+        return {
+          ...out,
+          status,
+          reviewedBy: reviewerName || currentUser.name,
+          reviewedAt: new Date().toISOString()
+        };
+      }
+      return out;
+    }));
+  };
+
+  const deleteAiOutput = (outputId) => {
+    setAiOutputs(prev => prev.filter(out => out.outputId !== outputId));
+  };
+
+  const logAiUsage = (provider, model, module, agentType, inputTokens, outputTokens) => {
+    const costPer1kInput = model.includes('gpt-4') ? 0.005 : 0.00015;
+    const costPer1kOutput = model.includes('gpt-4') ? 0.015 : 0.0006;
+    const estimatedCost = (inputTokens / 1000) * costPer1kInput + (outputTokens / 1000) * costPer1kOutput;
+
+    const newUsage = {
+      usageId: `usage-${Date.now()}`,
+      hospitalId: hospitalName,
+      userId: currentUser.email,
+      provider,
+      model,
+      module,
+      agentType,
+      inputTokens,
+      outputTokens,
+      estimatedCost,
+      success: true,
+      createdAt: new Date().toISOString()
+    };
+
+    setAiUsageLogs(prev => [newUsage, ...prev]);
+    
+    setAiSettings(prev => ({
+      ...prev,
+      monthlyUsageTokens: (prev.monthlyUsageTokens || 0) + inputTokens + outputTokens,
+      monthlyUsageSpend: (prev.monthlyUsageSpend || 0) + estimatedCost
+    }));
+  };
+
+  const logAiSafety = (module, agentType, issueType, reason, blocked = true) => {
+    const newSafetyLog = {
+      safetyLogId: `safety-${Date.now()}`,
+      hospitalId: hospitalName,
+      userId: currentUser.email,
+      module,
+      agentType,
+      issueType,
+      blocked,
+      reason,
+      createdAt: new Date().toISOString()
+    };
+    setAiSafetyLogs(prev => [newSafetyLog, ...prev]);
+    logActivity(`⚠️ AI SAFETY GUARDRAIL: Blocked sensitive request in ${module} (${issueType})`);
   };
 
   const addHospitalTask = (taskObj) => {
@@ -1978,7 +2322,7 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
     const taskId = `task-${Date.now()}`;
     const taskObj = {
       id: taskId,
-      title: `CAPA Action: ${newCapa.correctiveAction.substring(0, 40)}...`,
+      title: `CAPA Action: ${(newCapa.correctiveAction || '').substring(0, 40)}...`,
       assignedTo: newCapa.responsible,
       dueDate: newCapa.dueDate,
       status: "Pending",
@@ -2170,7 +2514,7 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
       id: `risk-${Date.now()}`
     };
     setRisks(prev => [riskWithId, ...prev]);
-    logActivity(`Added risk to register: ${risk.description.substring(0, 30)}...`);
+    logActivity(`Added risk to register: ${(risk.description || '').substring(0, 30)}...`);
     return riskWithId.id;
   };
 
@@ -2441,7 +2785,26 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
       addTrainingSession,
       addRiskRegisterItem,
       updateComplianceFlowStage,
-      generateAIQuiz
+      generateAIQuiz,
+      // Secure AI Orchestration exports
+      aiSettings, setAiSettings,
+      aiMemory, setAiMemory,
+      aiOutputs, setAiOutputs,
+      aiUsageLogs, setAiUsageLogs,
+      aiSafetyLogs, setAiSafetyLogs,
+      validateAiKey,
+      saveAiKey,
+      deleteAiKey,
+      getDecryptedKey,
+      updateAiSettings,
+      addAiMemory,
+      deleteAiMemory,
+      clearAiMemory,
+      createAiOutput,
+      updateAiOutputStatus,
+      deleteAiOutput,
+      logAiUsage,
+      logAiSafety
     }}>
       {children}
     </QualiNABHContext.Provider>

@@ -1,5 +1,7 @@
 import React, { useState, useContext } from 'react';
 import { QualiNABHContext } from '../context/QualiNABHContext';
+import { runAIOrchestration } from '../services/aiOrchestrator';
+import EmptyState from '../components/EmptyState';
 import {
   Activity,
   Calendar,
@@ -32,7 +34,16 @@ export default function QualityModule() {
     logActivity,
     activeDepts,
     risks,
-    addRiskRegisterItem
+    addRiskRegisterItem,
+    aiSettings,
+    getDecryptedKey,
+    createAiOutput,
+    logAiUsage,
+    logAiSafety,
+    aiMemory,
+    aiOutputs,
+    updateAiOutputStatus,
+    hospitalName
   } = useContext(QualiNABHContext);
 
   const defaultDept = activeDepts && activeDepts.length > 0 ? activeDepts[0] : 'Quality Control';
@@ -44,6 +55,8 @@ export default function QualityModule() {
   const [showCapaModal, setShowCapaModal] = useState(false);
   const [showIncidentModal, setShowIncidentModal] = useState(false);
   const [showCloseCapaModal, setShowCloseCapaModal] = useState(false);
+  const [showIndicatorsModal, setShowIndicatorsModal] = useState(false);
+  const [newIndicatorForm, setNewIndicatorForm] = useState({ month: '', falls: 0, medicationErrors: 0, infections: 0, needleSticks: 0 });
 
   // Forms states
   const [newAuditForm, setNewAuditForm] = useState({ title: '', department: defaultDept, date: '', checklistItem: '', checklist: [] });
@@ -68,33 +81,136 @@ export default function QualityModule() {
 
   // AI Assistant Draft Statuses
   const [aiDraftLoading, setAiDraftLoading] = useState(false);
+  const [isGeneratingChecklist, setIsGeneratingChecklist] = useState(false);
 
   // Trigger AI root cause draft suggest
-  const generateAICapaSuggestions = () => {
+  const generateAICapaSuggestions = async () => {
+    if (!newCapaForm.source) {
+      alert("Please enter a CAPA source/title first to request suggestions.");
+      return;
+    }
     setAiDraftLoading(true);
-    setTimeout(() => {
-      let suggestion = {
-        rootCause: "Lack of standard barcode scanning validation at pharmacy checkout and handwriting reading ambiguity.",
-        correctiveAction: "Verify prescription dosage with ordering physician, replace and label correct medication immediately.",
-        preventiveAction: "Enforce double-signature policy for high-alert drugs, mandate capital lettering for handwritten prescriptions, and schedule nurse drug safety training."
-      };
-      // If ICU or expired syringe
-      if (newCapaForm.source.toLowerCase().includes('syringe') || newCapaForm.source.toLowerCase().includes('icu')) {
-        suggestion = {
-          rootCause: "Handover check sheet did not mandate daily physical verification of the emergency cart seal status.",
-          correctiveAction: "Physically inspect and replace all items in ICU crash cart with validated sterile stocks.",
-          preventiveAction: "Implement daily physical verification of emergency cart locks at 8:00 AM shift handover, signed by incoming senior nurse."
-        };
+    try {
+      const prompt = `Generate a high-fidelity root cause analysis (RCA), corrective action, and preventive action (CAPA) recommendation for the following incident/audit finding:
+      Source/Title: ${newCapaForm.source}
+      Department: ${newCapaForm.department}
+      Responsible Owner: ${newCapaForm.responsible}
+      Priority Level: ${newCapaForm.priority}`;
+
+      const result = await runAIOrchestration({
+        module: 'quality',
+        agentType: 'CAPA',
+        prompt: prompt,
+        chatHistory: [],
+        contextData: {
+          title: newCapaForm.source,
+          department: newCapaForm.department,
+          responsible: newCapaForm.responsible,
+          hospitalName
+        },
+        aiSettings,
+        currentUser,
+        hospitalName,
+        aiMemory,
+        getDecryptedKey,
+        createAiOutput,
+        logAiUsage,
+        logAiSafety
+      });
+
+      if (result.success) {
+        const text = result.text;
+        
+        let rc = "";
+        let ca = "";
+        let pa = "";
+
+        const rcMatch = text.match(/(?:Root Cause|RCA):\s*([^\n]+)/i);
+        const caMatch = text.match(/(?:Corrective Action|CAPA):\s*([^\n]+)/i);
+        const paMatch = text.match(/(?:Preventive Action):\s*([^\n]+)/i);
+
+        if (rcMatch) rc = rcMatch[1].trim();
+        if (caMatch) ca = caMatch[1].trim();
+        if (paMatch) pa = paMatch[1].trim();
+
+        // Fallback parsing if formatting was conversational
+        if (!rc && !ca && !pa) {
+          const blocks = text.split('\n\n');
+          rc = blocks[0] || text;
+          ca = blocks[1] || "Corrective actions detailed in AI draft ledger.";
+          pa = blocks[2] || "Preventive actions detailed in AI draft ledger.";
+        }
+
+        setNewCapaForm(prev => ({
+          ...prev,
+          rootCause: rc.substring(0, 500),
+          correctiveAction: ca.substring(0, 500),
+          preventiveAction: pa.substring(0, 500)
+        }));
+
+        logActivity(`Generated AI suggestions for CAPA details: ${newCapaForm.source}`);
+      } else {
+        alert(`Failed to draft details: ${result.error}`);
       }
-      setNewCapaForm(prev => ({
-        ...prev,
-        rootCause: suggestion.rootCause,
-        correctiveAction: suggestion.correctiveAction,
-        preventiveAction: suggestion.preventiveAction
-      }));
+    } catch (err) {
+      console.error(err);
+      alert(`Connection Error: ${err.message}`);
+    } finally {
       setAiDraftLoading(false);
-      logActivity("Generated AI suggestions for CAPA details");
-    }, 800);
+    }
+  };
+
+  const handleGenerateChecklistWithAI = async () => {
+    if (!newAuditForm.title) {
+      alert("Please enter an audit title first.");
+      return;
+    }
+    setIsGeneratingChecklist(true);
+    try {
+      const prompt = `Generate a set of 3-4 specific audit checklist questions for an internal hospital quality audit.
+Audit Title: ${newAuditForm.title}
+Department: ${newAuditForm.department}
+Please output the checklist items as a clean list with each item on a new line, no numbering.`;
+
+      const result = await runAIOrchestration({
+        module: 'audits',
+        agentType: 'Audit Checklists',
+        prompt: prompt,
+        chatHistory: [],
+        contextData: {
+          title: newAuditForm.title,
+          department: newAuditForm.department,
+          hospitalName
+        },
+        aiSettings,
+        currentUser,
+        hospitalName,
+        aiMemory,
+        getDecryptedKey,
+        createAiOutput,
+        logAiUsage,
+        logAiSafety
+      });
+
+      if (result.success) {
+        const lines = result.text.split('\n')
+          .map(l => l.replace(/^\d+[\.\s\-]+/, '').trim())
+          .filter(l => l.length > 0);
+        
+        setNewAuditForm(prev => ({
+          ...prev,
+          checklist: [...prev.checklist, ...lines]
+        }));
+        logActivity(`Generated AI audit checklist for: ${newAuditForm.title}`);
+      } else {
+        alert(`Failed to generate checklist: ${result.error}`);
+      }
+    } catch (e) {
+      console.error(e);
+      alert(`Connection Error: ${e.message}`);
+    } finally {
+      setIsGeneratingChecklist(false);
+    }
   };
 
   // Add checklist item to audit form
@@ -140,6 +256,21 @@ export default function QualityModule() {
     addRiskRegisterItem(newRiskForm);
     setNewRiskForm({ category: 'Medication Safety', description: '', department: defaultDept, impact: 'High', likelihood: 'Medium', rating: 'Red', correctiveAction: '' });
     setShowRiskModal(false);
+  };
+
+  const handleCreateIndicator = (e) => {
+    e.preventDefault();
+    const newEntry = {
+      month: newIndicatorForm.month,
+      falls: parseInt(newIndicatorForm.falls) || 0,
+      medicationErrors: parseInt(newIndicatorForm.medicationErrors) || 0,
+      infections: parseInt(newIndicatorForm.infections) || 0,
+      needleSticks: parseInt(newIndicatorForm.needleSticks) || 0
+    };
+    setQualityIndicators(prev => [...(prev || []), newEntry]);
+    setNewIndicatorForm({ month: '', falls: 0, medicationErrors: 0, infections: 0, needleSticks: 0 });
+    setShowIndicatorsModal(false);
+    logActivity(`Added monthly quality indicators for ${newEntry.month}`);
   };
 
   const handleSaveInvestigation = (e) => {
@@ -234,6 +365,11 @@ export default function QualityModule() {
             <Plus size={16} /> Report Patient Incident
           </button>
         )}
+        {activeSubTab === 'indicators' && (
+          <button onClick={() => setShowIndicatorsModal(true)} className="btn btn-primary">
+            <Plus size={16} /> Add Monthly Metrics
+          </button>
+        )}
       </div>
 
       {/* 1. INTERNAL AUDITS VIEW */}
@@ -267,7 +403,7 @@ export default function QualityModule() {
                 {audits.map((aud, idx) => (
                   <React.Fragment key={idx}>
                     <tr>
-                      <td style={{ fontWeight: 700 }}>{aud.id.substring(0, 8)}</td>
+                      <td style={{ fontWeight: 700 }}>{(aud?.id || '').substring(0, 8)}</td>
                       <td>
                         <strong>{aud.title}</strong>
                       </td>
@@ -315,7 +451,7 @@ export default function QualityModule() {
                                     <td><span className={`badge ${find.severity === 'High' ? 'badge-danger' : 'badge-warning'}`}>{find.severity}</span></td>
                                     <td>
                                       {find.resolved ? (
-                                        <span className="badge badge-success">CAPA Linked ({find.capaId.substring(0,7)})</span>
+                                        <span className="badge badge-success">CAPA Linked ({(find?.capaId || '').substring(0,7)})</span>
                                       ) : (
                                         <span className="badge badge-danger">Unresolved</span>
                                       )}
@@ -406,7 +542,7 @@ export default function QualityModule() {
                                 backgroundColor: statusColor(a.status), color: '#fff', fontWeight: 600,
                                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer'
                               }} title={`${a.title} (${a.status})`}>
-                                {a.title.length > 18 ? a.title.substring(0, 18) + '…' : a.title}
+                                {(a?.title || '').length > 18 ? (a?.title || '').substring(0, 18) + '…' : (a?.title || '')}
                               </div>
                             ))}
                           </>
@@ -431,67 +567,78 @@ export default function QualityModule() {
       {/* 2. CAPA REGISTER VIEW */}
       {activeSubTab === 'capa' && (
         <div className="flex flex-col gap-3">
-          <div className="table-container">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>CAPA ID</th>
-                  <th>Source & Department</th>
-                  <th>Responsible Head</th>
-                  <th>Root Cause & Preventive Plan</th>
-                  <th>Priority & Due Date</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {capaItems.map((c, idx) => (
-                  <tr key={idx}>
-                    <td style={{ fontWeight: 700 }}>{c.id.substring(0, 8)}</td>
-                    <td>
-                      <div style={{ fontWeight: 600 }}>{c.source}</div>
-                      <span className="badge badge-neutral" style={{ fontSize: '0.65rem', marginTop: '0.25rem' }}>{c.department}</span>
-                    </td>
-                    <td>{c.responsible}</td>
-                    <td>
-                      <div style={{ fontSize: '0.85rem' }}>
-                        <strong>Root Cause:</strong> {c.rootCause || "Under analysis"}
-                      </div>
-                      <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                        <strong>Preventive Plan:</strong> {c.preventiveAction || "Drafting"}
-                      </div>
-                    </td>
-                    <td>
-                      <span className={`badge ${c.priority === 'High' ? 'badge-danger' : 'badge-warning'}`} style={{ fontSize: '0.7rem' }}>
-                        {c.priority}
-                      </span>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.25rem' }}>Due: {c.dueDate}</div>
-                    </td>
-                    <td>
-                      <span className={`badge ${c.status === 'Closed' ? 'badge-success' : 'badge-danger'}`}>
-                        {c.status}
-                      </span>
-                    </td>
-                    <td>
-                      {c.status === 'Open' ? (
-                        <button
-                          onClick={() => { setSelectedCapaToClose(c.id); setShowCloseCapaModal(true); }}
-                          className="btn btn-primary"
-                          style={{ padding: '0.4rem 0.625rem', fontSize: '0.75rem' }}
-                        >
-                          <Upload size={12} /> Attach Proof
-                        </button>
-                      ) : (
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>
-                          Approved by<br /><strong>{c.closureApprovedBy}</strong>
-                        </div>
-                      )}
-                    </td>
+          {(!capaItems || capaItems.length === 0) ? (
+            <EmptyState 
+              type="capas" 
+              action={
+                <button onClick={() => setShowCapaModal(true)} className="btn btn-primary">
+                  <Plus size={16} /> Log CAPA Action
+                </button>
+              }
+            />
+          ) : (
+            <div className="table-container">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>CAPA ID</th>
+                    <th>Source & Department</th>
+                    <th>Responsible Head</th>
+                    <th>Root Cause & Preventive Plan</th>
+                    <th>Priority & Due Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {capaItems.map((c, idx) => (
+                    <tr key={idx}>
+                      <td style={{ fontWeight: 700 }}>{(c?.id || '').substring(0, 8)}</td>
+                      <td>
+                        <div style={{ fontWeight: 600 }}>{c.source}</div>
+                        <span className="badge badge-neutral" style={{ fontSize: '0.65rem', marginTop: '0.25rem' }}>{c.department}</span>
+                      </td>
+                      <td>{c.responsible}</td>
+                      <td>
+                        <div style={{ fontSize: '0.85rem' }}>
+                          <strong>Root Cause:</strong> {c.rootCause || "Under analysis"}
+                        </div>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                          <strong>Preventive Plan:</strong> {c.preventiveAction || "Drafting"}
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`badge ${c.priority === 'High' ? 'badge-danger' : 'badge-warning'}`} style={{ fontSize: '0.7rem' }}>
+                          {c.priority}
+                        </span>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.25rem' }}>Due: {c.dueDate}</div>
+                      </td>
+                      <td>
+                        <span className={`badge ${c.status === 'Closed' ? 'badge-success' : 'badge-danger'}`}>
+                          {c.status}
+                        </span>
+                      </td>
+                      <td>
+                        {c.status === 'Open' ? (
+                          <button
+                            onClick={() => { setSelectedCapaToClose(c.id); setShowCloseCapaModal(true); }}
+                            className="btn btn-primary"
+                            style={{ padding: '0.4rem 0.625rem', fontSize: '0.75rem' }}
+                          >
+                            <Upload size={12} /> Attach Proof
+                          </button>
+                        ) : (
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>
+                            Approved by<br /><strong>{c.closureApprovedBy}</strong>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -506,77 +653,89 @@ export default function QualityModule() {
           <div className="grid-split-responsive-sidebar-right">
             {/* Left Column: Incidents Table */}
             <div className="flex flex-col gap-3">
-              <div className="table-container">
-                <div style={{ padding: '1rem', borderBottom: '1px solid var(--border-color)' }} className="flex justify-between align-center">
-                  <h3 style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>Incident Logs Register</h3>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Total reported: {incidents.length}</span>
-                </div>
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Incident ID</th>
-                      <th>Type</th>
-                      <th>Dept & Shift</th>
-                      <th>Date</th>
-                      <th>Severity</th>
-                      <th>RCA & CAPA</th>
-                      <th>Status</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {incidents.map((inc, idx) => (
-                      <tr key={idx}>
-                        <td style={{ fontWeight: 700 }}>{inc.id.substring(0, 8)}</td>
-                        <td>
-                          <strong>{inc.type}</strong>
-                        </td>
-                        <td>
-                          <div>{inc.department}</div>
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600 }}>{inc.shift || 'Morning'} Shift</span>
-                        </td>
-                        <td style={{ whiteSpace: 'nowrap' }}>{inc.dateTime}</td>
-                        <td>
-                          <span className={`badge ${inc.severity === 'High' ? 'badge-danger' : inc.severity === 'Medium' ? 'badge-warning' : 'badge-neutral'}`}>
-                            {inc.severity}
-                          </span>
-                        </td>
-                        <td>
-                          {inc.status === 'Closed' ? (
-                            <div style={{ fontSize: '0.75rem' }}>
-                              <div>🔍 RCA: {inc.rootCause ? inc.rootCause.substring(0, 30) : 'Done'}...</div>
-                              {inc.capaId && <div style={{ color: 'var(--primary-color)', fontSize: '0.7rem' }}>🔗 CAPA: {inc.capaId.substring(0, 10)}</div>}
-                            </div>
-                          ) : (
-                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', italic: true }}>Awaiting RCA</span>
-                          )}
-                        </td>
-                        <td>
-                          <span className={`badge ${inc.status === 'Closed' ? 'badge-success' : 'badge-warning'}`}>
-                            {inc.status}
-                          </span>
-                        </td>
-                        <td>
-                          {inc.status !== 'Closed' ? (
-                            <button
-                              onClick={() => {
-                                setSelectedIncidentToInvestigate(inc);
-                                setInvestigationForm({ investigator: inc.investigator || '', rootCause: '', capaId: '' });
-                              }}
-                              className="btn btn-secondary"
-                              style={{ padding: '2px 8px', fontSize: '0.7rem' }}
-                            >
-                              Investigate
-                            </button>
-                          ) : (
-                            <span style={{ fontSize: '0.7rem', color: 'var(--color-success)', fontWeight: 'bold' }}>Resolved</span>
-                          )}
-                        </td>
+              {(!incidents || incidents.length === 0) ? (
+                <EmptyState 
+                  type="incidents" 
+                  action={
+                    <button onClick={() => setShowIncidentModal(true)} className="btn btn-primary">
+                      <Plus size={16} /> Report Patient Incident
+                    </button>
+                  }
+                />
+              ) : (
+                <div className="table-container">
+                  <div style={{ padding: '1rem', borderBottom: '1px solid var(--border-color)' }} className="flex justify-between align-center">
+                    <h3 style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>Incident Logs Register</h3>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Total reported: {incidents.length}</span>
+                  </div>
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Incident ID</th>
+                        <th>Type</th>
+                        <th>Dept & Shift</th>
+                        <th>Date</th>
+                        <th>Severity</th>
+                        <th>RCA & CAPA</th>
+                        <th>Status</th>
+                        <th>Action</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {incidents.map((inc, idx) => (
+                        <tr key={idx}>
+                          <td style={{ fontWeight: 700 }}>{(inc?.id || '').substring(0, 8)}</td>
+                          <td>
+                            <strong>{inc.type}</strong>
+                          </td>
+                          <td>
+                            <div>{inc.department}</div>
+                            <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600 }}>{inc.shift || 'Morning'} Shift</span>
+                          </td>
+                          <td style={{ whiteSpace: 'nowrap' }}>{inc.dateTime}</td>
+                          <td>
+                            <span className={`badge ${inc.severity === 'High' ? 'badge-danger' : inc.severity === 'Medium' ? 'badge-warning' : 'badge-neutral'}`}>
+                              {inc.severity}
+                            </span>
+                          </td>
+                          <td>
+                            {inc.status === 'Closed' ? (
+                              <div style={{ fontSize: '0.75rem' }}>
+                                <div>🔍 RCA: {inc.rootCause ? (inc.rootCause || '').substring(0, 30) : 'Done'}...</div>
+                                {inc.capaId && <div style={{ color: 'var(--primary-color)', fontSize: '0.7rem' }}>🔗 CAPA: {(inc?.capaId || '').substring(0, 10)}</div>}
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', italic: true }}>Awaiting RCA</span>
+                            )}
+                          </td>
+                          <td>
+                            <span className={`badge ${inc.status === 'Closed' ? 'badge-success' : 'badge-warning'}`}>
+                              {inc.status}
+                            </span>
+                          </td>
+                          <td>
+                            {inc.status !== 'Closed' ? (
+                              <button
+                                onClick={() => {
+                                  setSelectedIncidentToInvestigate(inc);
+                                  setInvestigationForm({ investigator: inc.investigator || '', rootCause: '', capaId: '' });
+                                }}
+                                className="btn btn-secondary"
+                                style={{ padding: '2px 8px', fontSize: '0.7rem' }}
+                              >
+                                Investigate
+                              </button>
+                            ) : (
+                              <span style={{ fontSize: '0.7rem', color: 'var(--color-success)', fontWeight: 'bold' }}>Resolved</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
 
               {/* Quality & Accreditation Risk Register Card */}
               <div className="card" style={{ padding: '1.25rem' }}>
@@ -864,58 +1023,69 @@ export default function QualityModule() {
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* 4. QUALITY INDICATORS VIEW */}
       {activeSubTab === 'indicators' && (
         <div className="flex flex-col gap-3">
-          <div className="card">
-            <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>NABH Digital Health Core Indicators Tracker (Jan 2025)</h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-              The hospital enters monthly quality metrics. These feed into clinical risk prediction models and the final readiness board reports.
-            </p>
+          {(!qualityIndicators || qualityIndicators.length === 0) ? (
+            <EmptyState 
+              type="reports" 
+              customTitle="No Quality Indicators Yet"
+              customSubtitle="Record your hospital's monthly quality indicators (Falls, Medication Errors, etc.) to view trends."
+              action={
+                <button onClick={() => setShowIndicatorsModal(true)} className="btn btn-primary">
+                  <Plus size={16} /> Record First Month Metrics
+                </button>
+              }
+            />
+          ) : (
+            <div className="card">
+              <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>NABH Digital Health Core Indicators Tracker (Jan 2025)</h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+                The hospital enters monthly quality metrics. These feed into clinical risk prediction models and the final readiness board reports.
+              </p>
 
-            <div className="table-container">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Month</th>
-                    <th>Patient Falls (Target: 0)</th>
-                    <th>Medication Errors (Target: &lt; 2)</th>
-                    <th>Hospital-Acquired Infections (Target: 0)</th>
-                    <th>Needle-Stick Injuries (Target: 0)</th>
-                    <th>Monthly Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {qualityIndicators.map((ind, idx) => (
-                    <tr key={idx}>
-                      <td style={{ fontWeight: 700 }}>{ind.month}</td>
-                      <td>
-                        <span style={{ fontWeight: 600, color: ind.falls > 0 ? 'var(--color-danger)' : 'var(--color-success)' }}>{ind.falls}</span>
-                      </td>
-                      <td>
-                        <span style={{ fontWeight: 600, color: ind.medicationErrors > 2 ? 'var(--color-warning)' : 'var(--color-success)' }}>{ind.medicationErrors}</span>
-                      </td>
-                      <td>
-                        <span style={{ fontWeight: 600, color: ind.infections > 0 ? 'var(--color-danger)' : 'var(--color-success)' }}>{ind.infections}</span>
-                      </td>
-                      <td>
-                        <span style={{ fontWeight: 600, color: ind.needleSticks > 0 ? 'var(--color-warning)' : 'var(--color-success)' }}>{ind.needleSticks}</span>
-                      </td>
-                      <td>
-                        {ind.falls === 0 && ind.medicationErrors <= 2 ? (
-                          <span className="badge badge-success">Target Achieved</span>
-                        ) : (
-                          <span className="badge badge-warning">Review Needed</span>
-                        )}
-                      </td>
+              <div className="table-container">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Month</th>
+                      <th>Patient Falls (Target: 0)</th>
+                      <th>Medication Errors (Target: &lt; 2)</th>
+                      <th>Hospital-Acquired Infections (Target: 0)</th>
+                      <th>Needle-Stick Injuries (Target: 0)</th>
+                      <th>Monthly Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {qualityIndicators.map((ind, idx) => (
+                      <tr key={idx}>
+                        <td style={{ fontWeight: 700 }}>{ind.month}</td>
+                        <td>
+                          <span style={{ fontWeight: 600, color: ind.falls > 0 ? 'var(--color-danger)' : 'var(--color-success)' }}>{ind.falls}</span>
+                        </td>
+                        <td>
+                          <span style={{ fontWeight: 600, color: ind.medicationErrors > 2 ? 'var(--color-warning)' : 'var(--color-success)' }}>{ind.medicationErrors}</span>
+                        </td>
+                        <td>
+                          <span style={{ fontWeight: 600, color: ind.infections > 0 ? 'var(--color-danger)' : 'var(--color-success)' }}>{ind.infections}</span>
+                        </td>
+                        <td>
+                          <span style={{ fontWeight: 600, color: ind.needleSticks > 0 ? 'var(--color-warning)' : 'var(--color-success)' }}>{ind.needleSticks}</span>
+                        </td>
+                        <td>
+                          {ind.falls === 0 && ind.medicationErrors <= 2 ? (
+                            <span className="badge badge-success">Target Achieved</span>
+                          ) : (
+                            <span className="badge badge-warning">Review Needed</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
             {/* Custom SVG/CSS Bar Chart showing Medication Error trends */}
             <h4 style={{ fontWeight: 700, marginTop: '2rem', marginBottom: '1rem', fontSize: '0.95rem' }}>Medication Errors Monthly Trend Comparison</h4>
@@ -940,8 +1110,9 @@ export default function QualityModule() {
               })}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
+    )}
 
       {/* ================= MODALS SECTION ================= */}
 
@@ -1006,6 +1177,16 @@ export default function QualityModule() {
                     />
                     <button type="button" onClick={addChecklistItem} className="btn btn-secondary" style={{ padding: '0.5rem 1rem' }}>
                       Add Check
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={handleGenerateChecklistWithAI} 
+                      className="btn btn-secondary-outline flex align-center gap-1" 
+                      style={{ padding: '0.5rem 1rem', cursor: 'pointer' }}
+                      disabled={isGeneratingChecklist || !aiSettings?.enabled}
+                    >
+                      <Sparkles size={12} color="var(--primary)" />
+                      <span>{isGeneratingChecklist ? 'Drafting...' : 'AI Autofill'}</span>
                     </button>
                   </div>
                   <ul style={{ marginTop: '0.5rem', listStyleType: 'decimal', paddingLeft: '1.25rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
@@ -1298,7 +1479,7 @@ export default function QualityModule() {
             <form onSubmit={handleSaveInvestigation}>
               <div className="modal-body flex flex-col gap-2">
                 <div style={{ fontSize: '0.75rem', backgroundColor: 'var(--bg-tertiary)', padding: '0.75rem', borderRadius: '8px' }}>
-                  <strong>Incident ID:</strong> {selectedIncidentToInvestigate.id.substring(0, 10)}
+                  <strong>Incident ID:</strong> {(selectedIncidentToInvestigate?.id || '').substring(0, 10)}
                   <div style={{ marginTop: '0.2rem' }}><strong>Type:</strong> {selectedIncidentToInvestigate.type} | <strong>Dept:</strong> {selectedIncidentToInvestigate.department}</div>
                   <div style={{ marginTop: '0.2rem', color: 'var(--text-secondary)' }}>{selectedIncidentToInvestigate.description}</div>
                 </div>
@@ -1383,7 +1564,7 @@ export default function QualityModule() {
                   >
                     <option value="">-- No CAPA Link --</option>
                     {capaItems.map(c => (
-                      <option key={c.id} value={c.id}>[{c.id.substring(0, 8)}] {c.correctiveAction.substring(0, 35)}...</option>
+                      <option key={c.id} value={c.id}>[{(c?.id || '').substring(0, 8)}] {(c?.correctiveAction || '').substring(0, 35)}...</option>
                     ))}
                   </select>
                 </div>
@@ -1532,6 +1713,96 @@ export default function QualityModule() {
               <div className="modal-footer">
                 <button type="button" onClick={() => setShowCloseCapaModal(false)} className="btn btn-secondary">Cancel</button>
                 <button type="submit" className="btn btn-primary">Approve Closure</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* E. Record Monthly Indicators Modal */}
+      {showIndicatorsModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '500px' }}>
+            <div className="modal-header">
+              <h3 style={{ fontSize: '1.1rem' }}>Record Monthly Quality Indicators</h3>
+              <button onClick={() => setShowIndicatorsModal(false)} style={{ fontSize: '1.2rem', fontWeight: 700 }}>✕</button>
+            </div>
+            <form onSubmit={handleCreateIndicator}>
+              <div className="modal-body flex flex-col gap-2">
+                <div className="form-group">
+                  <label className="form-label">Month Name *</label>
+                  <select
+                    className="form-control"
+                    required
+                    value={newIndicatorForm.month}
+                    onChange={(e) => setNewIndicatorForm({ ...newIndicatorForm, month: e.target.value })}
+                  >
+                    <option value="">-- Select Month --</option>
+                    <option value="Jan">January</option>
+                    <option value="Feb">February</option>
+                    <option value="Mar">March</option>
+                    <option value="Apr">April</option>
+                    <option value="May">May</option>
+                    <option value="Jun">June</option>
+                    <option value="Jul">July</option>
+                    <option value="Aug">August</option>
+                    <option value="Sep">September</option>
+                    <option value="Oct">October</option>
+                    <option value="Nov">November</option>
+                    <option value="Dec">December</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Patient Falls (Target: 0)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    className="form-control"
+                    value={newIndicatorForm.falls}
+                    onChange={(e) => setNewIndicatorForm({ ...newIndicatorForm, falls: parseInt(e.target.value) || 0 })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Medication Errors (Target: &lt; 2)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    className="form-control"
+                    value={newIndicatorForm.medicationErrors}
+                    onChange={(e) => setNewIndicatorForm({ ...newIndicatorForm, medicationErrors: parseInt(e.target.value) || 0 })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Hospital-Acquired Infections (Target: 0)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    className="form-control"
+                    value={newIndicatorForm.infections}
+                    onChange={(e) => setNewIndicatorForm({ ...newIndicatorForm, infections: parseInt(e.target.value) || 0 })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Needle-Stick Injuries (Target: 0)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    className="form-control"
+                    value={newIndicatorForm.needleSticks}
+                    onChange={(e) => setNewIndicatorForm({ ...newIndicatorForm, needleSticks: parseInt(e.target.value) || 0 })}
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" onClick={() => setShowIndicatorsModal(false)} className="btn btn-secondary">Cancel</button>
+                <button type="submit" className="btn btn-primary">Save Metrics</button>
               </div>
             </form>
           </div>

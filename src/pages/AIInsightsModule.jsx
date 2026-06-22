@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect, useRef } from 'react';
 import { QualiNABHContext } from '../context/QualiNABHContext';
-import { callAIService } from '../services/aiService';
+import { runAIOrchestration } from '../services/aiOrchestrator';
 import {
   Brain,
   Send,
@@ -112,23 +112,27 @@ export default function AIInsightsModule() {
     capaItems,
     licenses,
     hospitalName,
-    geminiApiKey, setGeminiApiKey,
-    openaiApiKey, setOpenaiApiKey,
-    anthropicApiKey, setAnthropicApiKey,
-    aiProvider, setAiProvider,
-    aiModel, setAiModel,
-    aiSystemPrompt, setAiSystemPrompt
+    currentUser,
+    aiSettings,
+    getDecryptedKey,
+    createAiOutput,
+    logAiUsage,
+    logAiSafety,
+    aiMemory,
+    aiOutputs,
+    updateAiOutputStatus
   } = useContext(QualiNABHContext);
 
   const [activeSubTab, setActiveSubTab] = useState('copilot'); // 'copilot', 'sop', 'gap', 'ceo'
   const [isAiTyping, setIsAiTyping] = useState(false);
+  const [workflowSteps, setWorkflowSteps] = useState([]);
 
   // 1. AI Copilot Chat States
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState([
     {
       sender: 'ai',
-      text: "Hello, I am your VaidyaQ AI Copilot. I scan your hospital's active documents, licenses, audits, and CAPA logs. Ask me anything about audit readiness!"
+      text: "Hello, I am VaidyaQ AI. I scan your hospital's active documents, licenses, audits, and CAPA logs. Ask me anything about audit readiness!"
     }
   ]);
   const chatEndRef = useRef(null);
@@ -220,19 +224,28 @@ export default function AIInsightsModule() {
     setChatInput('');
     setAttachedFile(null);
     setIsAiTyping(true);
+    setWorkflowSteps(['Initializing VaidyaQ AI Agent...']);
+
+    // Animate workflow steps
+    const step1 = setTimeout(() => {
+      setWorkflowSteps(prev => [...prev, 'Analyzing conversation memory & context...']);
+    }, 450);
+    const step2 = setTimeout(() => {
+      setWorkflowSteps(prev => [...prev, `Retrieving Hospital Command Center context (Readiness: ${readinessScore}%, CAPAs: ${openCapasCount})...`]);
+    }, 900);
+    const step3 = setTimeout(() => {
+      setWorkflowSteps(prev => [...prev, 'Applying NABH 6th Edition quality rules...']);
+    }, 1350);
+    const step4 = setTimeout(() => {
+      setWorkflowSteps(prev => [...prev, `Executing reasoning loop via ${aiProvider === 'mock' ? 'local sandbox' : aiProvider}...`]);
+    }, 1800);
 
     try {
-      const activeKey = aiProvider === 'google' ? geminiApiKey 
-                        : aiProvider === 'openai' ? openaiApiKey 
-                        : aiProvider === 'anthropic' ? anthropicApiKey 
-                        : '';
-      const responseText = await callAIService({
-        provider: aiProvider,
-        model: aiModel,
-        apiKey: activeKey,
-        systemPrompt: aiSystemPrompt,
+      const result = await runAIOrchestration({
+        module: 'chatbot',
+        agentType: 'VaidyaQ AI Chatbot',
         prompt: userText || `Inspect attachment: ${currentAttachment.name}`,
-        type: 'chat',
+        chatHistory: chatMessages,
         contextData: {
           readinessScore,
           openCapasCount,
@@ -241,9 +254,23 @@ export default function AIInsightsModule() {
           pendingAuditsCount,
           incidentsThisMonthCount,
           hospitalName
-        }
+        },
+        aiSettings,
+        currentUser,
+        hospitalName,
+        aiMemory,
+        getDecryptedKey,
+        createAiOutput,
+        logAiUsage,
+        logAiSafety
       });
 
+      if (!result.success) {
+        setChatMessages(prev => [...prev, { sender: 'ai', text: `⚠️ AI Guardrail Alert: ${result.error}`, confidence: 'Low' }]);
+        return;
+      }
+
+      const responseText = result.text;
       const isAttachment = !!currentAttachment;
       const queryLower = (userText || '').toLowerCase();
       let confidenceLevel = 'High';
@@ -254,43 +281,56 @@ export default function AIInsightsModule() {
       }
 
       setChatMessages(prev => [...prev, { sender: 'ai', text: responseText, confidence: confidenceLevel }]);
-      logActivity(currentAttachment ? `Uploaded attachment for AI inspection: ${currentAttachment.name}` : `Consulted AI Copilot: "${userText}"`);
+      logActivity(currentAttachment ? `Uploaded attachment for AI inspection: ${currentAttachment.name}` : `Consulted VaidyaQ AI: "${userText}"`);
     } catch (err) {
       console.error(err);
+      setChatMessages(prev => [...prev, { sender: 'ai', text: `⚠️ Failed to execute AI query: ${err.message}`, confidence: 'Low' }]);
     } finally {
+      clearTimeout(step1);
+      clearTimeout(step2);
+      clearTimeout(step3);
+      clearTimeout(step4);
       setIsAiTyping(false);
+      setWorkflowSteps([]);
     }
   };
 
-  // SOP Draft Generator (calls callAIService with fallback)
+  // SOP Draft Generator (calls runAIOrchestration with fallback)
   const handleDraftSOP = async () => {
     setSopDrafting(true);
     try {
-      const activeKey = aiProvider === 'google' ? geminiApiKey 
-                        : aiProvider === 'openai' ? openaiApiKey 
-                        : aiProvider === 'anthropic' ? anthropicApiKey 
-                        : '';
       const prompt = `Draft a comprehensive, production-ready Standard Operating Procedure (SOP) policy document.
 SOP Title: ${sopTitle}
 Department: ${sopDepartment}
 Mapped Standard: ${sopStandard}`;
 
-      const draft = await callAIService({
-        provider: aiProvider,
-        model: aiModel,
-        apiKey: activeKey,
-        systemPrompt: aiSystemPrompt,
+      const result = await runAIOrchestration({
+        module: 'documents',
+        agentType: 'Document AI Assistant',
         prompt: prompt,
-        type: 'sop',
+        chatHistory: [],
         contextData: {
           title: sopTitle,
           department: sopDepartment,
           standard: sopStandard,
           hospitalName
-        }
+        },
+        aiSettings,
+        currentUser,
+        hospitalName,
+        aiMemory,
+        getDecryptedKey,
+        createAiOutput,
+        logAiUsage,
+        logAiSafety
       });
-      setSopDraftText(draft);
-      logActivity(`Generated SOP draft for "${sopTitle}"`);
+
+      if (result.success) {
+        setSopDraftText(result.text);
+        logActivity(`Generated SOP draft for "${sopTitle}"`);
+      } else {
+        alert(`Failed to draft SOP: ${result.error}`);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -549,7 +589,7 @@ Mapped Standard: ${sopStandard}`;
           <div className="copilot-chat-pane">
             <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-tertiary)' }} className="flex align-center gap-2">
               <Brain size={18} color="var(--primary)" />
-              <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>VaidyaQ Chatbot Co-Pilot</span>
+              <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>VaidyaQ AI</span>
             </div>
             
             <div className="chat-history">
@@ -598,15 +638,27 @@ Mapped Standard: ${sopStandard}`;
                 </div>
               ))}
               {isAiTyping && (
-                <div className="chat-bubble ai" style={{ display: 'flex', gap: '0.75rem', padding: '0.75rem 1rem', opacity: 0.8 }}>
+                <div className="chat-bubble ai" style={{ display: 'flex', gap: '0.75rem', padding: '0.75rem 1rem', opacity: 0.9 }}>
                   <div className="chat-avatar ai">AI</div>
-                  <div className="chat-bubble-body flex align-center gap-2" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    <span className="flex gap-1" style={{ display: 'inline-flex', alignItems: 'center' }}>
-                      <span className="typing-dot" style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'var(--primary)', display: 'inline-block', animation: 'typingBounce 1.4s infinite both' }}></span>
-                      <span className="typing-dot" style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'var(--primary)', display: 'inline-block', animation: 'typingBounce 1.4s infinite both', animationDelay: '0.2s' }}></span>
-                      <span className="typing-dot" style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'var(--primary)', display: 'inline-block', animation: 'typingBounce 1.4s infinite both', animationDelay: '0.4s' }}></span>
-                    </span>
-                    <span>AI Copilot is processing standard logs...</span>
+                  <div className="chat-bubble-body flex flex-col gap-2" style={{ fontSize: '0.8rem' }}>
+                    <div style={{ fontWeight: 600, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Sparkles size={14} className="animate-pulse" /> VaidyaQ AI Agent Workflow:
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingLeft: '8px', borderLeft: '1.5px solid var(--border-color)', marginTop: '4px' }}>
+                      {workflowSteps.map((step, idx) => (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', animation: 'fadeIn 0.3s ease' }}>
+                          <span style={{ color: 'var(--color-success)', fontWeight: 'bold' }}>✓</span> {step}
+                        </div>
+                      ))}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)', marginTop: '2px' }}>
+                        <span className="flex gap-1" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                          <span className="typing-dot" style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: 'var(--primary)', display: 'inline-block', animation: 'typingBounce 1.4s infinite both' }}></span>
+                          <span className="typing-dot" style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: 'var(--primary)', display: 'inline-block', animation: 'typingBounce 1.4s infinite both', animationDelay: '0.2s' }}></span>
+                          <span className="typing-dot" style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: 'var(--primary)', display: 'inline-block', animation: 'typingBounce 1.4s infinite both', animationDelay: '0.4s' }}></span>
+                        </span>
+                        <span style={{ fontSize: '0.75rem', fontStyle: 'italic', color: 'var(--text-tertiary)' }}>AI agent reasoning...</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -989,184 +1041,41 @@ Mapped Standard: ${sopStandard}`;
         </div>
       )}
 
-      {/* 4. AI CEO BRIEFING VIEW */}
-      {/* 5. AI API SETTINGS & AUTOMATIONS VIEW */}
+      {/* 5. AI API SETTINGS VIEW */}
       {activeSubTab === 'settings' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }} className="animate-fade-in">
-          {/* API Keys Configuration Card */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: '600px' }} className="animate-fade-in">
           <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              ⚙️ Client AI Tokens & API Integrations
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              ⚙️ Client AI Gateway Status
             </h3>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: '1.5' }}>
-              Configure VaidyaQ to run completions using your own API credentials. This prevents token rate-limiting and keeps compliance scanning direct, secure, and isolated to your organization. If keys are omitted, the system falls back to high-fidelity mock generators.
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: '1.5' }}>
+              API credentials, advanced parameters (like temperature, max tokens, and allowed roles), safety incident logs, and tenant memory are managed centrally under the Administration console.
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-              {/* Provider Selection */}
-              <div className="form-group">
-                <label style={{ fontSize: '0.75rem', fontWeight: 700, display: 'block', marginBottom: '0.35rem', color: 'var(--text-primary)' }}>Active AI Provider</label>
-                <select 
-                  className="form-control" 
-                  value={aiProvider}
-                  onChange={(e) => setAiProvider(e.target.value)}
-                  style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontSize: '0.8rem' }}
-                >
-                  <option value="mock">Local Sandbox Simulator (No Keys Needed)</option>
-                  <option value="google">Google Gemini API</option>
-                  <option value="openai">OpenAI API</option>
-                  <option value="anthropic">Anthropic Claude API</option>
-                </select>
+            <div style={{ backgroundColor: 'var(--bg-tertiary)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)', marginBottom: '1.25rem' }} className="flex flex-col gap-2">
+              <div className="flex justify-between" style={{ fontSize: '0.85rem' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Active Provider:</span>
+                <span style={{ fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase' }}>{aiSettings?.provider || 'mock'}</span>
               </div>
-
-              {/* Model Selection */}
-              <div className="form-group">
-                <label style={{ fontSize: '0.75rem', fontWeight: 700, display: 'block', marginBottom: '0.35rem', color: 'var(--text-primary)' }}>Active Model Engine</label>
-                <select 
-                  className="form-control" 
-                  value={aiModel}
-                  onChange={(e) => setAiModel(e.target.value)}
-                  style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontSize: '0.8rem' }}
-                >
-                  {aiProvider === 'google' && (
-                    <>
-                      <option value="gemini-2.5-flash">gemini-2.5-flash (Recommended, Fast)</option>
-                      <option value="gemini-2.5-pro">gemini-2.5-pro (In-depth analysis)</option>
-                    </>
-                  )}
-                  {aiProvider === 'openai' && (
-                    <>
-                      <option value="gpt-4o-mini">gpt-4o-mini (Cost-efficient)</option>
-                      <option value="gpt-4o">gpt-4o (Premium reasoning)</option>
-                    </>
-                  )}
-                  {aiProvider === 'anthropic' && (
-                    <>
-                      <option value="claude-3-5-haiku-20241022">claude-3-5-haiku</option>
-                      <option value="claude-3-5-sonnet-20241022">claude-3-5-sonnet (High precision)</option>
-                    </>
-                  )}
-                  {aiProvider === 'mock' && (
-                    <option value="mock-sandbox">local-sandbox-v1</option>
-                  )}
-                </select>
+              <div className="flex justify-between" style={{ fontSize: '0.85rem' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Engine Model ID:</span>
+                <span style={{ fontWeight: 700 }}>{aiSettings?.model || 'mock-agent-v1'}</span>
+              </div>
+              <div className="flex justify-between" style={{ fontSize: '0.85rem' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Connection Status:</span>
+                <span className={`badge ${aiSettings?.providerStatus === 'Connected' ? 'badge-success' : 'badge-neutral'}`}>
+                  {aiSettings?.providerStatus || 'Disabled'}
+                </span>
               </div>
             </div>
 
-            {/* API Keys inputs */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
-              <div className="form-group">
-                <label style={{ fontSize: '0.75rem', fontWeight: 700, display: 'block', marginBottom: '0.25rem', color: 'var(--text-secondary)' }}>
-                  Google Gemini API Key {aiProvider === 'google' && <span style={{ color: 'var(--primary)' }}>● Active</span>}
-                </label>
-                <input 
-                  type="password" 
-                  className="form-control"
-                  placeholder={geminiApiKey ? "••••••••••••••••••••••••••••••••" : "Enter Google API key (AIzaSy...)"}
-                  value={geminiApiKey}
-                  onChange={(e) => setGeminiApiKey(e.target.value)}
-                  style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontSize: '0.8rem' }}
-                />
-              </div>
-
-              <div className="form-group">
-                <label style={{ fontSize: '0.75rem', fontWeight: 700, display: 'block', marginBottom: '0.25rem', color: 'var(--text-secondary)' }}>
-                  OpenAI API Key {aiProvider === 'openai' && <span style={{ color: 'var(--primary)' }}>● Active</span>}
-                </label>
-                <input 
-                  type="password" 
-                  className="form-control"
-                  placeholder={openaiApiKey ? "••••••••••••••••••••••••••••••••" : "Enter OpenAI API key (sk-...)"}
-                  value={openaiApiKey}
-                  onChange={(e) => setOpenaiApiKey(e.target.value)}
-                  style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontSize: '0.8rem' }}
-                />
-              </div>
-
-              <div className="form-group">
-                <label style={{ fontSize: '0.75rem', fontWeight: 700, display: 'block', marginBottom: '0.25rem', color: 'var(--text-secondary)' }}>
-                  Anthropic Claude API Key {aiProvider === 'anthropic' && <span style={{ color: 'var(--primary)' }}>● Active</span>}
-                </label>
-                <input 
-                  type="password" 
-                  className="form-control"
-                  placeholder={anthropicApiKey ? "••••••••••••••••••••••••••••••••" : "Enter Anthropic API key (sk-ant-...)"}
-                  value={anthropicApiKey}
-                  onChange={(e) => setAnthropicApiKey(e.target.value)}
-                  style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontSize: '0.8rem' }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* AI Instructions Persona Card */}
-          <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              🧠 Custom AI Persona & System Instructions
-            </h3>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-              Override the baseline instructions fed to the LLM agent to align completions with local hospital guidelines, regional bylaws, or specific accreditation standards.
-            </p>
-
-            <div className="form-group">
-              <textarea 
-                rows="4"
-                className="form-control"
-                value={aiSystemPrompt}
-                onChange={(e) => setAiSystemPrompt(e.target.value)}
-                style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontSize: '0.8rem', resize: 'vertical', fontFamily: 'var(--font-body)' }}
-              />
-            </div>
-            
-            <div className="flex justify-between align-center" style={{ marginTop: '0.5rem' }}>
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>System prompt will load dynamically on every completion trigger.</span>
-              <button 
-                onClick={() => {
-                  setAiSystemPrompt('You are a clinical quality auditor and NABH 6th Edition compliance consultant. Generate precise compliance reports, audit checklists, SOP text, and CAPA corrective measures for hospital administration.');
-                  alert('AI prompt reset to factory default!');
-                }} 
-                className="btn btn-secondary"
-                style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
-              >
-                Reset Default
-              </button>
-            </div>
-          </div>
-
-          {/* AI Automations Guide & Prompts */}
-          <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              🤖 AI Agent Autopilot Prompts & Scripts
-            </h3>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: '1.5' }}>
-              You can copy these prompts into the VaidyaQ Chatbot Copilot, or configure them under your external automation chronometers, to trigger automated compliance workflows:
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-              <div style={{ padding: '0.75rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.25rem' }}>📋 1. Incident Desk Audit & CAPA Loop</div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontFamily: 'monospace', padding: '0.4rem', backgroundColor: 'rgba(0,0,0,0.1)', borderRadius: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>"Scan the Incident Desk register, identify medication safety near-misses, and auto-draft a CAPA item with high priority."</span>
-                  <button onClick={() => { navigator.clipboard.writeText("Scan the Incident Desk register, identify medication safety near-misses, and auto-draft a CAPA item with high priority."); alert("Prompt copied!"); }} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Copy</button>
-                </div>
-              </div>
-
-              <div style={{ padding: '0.75rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.25rem' }}>🛡️ 2. License Expiry Watchdog</div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontFamily: 'monospace', padding: '0.4rem', backgroundColor: 'rgba(0,0,0,0.1)', borderRadius: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>"Scan statutory renewal dates, verify file upload attachment metadata, and trigger system warning cards."</span>
-                  <button onClick={() => { navigator.clipboard.writeText("Scan statutory renewal dates, verify file upload attachment metadata, and trigger system warning cards."); alert("Prompt copied!"); }} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Copy</button>
-                </div>
-              </div>
-
-              <div style={{ padding: '0.75rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.25rem' }}>📄 3. SOP Validation & HAM Compliance Checker</div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontFamily: 'monospace', padding: '0.4rem', backgroundColor: 'rgba(0,0,0,0.1)', borderRadius: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>"Audit all approved SOP documents under Pharmacy and ICU against MOM.2.c. Verify double-signature checks, and output gap reports."</span>
-                  <button onClick={() => { navigator.clipboard.writeText("Audit all approved SOP documents under Pharmacy and ICU against MOM.2.c. Verify double-signature checks, and output gap reports."); alert("Prompt copied!"); }} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Copy</button>
-                </div>
-              </div>
-            </div>
+            <button 
+              className="btn btn-primary" 
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+              onClick={() => setCurrentRoute('/app/admin')}
+            >
+              <span>Go to Admin AI Console</span>
+            </button>
           </div>
         </div>
       )}

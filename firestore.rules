@@ -1,0 +1,77 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper: checks if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper: checks if the user belongs to the target hospital
+    function isMemberOf(hospitalId) {
+      return isAuthenticated() && 
+        (request.auth.token.hospitalId == hospitalId || 
+         exists(/databases/$(database)/documents/hospitals/$(hospitalId)/users/$(request.auth.uid)));
+    }
+
+    // Helper: checks user's role in the hospital
+    function getUserRole(hospitalId) {
+      return get(/databases/$(database)/documents/hospitals/$(hospitalId)/users/$(request.auth.uid)).data.role;
+    }
+
+    // Helper: checks if user is an authorized admin
+    function isAdmin(hospitalId) {
+      return isAuthenticated() && 
+        isMemberOf(hospitalId) && 
+        (getUserRole(hospitalId) == 'Super Admin' || getUserRole(hospitalId) == 'Quality Head' || getUserRole(hospitalId) == 'Hospital Admin');
+    }
+
+    // AI Settings Collection: isolated by hospitalId, writeable only by admins
+    match /ai_settings/{settingId} {
+      allow read: if isAuthenticated() && isMemberOf(resource.data.hospitalId);
+      allow create, update: if isAuthenticated() && isAdmin(request.resource.data.hospitalId);
+      allow delete: if false; // Settings should never be deleted
+    }
+
+    // AI Provider Keys: strictly closed to all client-side operations (accessible via backend Cloud Functions only)
+    match /ai_provider_keys/{keyId} {
+      allow read, write: if false;
+    }
+
+    // AI Outputs (Drafts): readable and writeable by members of the tenant hospital
+    match /ai_outputs/{outputId} {
+      allow read: if isAuthenticated() && isMemberOf(resource.data.hospitalId);
+      allow create: if isAuthenticated() && isMemberOf(request.resource.data.hospitalId);
+      allow update: if isAuthenticated() && isMemberOf(resource.data.hospitalId) && 
+                    (request.resource.data.status in ['draft', 'under_review', 'approved', 'rejected']);
+      allow delete: if isAuthenticated() && isAdmin(resource.data.hospitalId);
+    }
+
+    // AI Memory: tenant-isolated. Custom scopes restrict reading based on allowed roles/users
+    match /ai_memory/{memoryId} {
+      allow read: if isAuthenticated() && isMemberOf(resource.data.hospitalId) &&
+                  (resource.data.allowedRoles.size() == 0 || getUserRole(resource.data.hospitalId) in resource.data.allowedRoles) &&
+                  (resource.data.allowedUserIds.size() == 0 || request.auth.uid in resource.data.allowedUserIds);
+      allow write: if isAuthenticated() && isAdmin(request.resource.data.hospitalId);
+    }
+
+    // AI Usage Logs & Safety Logs: writeable by system, readable by tenant admins only
+    match /ai_usage_logs/{logId} {
+      allow read: if isAuthenticated() && isAdmin(resource.data.hospitalId);
+      allow create: if isAuthenticated() && isMemberOf(request.resource.data.hospitalId);
+      allow update, delete: if false; // Append-only audit logs
+    }
+
+    match /ai_safety_logs/{logId} {
+      allow read: if isAuthenticated() && isAdmin(resource.data.hospitalId);
+      allow create: if isAuthenticated() && isMemberOf(request.resource.data.hospitalId);
+      allow update, delete: if false; // Append-only audit logs
+    }
+    
+    // AI Conversations: accessible only by the conversation creator and tenant admins
+    match /ai_conversations/{conversationId} {
+      allow read, write: if isAuthenticated() && isMemberOf(resource.data.hospitalId) && 
+                         (resource.data.userId == request.auth.uid || isAdmin(resource.data.hospitalId));
+    }
+  }
+}

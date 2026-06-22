@@ -1,8 +1,9 @@
 import React, { useContext, useState } from 'react';
 import { QualiNABHContext } from '../context/QualiNABHContext';
+import { runAIOrchestration } from '../services/aiOrchestrator';
 import {
   BarChart3, Printer, FileDown, CheckCircle2, AlertTriangle, 
-  ClipboardList, FileText, LayoutGrid, CheckCircle
+  ClipboardList, FileText, LayoutGrid, CheckCircle, Sparkles, RefreshCw, Copy
 } from 'lucide-react';
 
 export default function Reports() {
@@ -18,10 +19,69 @@ export default function Reports() {
     capaItems,
     licenses,
     hospitalName,
-    logActivity
+    logActivity,
+    aiSettings,
+    getDecryptedKey,
+    createAiOutput,
+    logAiUsage,
+    logAiSafety,
+    aiMemory,
+    aiOutputs,
+    updateAiOutputStatus,
+    currentUser
   } = useContext(QualiNABHContext);
 
   const [exportSuccess, setExportSuccess] = useState('');
+  const [isAnalyzingReport, setIsAnalyzingReport] = useState(false);
+
+  const handleAnalyzeReportWithAI = async () => {
+    setIsAnalyzingReport(true);
+    try {
+      const prompt = `Perform a comprehensive data analysis and compliance health audit for hospital leadership at ${hospitalName}. 
+      Key metrics to analyze:
+      - Overall Readiness Score: ${readinessScore}%
+      - Open CAPA Items: ${openCapasCount}
+      - Missing Evidence Gaps: ${missingEvidenceCount}
+      - Scheduled Audits: ${pendingAuditsCount}
+      - Monthly reported patient incidents: ${incidentsThisMonthCount}
+      - Pre-loaded Quality Indicators monthly data: ${JSON.stringify(qualityIndicators)}
+
+      Please structure your analysis into:
+      1. Compliance Score Assessment (Explain what 85% threshold implies)
+      2. Trends in Quality Indicators (Falls, Medication Errors, Infections, Needle Sticks)
+      3. Critical statutory renewal warnings and CAPA completion bottlenecks
+      4. Key actionable recommendations to boost readiness.`;
+
+      await runAIOrchestration({
+        module: 'reports',
+        agentType: 'Reports Agent',
+        prompt: prompt,
+        chatHistory: [],
+        contextData: {
+          readinessScore,
+          openCapasCount,
+          missingEvidenceCount,
+          pendingAuditsCount,
+          incidentsThisMonthCount,
+          hospitalName
+        },
+        aiSettings,
+        currentUser,
+        hospitalName,
+        aiMemory,
+        getDecryptedKey,
+        createAiOutput,
+        logAiUsage,
+        logAiSafety
+      });
+      logActivity("Generated AI Reports analysis summary.");
+    } catch (e) {
+      console.error(e);
+      alert(`API Connection Error: ${e.message}`);
+    } finally {
+      setIsAnalyzingReport(false);
+    }
+  };
 
   // 1. Export PDF (Print Layout)
   const handlePrint = () => {
@@ -251,6 +311,158 @@ export default function Reports() {
 
       {/* Compiler Layout Grid */}
       <div className="grid" style={{ gridTemplateColumns: '1fr', gap: '1.5rem' }}>
+        
+        {/* AI Reports Agent Card */}
+        {(!aiSettings || !aiSettings.enabled) ? (
+          <div className="card" style={{ borderLeft: '4px solid var(--border-color)', padding: '1.5rem', opacity: 0.7 }}>
+            <div className="flex justify-between align-center" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div className="flex align-center gap-2">
+                <Sparkles size={20} color="var(--text-tertiary)" />
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800 }}>VaidyaQ AI Reports Agent</h4>
+                  <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                    Generates professional executive commentary, gap analysis, and statutory warnings.
+                  </p>
+                </div>
+              </div>
+              <button 
+                disabled
+                className="btn btn-secondary flex align-center gap-1.5" 
+                style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'not-allowed' }}
+              >
+                <Sparkles size={12} />
+                AI Disabled (Enable in Admin Settings)
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="card" style={{ borderLeft: '4px solid #7C3AED', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div className="flex justify-between align-center" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div className="flex align-center gap-2">
+                <Sparkles size={20} color="#7C3AED" />
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800 }}>VaidyaQ AI Reports Agent</h4>
+                  <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                    Generates professional executive commentary, gap analysis, and statutory warnings.
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={handleAnalyzeReportWithAI} 
+                disabled={isAnalyzingReport}
+                className="btn btn-primary flex align-center gap-1.5" 
+                style={{ 
+                  padding: '0.4rem 0.8rem', 
+                  fontSize: '0.75rem', 
+                  fontWeight: 'bold', 
+                  cursor: 'pointer',
+                  background: 'linear-gradient(135deg, #7C3AED, #4F46E5)',
+                  border: 'none'
+                }}
+              >
+                {isAnalyzingReport ? (
+                  <>
+                    <RefreshCw size={12} className="animate-spin" />
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={12} />
+                    Generate AI Analysis Report
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Render reports drafts */}
+            {(() => {
+              const reportOutputs = aiOutputs.filter(out => out.module === 'reports' && out.agentType === 'Reports Agent');
+              if (reportOutputs.length === 0) return null;
+
+              // Show latest output
+              const latest = reportOutputs[0];
+              const isDraft = latest.status === 'draft';
+              
+              return (
+                <div className="flex flex-col gap-3 animate-fade-in" style={{ marginTop: '0.5rem' }}>
+                  <div 
+                    className={isDraft ? 'ai-draft-watermark' : ''} 
+                    style={{ 
+                      fontSize: '0.8rem', 
+                      whiteSpace: 'pre-wrap', 
+                      lineHeight: '1.5', 
+                      maxHeight: '300px', 
+                      overflowY: 'auto', 
+                      padding: '1rem', 
+                      backgroundColor: 'var(--bg-tertiary)', 
+                      borderRadius: '6px', 
+                      border: isDraft ? '1px dashed #7C3AED' : '1px solid var(--border-color)',
+                      color: 'var(--text-primary)',
+                      position: 'relative'
+                    }}
+                  >
+                    {latest.content}
+                  </div>
+
+                  <div className="flex justify-between align-center" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
+                    <div className="flex align-center gap-2">
+                      {isDraft ? (
+                        <span className="badge" style={{ backgroundColor: 'rgba(124, 58, 237, 0.1)', color: '#7C3AED', fontSize: '0.65rem' }}>
+                          Draft awaiting review
+                        </span>
+                      ) : (
+                        <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>
+                          ✓ Approved & Verified by {latest.reviewedBy || 'Admin'}
+                        </span>
+                      )}
+                      {latest.structuredOutput?.confidence && (
+                        <span className={`ai-confidence-badge ai-confidence-${latest.structuredOutput.confidence}`} style={{ fontSize: '0.65rem' }}>
+                          Confidence: {latest.structuredOutput.confidence}
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <button
+                        className="btn btn-secondary-outline"
+                        style={{ padding: '0.35rem 0.65rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        onClick={() => {
+                          navigator.clipboard.writeText(latest.content);
+                          alert("Copied AI report text to clipboard!");
+                        }}
+                      >
+                        <Copy size={12} /> Copy Text
+                      </button>
+                      {isDraft && (
+                        <>
+                          <button
+                            className="btn btn-secondary-outline"
+                            style={{ padding: '0.35rem 0.65rem', fontSize: '0.7rem', color: 'var(--color-danger)' }}
+                            onClick={() => updateAiOutputStatus(latest.outputId, 'rejected', currentUser?.name || 'Admin')}
+                          >
+                            Reject
+                          </button>
+                          <button
+                            className="btn btn-primary"
+                            style={{ 
+                              padding: '0.35rem 0.65rem', 
+                              fontSize: '0.7rem',
+                              background: 'var(--color-success)',
+                              border: 'none'
+                            }}
+                            onClick={() => updateAiOutputStatus(latest.outputId, 'approved', currentUser?.name || 'Admin')}
+                          >
+                            Approve & Publish
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
         
         {/* Consolidated summary card */}
         <div className="card" style={{ borderTop: '6px solid var(--primary)', padding: '2rem' }}>

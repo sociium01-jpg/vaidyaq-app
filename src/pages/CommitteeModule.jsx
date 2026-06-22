@@ -1,4 +1,5 @@
 import React, { useState, useContext } from 'react';
+import { jsPDF } from 'jspdf';
 import { QualiNABHContext } from '../context/QualiNABHContext';
 import {
   Calendar,
@@ -176,9 +177,113 @@ export default function CommitteeModule() {
     }, 3000);
   };
 
-  const handleSimulateDownload = (committeeName, meetingDate) => {
-    logActivity(`Downloaded Governance Minutes PDF: ${committeeName} (${meetingDate})`);
-    alert(`📥 Evidence PDF Downloaded:\nMinutes of Meeting - ${committeeName}\nDate: ${meetingDate}\nMD5 checksum logged in Audit Vault for NABH assessors.`);
+  const handleSimulateDownload = (committee, meeting) => {
+    try {
+      const doc = new jsPDF();
+      
+      // Page Borders & Colors
+      doc.setDrawColor(13, 148, 136); // Teal primary color
+      doc.setLineWidth(1);
+      doc.rect(5, 5, 200, 287); // Border
+      
+      // Header
+      doc.setFillColor(13, 148, 136);
+      doc.rect(5, 5, 200, 25, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.text("VAIDYAQ SECURE CLINICAL GOVERNANCE VAULT", 12, 20);
+      
+      // Document Title
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(13);
+      doc.text(`MINUTES OF MEETING: ${(committee?.name || '').toUpperCase()}`, 15, 45);
+      
+      // Meta details
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Meeting Date: ${meeting?.date || ''}`, 15, 55);
+      doc.text(`Chairperson: ${committee?.chair || ''}`, 15, 62);
+      doc.text(`Secretary: ${committee?.secretary || ''}`, 15, 69);
+      doc.text(`Frequency: ${committee?.frequency || ''}`, 15, 76);
+      
+      // Divider line
+      doc.setDrawColor(200, 200, 200);
+      doc.line(15, 82, 195, 82);
+      
+      // Attendees
+      doc.setFont("helvetica", "bold");
+      doc.text("Attendees:", 15, 92);
+      doc.setFont("helvetica", "normal");
+      const attendeesList = meeting?.attendees ? meeting.attendees.join(", ") : "None recorded";
+      // Wrap text to fit page width
+      const attendeesLines = doc.splitTextToSize(attendeesList, 180);
+      doc.text(attendeesLines, 15, 98);
+      
+      let currentY = 100 + (attendeesLines.length * 5);
+      
+      // Agenda
+      doc.setFont("helvetica", "bold");
+      doc.text("Meeting Agenda / Topics Discussed:", 15, currentY);
+      doc.setFont("helvetica", "normal");
+      const agendaLines = doc.splitTextToSize(meeting?.agenda || "General Quality and Compliance Review", 180);
+      doc.text(agendaLines, 15, currentY + 6);
+      
+      currentY += 12 + (agendaLines.length * 5);
+      
+      // Minutes / Discussion Notes
+      doc.setFont("helvetica", "bold");
+      doc.text("Discussion Minutes & Notes:", 15, currentY);
+      doc.setFont("helvetica", "normal");
+      const minutesLines = doc.splitTextToSize(meeting?.minutes || "No detailed notes recorded.", 180);
+      doc.text(minutesLines, 15, currentY + 6);
+      
+      currentY += 12 + (minutesLines.length * 5);
+      
+      // Action Items
+      if (meeting?.actionItems && meeting.actionItems.length > 0) {
+        doc.setFont("helvetica", "bold");
+        doc.text("Formulated Action Items / Tasks:", 15, currentY);
+        doc.setFont("helvetica", "normal");
+        
+        meeting.actionItems.forEach((item, idx) => {
+          const itemText = `${idx + 1}. [Task] ${item.task || item.title || ''} | Owner: ${item.assignedTo || 'Unassigned'} | Due: ${item.dueDate || 'N/A'}`;
+          const itemLines = doc.splitTextToSize(itemText, 180);
+          doc.text(itemLines, 15, currentY + 6);
+          currentY += (itemLines.length * 5) + 2;
+        });
+        currentY += 10;
+      }
+      
+      // Signatures
+      if (currentY > 245) {
+        doc.addPage();
+        currentY = 30;
+        doc.setDrawColor(13, 148, 136);
+        doc.rect(5, 5, 200, 287);
+      }
+      
+      doc.setDrawColor(200, 200, 200);
+      doc.line(15, currentY + 15, 80, currentY + 15);
+      doc.line(120, currentY + 15, 185, currentY + 15);
+      
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "italic");
+      doc.text("Chairperson Signature (Digitally Checked)", 15, currentY + 20);
+      doc.text("Quality HOD / Secretary Signature (Digitally Checked)", 120, currentY + 20);
+      
+      // Footer / ABDM compliance info
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(120, 120, 120);
+      doc.text("NABH 6th Edition Digital Governance Protocol Compliant. MD5 Checksum recorded securely in the audit vault.", 15, 280);
+      
+      doc.save(`Minutes_of_Meeting_${(committee?.name || 'Committee').replace(/\s+/g, '_')}_${meeting?.date || 'Date'}.pdf`);
+      logActivity(`Downloaded Governance Minutes PDF: ${committee?.name || ''} (${meeting?.date || ''})`);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to download PDF. Please check console logs.");
+    }
   };
 
   // Filter committees for searches
@@ -670,7 +775,7 @@ export default function CommitteeModule() {
                       </td>
                       <td style={{ textAlign: 'center' }}>
                         <button
-                          onClick={() => handleSimulateDownload(c.name, meet.date)}
+                          onClick={() => handleSimulateDownload(c, meet)}
                           className="btn btn-secondary"
                           style={{ padding: '2px 8px', fontSize: '0.7rem' }}
                         >

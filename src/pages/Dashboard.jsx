@@ -26,6 +26,8 @@ import {
   ExternalLink
 } from 'lucide-react';
 
+import { runAIOrchestration } from '../services/aiOrchestrator';
+
 export default function Dashboard() {
   const {
     setCurrentRoute,
@@ -62,10 +64,19 @@ export default function Dashboard() {
     getLiveCountdownString,
     setForcePaymentScreen,
     complianceFeed,
-    checkForComplianceUpdates
+    checkForComplianceUpdates,
+    aiSettings,
+    getDecryptedKey,
+    createAiOutput,
+    logAiUsage,
+    logAiSafety,
+    aiMemory,
+    aiOutputs,
+    updateAiOutputStatus
   } = useContext(QualiNABHContext);
 
   const [selectedDeptRisk, setSelectedDeptRisk] = useState(null);
+  const [briefingLoading, setBriefingLoading] = useState(false);
 
   // Clinical Indicators Pivot Table States
   const [pivotIndicator, setPivotIndicator] = useState('All');
@@ -438,7 +449,7 @@ DOCUMENT CONTROL CYCLE: Reviewed every 6 months. Revision 1.0.`;
       {/* Page Title & Onboarding Toggle Bar */}
       <div className="flex justify-between align-center" style={{ marginBottom: '0.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h1 style={{ fontSize: '1.75rem' }}>Hospital Quality Command Center</h1>
+          <h1 style={{ fontSize: '1.75rem' }}>{hospitalName || "Hospital Quality Command Center"}</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
             Real-time compliance analytics for <strong>NABH 6th Edition Accreditation Cycle</strong>
           </p>
@@ -1056,49 +1067,151 @@ DOCUMENT CONTROL CYCLE: Reviewed every 6 months. Revision 1.0.`;
         {/* Right Side: AI Weekly Summary / Onboarding Instructions */}
         <div className="flex flex-col gap-3">
           <div className="card" style={{ borderLeft: '5px solid var(--primary)', background: 'linear-gradient(to bottom, var(--bg-secondary), var(--bg-tertiary))' }}>
-            <div className="flex align-center gap-2" style={{ marginBottom: '1rem' }}>
-              <Brain size={20} color="var(--primary)" />
-              <h3 style={{ fontSize: '1.1rem' }}>AI Quality Co-Pilot Digest</h3>
+            <div className="flex align-center justify-between" style={{ marginBottom: '1rem' }}>
+              <div className="flex align-center gap-2">
+                <Brain size={20} color="var(--primary)" />
+                <h3 style={{ fontSize: '1.1rem', margin: 0 }}>AI Quality Co-Pilot Digest</h3>
+              </div>
+              <button 
+                className="btn btn-secondary-outline flex align-center gap-1" 
+                style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem', cursor: 'pointer' }}
+                onClick={async () => {
+                  setBriefingLoading(true);
+                  try {
+                    await runAIOrchestration({
+                      module: 'dashboard',
+                      agentType: 'Executive Briefing',
+                      prompt: `Perform an executive quality audit and generate a high-level briefing report for hospital leadership at ${hospitalName}. Evaluate: Overall NABH Readiness ${readinessScore}%, Open CAPAs count ${openCapasCount}, Overdue tasks count ${overdueTasksCount}, Pending scheduled audits count ${pendingAuditsCount}, Missing documentation evidence count ${missingEvidenceCount}, Incidents this month count ${incidentsThisMonthCount}. Outline immediate compliance risks and documentation priorities.`,
+                      chatHistory: [],
+                      contextData: {
+                        readinessScore,
+                        openCapasCount,
+                        overdueTasksCount,
+                        pendingAuditsCount,
+                        missingEvidenceCount,
+                        incidentsThisMonthCount,
+                        hospitalName
+                      },
+                      aiSettings,
+                      currentUser,
+                      hospitalName,
+                      aiMemory,
+                      getDecryptedKey,
+                      createAiOutput,
+                      logAiUsage,
+                      logAiSafety
+                    });
+                  } catch (e) {
+                    console.error(e);
+                  } finally {
+                    setBriefingLoading(false);
+                  }
+                }}
+                disabled={briefingLoading || !aiSettings?.enabled}
+                title={aiSettings?.enabled ? "Run Executive Briefing Agent" : "AI settings are disabled. Please configure key first."}
+              >
+                <RefreshCw size={10} className={briefingLoading ? 'animate-spin' : ''} />
+                <span>{briefingLoading ? 'Drafting...' : 'Run Analysis'}</span>
+              </button>
             </div>
             
-            {hospitalMode === 'new' ? (
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <p>Welcome to VaidyaQ AI! My algorithms are initialized and awaiting hospital compliance data.</p>
-                <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <span className="badge badge-success" style={{ fontSize: '0.65rem', marginBottom: '0.25rem' }}>Onboarding Hint</span>
-                  <p style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Draft your first SOP</p>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-                    Use the **AI SOP Generator** under AI Insights to draft a Medication Expiry Protocol, map it to chapter MOM.3.a, and approve it.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div style={{ fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <span className="badge badge-danger" style={{ fontSize: '0.6rem', marginBottom: '0.4rem' }}>Critical Risk</span>
-                  <p style={{ fontWeight: 600 }}>Expired Narcotic License</p>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginTop: '0.2rem' }}>
-                    The <strong>Narcotics Storage License</strong> under Pharmacy expired on 10-May-2026. This is a severe legal liability.
-                  </p>
-                </div>
-
-                <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <span className="badge badge-warning" style={{ fontSize: '0.6rem', marginBottom: '0.4rem' }}>Gap Detected</span>
-                  <p style={{ fontWeight: 600 }}>ICU Standard Missing Evidence</p>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginTop: '0.2rem' }}>
-                    No evidence document linked for <strong>COP.5.c (ICU Criteria)</strong>. The ICU risk is marked HIGH.
-                  </p>
-                </div>
-
-                <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <span className="badge badge-success" style={{ fontSize: '0.6rem', marginBottom: '0.4rem' }}>Audit Recommendation</span>
-                  <p style={{ fontWeight: 600 }}>Unresolved Crash Cart Syringes CAPA</p>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginTop: '0.2rem' }}>
-                    CAPA-1 is due on 20-Jun-2026. Suggest uploading Daily Handover check sheet as corrective proof.
-                  </p>
-                </div>
+            {briefingLoading && (
+              <div style={{ padding: '1.5rem 1rem', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-secondary)' }} className="flex flex-col align-center gap-2">
+                <RefreshCw size={24} className="animate-spin" color="var(--primary)" />
+                <span className="animate-pulse">🤖 Executive Briefing Agent is compiling metrics...</span>
               </div>
             )}
+
+            {!briefingLoading && (() => {
+              const latestBriefing = aiOutputs.find(out => out.module === 'dashboard' && out.agentType === 'Executive Briefing');
+              if (latestBriefing) {
+                const isDraft = latestBriefing.status === 'draft';
+                return (
+                  <div className="flex flex-col gap-3 animate-fade-in">
+                    <div className={isDraft ? 'ai-draft-watermark' : ''} style={{ 
+                      fontSize: '0.8rem', 
+                      whiteSpace: 'pre-wrap', 
+                      lineHeight: '1.4', 
+                      maxHeight: '280px', 
+                      overflowY: 'auto', 
+                      padding: '0.75rem', 
+                      backgroundColor: 'var(--bg-secondary)', 
+                      borderRadius: '6px', 
+                      border: isDraft ? '1px dashed var(--primary)' : '1px solid var(--border-color)',
+                      color: 'var(--text-primary)'
+                    }}>
+                      {latestBriefing.content}
+                    </div>
+                    {isDraft && (
+                      <div className="flex gap-2 justify-end">
+                        <button 
+                          className="btn btn-secondary-outline" 
+                          style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem' }}
+                          onClick={() => updateAiOutputStatus(latestBriefing.outputId, 'rejected', currentUser.name)}
+                        >
+                          Reject
+                        </button>
+                        <button 
+                          className="btn btn-primary" 
+                          style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem' }}
+                          onClick={() => updateAiOutputStatus(latestBriefing.outputId, 'approved', currentUser.name)}
+                        >
+                          Approve & Publish
+                        </button>
+                      </div>
+                    )}
+                    {!isDraft && (
+                      <span className="badge badge-success" style={{ alignSelf: 'flex-start', fontSize: '0.65rem' }}>
+                        Verified by {latestBriefing.reviewedBy || 'Admin'}
+                      </span>
+                    )}
+                  </div>
+                );
+              }
+
+              if (hospitalMode === 'new') {
+                return (
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <p>Welcome to VaidyaQ AI! My algorithms are initialized and awaiting hospital compliance data.</p>
+                    <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                      <span className="badge badge-success" style={{ fontSize: '0.65rem', marginBottom: '0.25rem' }}>Onboarding Hint</span>
+                      <p style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Draft your first SOP</p>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                        Use the **AI SOP Generator** under AI Insights to draft a Medication Expiry Protocol, map it to chapter MOM.3.a, and approve it.
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <div style={{ fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    <span className="badge badge-danger" style={{ fontSize: '0.6rem', marginBottom: '0.4rem' }}>Critical Risk</span>
+                    <p style={{ fontWeight: 600 }}>Expired Narcotic License</p>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginTop: '0.2rem' }}>
+                      The <strong>Narcotics Storage License</strong> under Pharmacy expired on 10-May-2026. This is a severe legal liability.
+                    </p>
+                  </div>
+
+                  <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    <span className="badge badge-warning" style={{ fontSize: '0.6rem', marginBottom: '0.4rem' }}>Gap Detected</span>
+                    <p style={{ fontWeight: 600 }}>ICU Standard Missing Evidence</p>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginTop: '0.2rem' }}>
+                      No evidence document linked for <strong>COP.5.c (ICU Criteria)</strong>. The ICU risk is marked HIGH.
+                    </p>
+                  </div>
+
+                  <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    <span className="badge badge-success" style={{ fontSize: '0.6rem', marginBottom: '0.4rem' }}>Audit Recommendation</span>
+                    <p style={{ fontWeight: 600 }}>Unresolved Crash Cart Syringes CAPA</p>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginTop: '0.2rem' }}>
+                      CAPA-1 is due on 20-Jun-2026. Suggest uploading Daily Handover check sheet as corrective proof.
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
 
             <hr style={{ border: 'none', borderBottom: '1px solid var(--border-color)', margin: '1rem 0' }} />
 
