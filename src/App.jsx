@@ -87,28 +87,32 @@ function AppContent() {
     if (currentUser) {
       if (currentRoute === '/vendor-admin') {
         setCurrentRoute('/platform/dashboard');
-      } else if (isAppRoute) {
-        const potentialHospId = parts[1];
-        const validHospIds = [
-          'demo-hosp', 
-          'sarah-hosp', 
-          'sarah-hosp-2', 
-          currentUser.hospitalId, 
-          currentUser.activeHospitalId, 
-          ...(accessibleHospitals || []), 
-          ...(currentUser.accessibleHospitals || [])
-        ].filter(Boolean);
-        if (!potentialHospId || !validHospIds.includes(potentialHospId)) {
-          const activeHosp = currentUser.activeHospitalId || currentUser.hospitalId || 'demo-hosp';
-          const targetModule = potentialHospId && !validHospIds.includes(potentialHospId) ? potentialHospId : 'dashboard';
-          setCurrentRoute(`/app/${activeHosp}/${targetModule}`);
-        }
       } else if (currentRoute === '/app') {
-        const activeHosp = currentUser.activeHospitalId || currentUser.hospitalId || 'demo-hosp';
-        setCurrentRoute(`/app/${activeHosp}/dashboard`);
+        setCurrentRoute('/app/dashboard');
+      } else if (currentRoute === '/org') {
+        setCurrentRoute('/org/dashboard');
+      } else if (currentRoute === '/platform') {
+        setCurrentRoute('/platform/dashboard');
+      } else if (isAppRoute) {
+        // Strip legacy hospitalId prefixes: e.g. /app/hosp-123/quality -> /app/quality
+        const potentialHospId = parts[1];
+        const knownHospIds = ['demo-hosp', 'sarah-hosp', 'sarah-hosp-2'];
+        const isLegacyId = potentialHospId && (potentialHospId.startsWith('hosp-') || knownHospIds.includes(potentialHospId));
+        if (isLegacyId) {
+          const targetModule = parts[2] || 'dashboard';
+          setCurrentRoute(`/app/${targetModule}`);
+        }
+      } else if (isOrgRoute) {
+        // Strip legacy orgId prefixes: e.g. /org/org-central/dashboard -> /org/dashboard
+        const potentialOrgId = parts[1];
+        const isLegacyOrgId = potentialOrgId && (potentialOrgId.startsWith('org-') || potentialOrgId === 'org-central');
+        if (isLegacyOrgId) {
+          const targetModule = parts[2] || 'dashboard';
+          setCurrentRoute(`/org/${targetModule}`);
+        }
       }
     }
-  }, [currentRoute, currentUser, accessibleHospitals]);
+  }, [currentRoute, currentUser]);
 
   // Platform Console Route
   if (isPlatformRoute) {
@@ -124,7 +128,7 @@ function AppContent() {
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: '1.6', marginBottom: '2rem' }}>
               Only VaidyaQ Platform Administrators are authorized to access this office space.
             </p>
-            <button onClick={() => setCurrentRoute(`/app/${currentUser.hospitalId || 'demo-hosp'}/dashboard`)} className="btn btn-primary" style={{ padding: '0.7rem 1.5rem', fontWeight: 'bold' }}>
+            <button onClick={() => setCurrentRoute('/app/dashboard')} className="btn btn-primary" style={{ padding: '0.7rem 1.5rem', fontWeight: 'bold' }}>
               Return to Hospital Console
             </button>
           </div>
@@ -134,62 +138,33 @@ function AppContent() {
     return <VendorAdminConsole />;
   }
 
-  // Check hospital authorization
-  const activeHospitalIdFromUrl = isAppRoute ? parts[1] : null;
-  const isAuthorizedForHosp = !activeHospitalIdFromUrl || (currentUser && (
-    currentUser.hospitalId === activeHospitalIdFromUrl || 
-    currentUser.activeHospitalId === activeHospitalIdFromUrl || 
-    (accessibleHospitals && accessibleHospitals.includes(activeHospitalIdFromUrl)) ||
-    (currentUser.accessibleHospitals && currentUser.accessibleHospitals.includes(activeHospitalIdFromUrl)) ||
-    currentUser.platformRole === 'Platform Admin' || currentUser.role === 'Platform Admin'
-  ));
-
-  if (isAppRoute && currentUser && activeHospitalIdFromUrl && !isAuthorizedForHosp) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: 'var(--bg-primary)', padding: '2rem', textAlign: 'center' }}>
-        <div className="card shadow-lg" style={{ maxWidth: '480px', width: '100%', padding: '3rem', backgroundColor: 'var(--bg-secondary)', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
-          <div style={{ display: 'inline-flex', padding: '1.25rem', backgroundColor: 'rgba(220, 38, 38, 0.1)', color: 'var(--color-danger)', borderRadius: '50%', marginBottom: '1.5rem' }}>
-            <span style={{ fontSize: '2.5rem' }}>🛡️</span>
-          </div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.75rem' }}>Access Denied</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: '1.6', marginBottom: '2rem' }}>
-            You are not authorized to access this hospital branch's data workspace. Your session is bound to tenant branch <strong>{currentUser.hospitalId}</strong>.
-          </p>
-          <button onClick={() => setCurrentRoute(`/app/${currentUser.hospitalId}/dashboard`)} className="btn btn-primary" style={{ padding: '0.7rem 1.5rem', fontWeight: 'bold' }}>
-            Return to Authorized Workspace
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   // Check organization authorization
-  const organizationIdFromUrl = isOrgRoute ? parts[1] : null;
-  const isAuthorizedForOrg = !organizationIdFromUrl || (currentUser && (
-    currentUser.organizationId === organizationIdFromUrl ||
-    currentUser.platformRole === 'Platform Admin' || currentUser.role === 'Platform Admin'
-  ));
-
-  if (isOrgRoute && currentUser && organizationIdFromUrl && !isAuthorizedForOrg) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: 'var(--bg-primary)', padding: '2rem', textAlign: 'center' }}>
-        <div className="card shadow-lg" style={{ maxWidth: '480px', width: '100%', padding: '3rem', backgroundColor: 'var(--bg-secondary)', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
-          <div style={{ display: 'inline-flex', padding: '1.25rem', backgroundColor: 'rgba(220, 38, 38, 0.1)', color: 'var(--color-danger)', borderRadius: '50%', marginBottom: '1.5rem' }}>
-            <span style={{ fontSize: '2.5rem' }}>🛡️</span>
-          </div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.75rem' }}>Access Denied</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: '1.6', marginBottom: '2rem' }}>
-            You are not authorized to access this organization's consolidated group console.
-          </p>
-          <button onClick={() => setCurrentRoute(`/app/${currentUser.hospitalId}/dashboard`)} className="btn btn-primary" style={{ padding: '0.7rem 1.5rem', fontWeight: 'bold' }}>
-            Return to Hospital Workspace
-          </button>
-        </div>
-      </div>
+  if (isOrgRoute) {
+    const isAuthorizedForOrg = currentUser && (
+      currentUser.organizationId ||
+      currentUser.platformRole === 'Platform Admin' || currentUser.role === 'Platform Admin'
     );
+    if (!isAuthorizedForOrg) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: 'var(--bg-primary)', padding: '2rem', textAlign: 'center' }}>
+          <div className="card shadow-lg" style={{ maxWidth: '480px', width: '100%', padding: '3rem', backgroundColor: 'var(--bg-secondary)', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
+            <div style={{ display: 'inline-flex', padding: '1.25rem', backgroundColor: 'rgba(220, 38, 38, 0.1)', color: 'var(--color-danger)', borderRadius: '50%', marginBottom: '1.5rem' }}>
+              <span style={{ fontSize: '2.5rem' }}>🛡️</span>
+            </div>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.75rem' }}>Access Denied</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: '1.6', marginBottom: '2rem' }}>
+              You are not authorized to access this organization's consolidated group console.
+            </p>
+            <button onClick={() => setCurrentRoute('/app/dashboard')} className="btn btn-primary" style={{ padding: '0.7rem 1.5rem', fontWeight: 'bold' }}>
+              Return to Hospital Workspace
+            </button>
+          </div>
+        </div>
+      );
+    }
   }
 
-  const moduleFromUrl = isAppRoute ? parts[2] : (isOrgRoute ? parts[2] : null);
+  const moduleFromUrl = isSecuredRoute ? parts[1] : null;
 
   // 1. PUBLIC MARKETING ROUTE HANDLER - enforce currentUser session
   if (currentRoute === '/' || (!isAppRoute && !isOrgRoute) || !currentUser) {
@@ -365,7 +340,7 @@ function AppContent() {
 
             switch (moduleFromUrl) {
               case 'dashboard':
-                return isOrgRoute ? <Dashboard orgMode={true} organizationId={organizationIdFromUrl} /> : <Dashboard />;
+                return isOrgRoute ? <Dashboard orgMode={true} organizationId={currentUser?.organizationId} /> : <Dashboard />;
               case 'quality':
                 return <QualityModule />;
               case 'compliance':

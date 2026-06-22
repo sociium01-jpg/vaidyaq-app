@@ -379,7 +379,7 @@ export const QualiNABHProvider = ({ children }) => {
         return updated;
       });
       logActivity(`Switched active branch to ${branchId}`);
-      setCurrentRoute(`/app/${branchId}/dashboard`);
+      setCurrentRoute('/app/dashboard');
     }
   };
 

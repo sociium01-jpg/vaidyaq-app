@@ -1227,6 +1227,128 @@ export default function Dashboard({ orgMode, organizationId }) {
     );
   };
 
+  const renderSectionSummaryGrid = () => {
+    const approvedDocs = (documents || []).filter(d => d.status === 'Approved').length;
+    const pendingDocs = (documents || []).filter(d => d.status !== 'Approved').length;
+
+    const closedCapa = (capaItems || []).filter(c => c.status === 'Closed').length;
+    const openCapa = (capaItems || []).filter(c => c.status === 'Open').length;
+
+    const activeLic = (licenses || []).filter(l => l.status === 'Active').length;
+    const pendingLic = (licenses || []).filter(l => l.status !== 'Active').length;
+
+    const doneTasks = (tasks || []).filter(t => t.status === 'Completed').length;
+    const pendingTasks = (tasks || []).filter(t => t.status !== 'Completed').length;
+
+    const sections = [
+      {
+        title: 'Document Control',
+        icon: FileText,
+        path: '/app/documents',
+        metrics: {
+          done: `${approvedDocs} Approved`,
+          pending: `${pendingDocs} Review / Draft`
+        },
+        color: 'var(--primary)'
+      },
+      {
+        title: 'Quality & CAPA',
+        icon: Activity,
+        path: '/app/quality',
+        metrics: {
+          done: `${closedCapa} CAPAs Closed`,
+          pending: `${openCapa} CAPAs Open`
+        },
+        color: '#3b82f6'
+      },
+      {
+        title: 'Statutory Compliance',
+        icon: Shield,
+        path: '/app/compliance',
+        metrics: {
+          done: `${activeLic} Active Licenses`,
+          pending: `${pendingLic} Expired / Renewing`
+        },
+        color: '#f59e0b'
+      },
+      {
+        title: 'Task Management',
+        icon: ListTodo,
+        path: '/app/tasks',
+        metrics: {
+          done: `${doneTasks} Completed`,
+          pending: `${pendingTasks} Active / Overdue`
+        },
+        color: '#10b981'
+      }
+    ];
+
+    return (
+      <div style={{ marginTop: '0.5rem', marginBottom: '0.5rem' }}>
+        <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: '0 0 1rem 0' }}>Interactive Section Summary</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+          {sections.map((sec, idx) => {
+            const Icon = sec.icon;
+            return (
+              <div 
+                key={idx}
+                onClick={() => setCurrentRoute(sec.path)}
+                className="card glow-premium"
+                style={{ 
+                  padding: '1.25rem', 
+                  backgroundColor: 'var(--bg-secondary)', 
+                  border: '1px solid var(--border-color)', 
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.75rem',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.transform = 'translateY(-3px)';
+                  e.currentTarget.style.borderColor = sec.color;
+                  e.currentTarget.style.boxShadow = `0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px ${sec.color}15`;
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.transform = 'none';
+                  e.currentTarget.style.borderColor = 'var(--border-color)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                {/* Visual accent bar */}
+                <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: '4px', backgroundColor: sec.color }} />
+                
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ padding: '0.4rem', borderRadius: '8px', backgroundColor: `${sec.color}15`, color: sec.color, display: 'flex', alignItems: 'center' }}>
+                      <Icon size={18} />
+                    </div>
+                    <span style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>{sec.title}</span>
+                  </div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>→</span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', paddingLeft: '0.25rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem' }}>
+                    <span style={{ color: '#10b981', fontSize: '0.5rem' }}>●</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>Done: <strong>{sec.metrics.done}</strong></span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem' }}>
+                    <span style={{ color: '#ef4444', fontSize: '0.5rem' }}>●</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>Pending: <strong>{sec.metrics.pending}</strong></span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   // ----------------------------------------------------
   // Root Dashboard Route Dispatcher
   // ----------------------------------------------------
@@ -1262,6 +1384,9 @@ export default function Dashboard({ orgMode, organizationId }) {
           </button>
         </div>
       )}
+
+      {/* Section Summary Grid for client-side hospital view */}
+      {!orgMode && renderSectionSummaryGrid()}
 
       {/* Main role dashboard switch */}
       {(() => {

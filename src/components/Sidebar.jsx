@@ -49,11 +49,10 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
   const unreadNotifsCount = feedNotifications ? feedNotifications.filter(n => !n.read).length : 0;
 
   const getTenantPath = (moduleName) => {
-    // If user is organization group admin, let them navigate organization level
     if (activeOrganizationId && currentRoute.startsWith('/org/')) {
-      return `/org/${activeOrganizationId}/${moduleName}`;
+      return `/org/${moduleName}`;
     }
-    return `/app/${activeHospitalId || currentUser?.hospitalId || 'demo-hosp'}/${moduleName}`;
+    return `/app/${moduleName}`;
   };
 
   const mainNavItems = [
@@ -128,7 +127,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
     if (newRole === 'Platform Admin') {
       setCurrentRoute('/platform/dashboard');
     } else {
-      setCurrentRoute(`/app/${selectedUser.activeHospitalId}/dashboard`);
+      setCurrentRoute('/app/dashboard');
     }
   };
 
@@ -146,9 +145,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
   };
 
   const parts = currentRoute.split('/').filter(Boolean);
-  const isApp = parts[0] === 'app';
-  const isOrg = parts[0] === 'org';
-  const currentModule = (isApp || isOrg) ? (parts[2] || 'dashboard') : (parts[1] || 'dashboard');
+  const currentModule = parts[1] || 'dashboard';
 
   return (
     <div className={`sidebar ${sidebarOpen ? 'mobile-open' : ''}`}>
