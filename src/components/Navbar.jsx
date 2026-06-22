@@ -14,7 +14,11 @@ export default function Navbar({ setSidebarOpen, onSearchClick, onNotificationCl
     hospitalTier,
     isSubscribed,
     trialDaysLeft,
-    subscriptionDaysLeft
+    subscriptionDaysLeft,
+    activeHospitalId,
+    accessibleHospitals,
+    switchActiveBranch,
+    clientsList
   } = useContext(QualiNABHContext);
 
 
@@ -105,9 +109,45 @@ export default function Navbar({ setSidebarOpen, onSearchClick, onNotificationCl
         >
           <Menu size={20} />
         </button>
-        <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-          🏥 {hospitalName}
-        </span>
+        {accessibleHospitals && accessibleHospitals.length > 1 ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <select
+              value={activeHospitalId}
+              onChange={(e) => switchActiveBranch(e.target.value)}
+              style={{
+                background: 'var(--bg-secondary)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '8px',
+                padding: '0.35rem 1.75rem 0.35rem 0.75rem',
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                outline: 'none',
+                fontFamily: 'var(--font-body)',
+                boxShadow: 'var(--shadow-sm)',
+                appearance: 'none',
+                backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>")`,
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'right 0.5rem center',
+                backgroundSize: '1rem'
+              }}
+            >
+              {accessibleHospitals.map(hospId => {
+                const hospObj = clientsList.find(c => c.hospitalId === hospId);
+                return (
+                  <option key={hospId} value={hospId}>
+                    🏥 {hospObj ? hospObj.hospitalName : hospId}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        ) : (
+          <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+            🏥 {hospitalName}
+          </span>
+        )}
         <span className="badge badge-neutral" style={{ fontSize: '0.65rem' }}>
           {hospitalBeds} Beds • {hospitalTier}
         </span>

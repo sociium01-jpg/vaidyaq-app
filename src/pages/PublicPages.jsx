@@ -534,8 +534,8 @@ Key Benefits of the SaaS Model:
 
   // Helper to navigate to tabs and scroll to top
   const navigateToTab = (tabName) => {
-    if (tabName === '/vendor-admin') {
-      setCurrentRoute('/vendor-admin');
+    if (tabName === '/platform/dashboard') {
+      setCurrentRoute('/platform/dashboard');
       return;
     }
     setActiveTab(tabName);
@@ -2344,10 +2344,10 @@ Key Benefits of the SaaS Model:
               </li>
               <li>
                 <button
-                  onClick={() => navigateToTab('/vendor-admin')}
+                  onClick={() => navigateToTab('/platform/dashboard')}
                   style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text-tertiary)', fontSize: '0.75rem', cursor: 'pointer', textAlign: 'left', marginTop: '0.5rem', fontStyle: 'italic' }}
                 >
-                  ⚙️ Vendor Admin (only for office use)
+                  ⚙️ Platform Admin (Internal)
                 </button>
               </li>
             </ul>

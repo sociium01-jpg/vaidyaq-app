@@ -1321,9 +1321,9 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
             <div style={{ display: 'inline-flex', padding: '0.75rem', backgroundColor: 'var(--primary-light)', color: 'var(--primary)', borderRadius: '50%', marginBottom: '0.75rem' }}>
               <ShieldCheck size={36} />
             </div>
-            <h2 style={{ fontSize: '1.8rem', fontWeight: 800 }}>Vendor Admin Console</h2>
+            <h2 style={{ fontSize: '1.8rem', fontWeight: 800 }}>Platform Admin Console</h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.35rem' }}>
-              VaidyaQ Internal Operations & CRM Manager
+              VaidyaQ Global Operations & Platform Manager
             </p>
           </div>
 
@@ -1968,7 +1968,7 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
             <h1 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'baseline', gap: '3px' }}>
               <span style={{ color: 'var(--text-primary)' }}>Vaidya</span>
               <span style={{ color: '#0d9488' }}>Q</span>
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, marginLeft: '0.4rem' }}>Employee Console</span>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, marginLeft: '0.4rem' }}>Platform Admin Console</span>
             </h1>
           </div>
         </div>
@@ -5067,9 +5067,9 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
           {activeTab === 'settings' && renderPermissionGuard('configure_staff', (
             <div className="card flex flex-col gap-3" style={{ padding: '2rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
               <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', marginBottom: '0.5rem' }}>
-                <Settings size={18} /> <span>Update Vendor Admin Credentials</span>
+                <Settings size={18} /> <span>Update Platform Admin Credentials</span>
               </h3>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Change the Super Admin username and password used to unlock this secure Vendor Console.</p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Change the Super Admin username and password used to unlock this secure Platform Console.</p>
 
               {credSuccess && (
                 <div style={{ backgroundColor: 'var(--bg-success)', color: 'var(--color-success)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--bg-success)', fontSize: '0.8rem' }}>

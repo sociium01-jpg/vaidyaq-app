@@ -35,7 +35,7 @@ import {
   Copy
 } from 'lucide-react';
 
-export default function Dashboard() {
+export default function Dashboard({ orgMode, organizationId }) {
   const {
     setCurrentRoute,
     currentUser,
@@ -80,7 +80,10 @@ export default function Dashboard() {
     aiOutputs,
     teamMembers,
     updateStandardScore,
-    addDocument
+    addDocument,
+    activeHospitalId,
+    accessibleHospitals,
+    switchActiveBranch
   } = useContext(QualiNABHContext);
 
   const { showToast } = useToast();
@@ -319,6 +322,179 @@ export default function Dashboard() {
         <div style={{ position: 'absolute', textAlign: 'center' }}>
           <div style={{ fontSize: `${size * 0.16}px`, fontWeight: 800, color: 'var(--text-primary)' }}>{readinessScore}%</div>
           <div style={{ fontSize: `${size * 0.08}px`, color: 'var(--text-secondary)', fontWeight: 600 }}>Ready</div>
+        </div>
+      </div>
+    );
+  };
+
+  // ----------------------------------------------------
+  // 0. ORGANIZATION CONSOLIDATED GROUP DASHBOARD
+  // ----------------------------------------------------
+  const getBranchMetrics = (hospId) => {
+    let branchStandards;
+    const savedStandards = localStorage.getItem(`hosp_${hospId}_qn_standards`);
+    if (savedStandards) {
+      try { branchStandards = JSON.parse(savedStandards); } catch(e) {}
+    }
+    if (!branchStandards) {
+      // Fallback old structure or default
+      const legacySaved = localStorage.getItem('qn_standards');
+      if (legacySaved) {
+        try { branchStandards = JSON.parse(legacySaved); } catch(e) {}
+      }
+    }
+    if (!branchStandards) {
+      branchStandards = []; // starts blank
+    }
+    
+    // Calculate score
+    const maxScore = branchStandards.length * 10;
+    const earned = branchStandards.reduce((sum, s) => sum + s.score, 0);
+    const score = maxScore > 0 ? Math.round((earned / maxScore) * 100) : 0;
+    
+    // Look up CAPAs
+    let branchCapas = [];
+    const savedCapas = localStorage.getItem(`hosp_${hospId}_qn_capas`);
+    if (savedCapas) {
+      try { branchCapas = JSON.parse(savedCapas); } catch(e) {}
+    }
+    const openCapa = branchCapas.filter(c => c.status === "Open").length;
+
+    // Look up Audits
+    let branchAudits = [];
+    const savedAudits = localStorage.getItem(`hosp_${hospId}_qn_audits`);
+    if (savedAudits) {
+      try { branchAudits = JSON.parse(savedAudits); } catch(e) {}
+    }
+    const pendingAudit = branchAudits.filter(a => a.status === "Scheduled").length;
+
+    return { score, openCapa, pendingAudit };
+  };
+
+  const renderOrganizationDashboard = () => {
+    const orgBranches = currentUser?.accessibleHospitals || ['demo-hosp', 'sarah-hosp'];
+    const branchData = orgBranches.map(hospId => {
+      const clientObj = clientsList.find(c => c.hospitalId === hospId) || { hospitalName: hospId === 'demo-hosp' ? "City Central Metro Hospital" : hospId === 'sarah-hosp' ? "Central City Clinic" : hospId, beds: 50 };
+      const metrics = getBranchMetrics(hospId);
+      return {
+        id: hospId,
+        name: clientObj.hospitalName,
+        beds: clientObj.beds,
+        ...metrics
+      };
+    });
+
+    const avgScore = branchData.length > 0 ? Math.round(branchData.reduce((sum, b) => sum + b.score, 0) / branchData.length) : 0;
+    const totalCapas = branchData.reduce((sum, b) => sum + b.openCapa, 0);
+    const totalAudits = branchData.reduce((sum, b) => sum + b.pendingAudit, 0);
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <div>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0 }}>Group Executive Dashboard</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '2px' }}>
+            Consolidated accreditation readiness indices, open CAPAs, and scheduled mock audits across organization branches.
+          </p>
+        </div>
+
+        {/* Aggregate Stats Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+          <div className="card flex align-center gap-3" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+            <div style={{ padding: '0.6rem', borderRadius: '50%', backgroundColor: 'rgba(13, 148, 136, 0.1)', color: 'var(--primary)', display: 'flex', alignItems: 'center' }}>
+              <Building2 size={24} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Active Branches</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)' }}>{branchData.length} Branches</div>
+            </div>
+          </div>
+          <div className="card flex align-center gap-3" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+            <div style={{ padding: '0.6rem', borderRadius: '50%', backgroundColor: 'rgba(220, 38, 38, 0.1)', color: 'var(--color-danger)', display: 'flex', alignItems: 'center' }}>
+              <AlertTriangle size={24} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Aggregate Open CAPAs</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--color-danger)' }}>{totalCapas} Active</div>
+            </div>
+          </div>
+          <div className="card flex align-center gap-3" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+            <div style={{ padding: '0.6rem', borderRadius: '50%', backgroundColor: 'rgba(79, 70, 229, 0.1)', color: '#4f46e5', display: 'flex', alignItems: 'center' }}>
+              <Calendar size={24} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Scheduled Audits</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#4f46e5' }}>{totalAudits} Scheduled</div>
+            </div>
+          </div>
+          <div className="card flex align-center gap-3" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+            <div style={{ padding: '0.6rem', borderRadius: '50%', backgroundColor: 'rgba(13, 148, 136, 0.1)', color: 'var(--primary)', display: 'flex', alignItems: 'center' }}>
+              <Activity size={24} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Group Readiness Index</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--primary)' }}>{avgScore}% Ready</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Branches Comparison Panel */}
+        <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: '0 0 1rem 0', color: 'var(--text-primary)' }}>Branch Accreditation Comparison Ledger</h3>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
+                  <th style={{ padding: '0.75rem 0.5rem' }}>Branch Name</th>
+                  <th style={{ padding: '0.75rem 0.5rem' }}>Beds Scale</th>
+                  <th style={{ padding: '0.75rem 0.5rem' }}>Accreditation Readiness</th>
+                  <th style={{ padding: '0.75rem 0.5rem' }}>Open CAPAs</th>
+                  <th style={{ padding: '0.75rem 0.5rem' }}>Scheduled Audits</th>
+                  <th style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {branchData.map(branch => {
+                  const scoreColor = branch.score >= 70 ? 'var(--color-success)' : branch.score >= 45 ? 'var(--color-warning)' : 'var(--color-danger)';
+                  return (
+                    <tr key={branch.id} style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-primary)' }}>
+                      <td style={{ padding: '1rem 0.5rem', fontWeight: 'bold' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span>🏢</span>
+                          <span>{branch.name}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '1rem 0.5rem' }}>{branch.beds} Beds</td>
+                      <td style={{ padding: '1rem 0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <div style={{ width: '60px', height: '6px', backgroundColor: 'var(--bg-tertiary)', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div style={{ width: `${branch.score || 1}%`, height: '100%', backgroundColor: scoreColor }}></div>
+                          </div>
+                          <span style={{ fontWeight: 'bold', color: scoreColor }}>{branch.score}%</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '1rem 0.5rem' }}>
+                        <span className={`badge ${branch.openCapa > 0 ? 'badge-danger' : 'badge-neutral'}`}>
+                          {branch.openCapa} CAPA
+                        </span>
+                      </td>
+                      <td style={{ padding: '1rem 0.5rem' }}>
+                        <span className="badge badge-neutral">{branch.pendingAudit} Audits</span>
+                      </td>
+                      <td style={{ padding: '1rem 0.5rem', textAlign: 'right' }}>
+                        <button 
+                          onClick={() => switchActiveBranch(branch.id)}
+                          className="btn btn-primary" 
+                          style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer', borderRadius: '6px' }}
+                        >
+                          Switch to Branch Console
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     );
@@ -1089,9 +1265,13 @@ export default function Dashboard() {
 
       {/* Main role dashboard switch */}
       {(() => {
+        if (orgMode) {
+          return renderOrganizationDashboard();
+        }
+
         switch (currentUser?.role) {
           case 'Super Admin':
-            return renderSuperAdminDashboard();
+            return renderHospitalAdminDashboard();
           case 'Hospital Admin':
             return renderHospitalAdminDashboard();
           case 'Quality Head':

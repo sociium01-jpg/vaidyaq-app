@@ -549,7 +549,7 @@ export default function ProfileSettings() {
               <span style={{ fontWeight: 'bold', fontSize: '0.9rem', display: 'block', color: 'var(--color-danger)' }}>Deactivate My Account Profile</span>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '1rem' }}>
                 {isSuperAdmin 
-                  ? "This will log you out. To delete the entire hospital database, access the Vendor admin console."
+                  ? "This will log you out. To delete the entire hospital database, contact VaidyaQ Support or a Platform Admin."
                   : "This will delete your credentials and remove you from the active team members registry."}
               </span>
               

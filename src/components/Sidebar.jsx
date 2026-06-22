@@ -37,7 +37,10 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
     feedNotifications,
     checkForComplianceUpdates,
     hospitalMode,
-    switchHospitalMode
+    switchHospitalMode,
+    activeHospitalId,
+    accessibleHospitals,
+    activeOrganizationId
   } = useContext(QualiNABHContext);
 
   const [newsCollapsed, setNewsCollapsed] = useState(true);
@@ -46,7 +49,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
   const unreadNotifsCount = feedNotifications ? feedNotifications.filter(n => !n.read).length : 0;
 
   const getTenantPath = (moduleName) => {
-    return `/app/${moduleName}`;
+    // If user is organization group admin, let them navigate organization level
+    if (activeOrganizationId && currentRoute.startsWith('/org/')) {
+      return `/org/${activeOrganizationId}/${moduleName}`;
+    }
+    return `/app/${activeHospitalId || currentUser?.hospitalId || 'demo-hosp'}/${moduleName}`;
   };
 
   const mainNavItems = [
@@ -70,6 +77,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
   const handleRoleChange = (e) => {
     const newRole = e.target.value;
     const names = {
+      "Platform Admin": "VaidyaQ Operator",
       "Super Admin": "Col. Roy (COO)",
       "Hospital Admin": "Mr. Mehta (Director)",
       "Quality Head": "Dr. Sarah Paul",
@@ -80,29 +88,48 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
       "Viewer": "Guest Auditor"
     };
     
-    const activeHospitalId = currentUser?.hospitalId || 'demo-hosp';
-    const activeParentEmail = activeHospitalId === 'sarah-hosp' ? 'quality.head@hospital.org' : 'demo@vaidyaq.com';
-    const activeEmail = activeHospitalId === 'sarah-hosp' ? 'quality.head@hospital.org' : 'demo@vaidyaq.com';
-
+    const currentHospId = activeHospitalId || currentUser?.hospitalId || 'demo-hosp';
+    
     const emails = {
-      "Super Admin": activeHospitalId === 'sarah-hosp' ? 'super@vaidyaq.com' : 'super@vaidyaq.com', // wait, let's keep emails aligned to tenant or map them
-      "Hospital Admin": activeHospitalId === 'sarah-hosp' ? 'director@hospital.org' : 'director@hospital.org',
-      "Quality Head": activeHospitalId === 'sarah-hosp' ? 'quality.head@hospital.org' : 'quality.head@hospital.org',
-      "Department Head": activeHospitalId === 'sarah-hosp' ? 'pharmacy@hospital.org' : 'pharmacy@hospital.org',
-      "Auditor": activeHospitalId === 'sarah-hosp' ? 'auditor@hospital.org' : 'auditor@hospital.org',
-      "Staff": activeHospitalId === 'sarah-hosp' ? 'nurse@hospital.org' : 'nurse@hospital.org',
-      "External Consultant": 'vinay.consultant@gmail.com',
-      "Viewer": 'viewer@hospital.org'
+      "Platform Admin": "admin@vaidyaq.com",
+      "Super Admin": "super@vaidyaq.com",
+      "Hospital Admin": "director@hospital.org",
+      "Quality Head": "quality.head@hospital.org",
+      "Department Head": "pharmacy@hospital.org",
+      "Auditor": "auditor@hospital.org",
+      "Staff": "nurse@hospital.org",
+      "External Consultant": "vinay.consultant@gmail.com",
+      "Viewer": "viewer@hospital.org"
     };
 
-    setCurrentUser({
-      role: newRole,
+    const orgId = (newRole === 'Platform Admin') ? null : 'org-central';
+    let accHops = [currentHospId];
+    if (newRole === 'Super Admin' || newRole === 'Hospital Admin') {
+      accHops = ['demo-hosp', 'sarah-hosp'];
+    } else if (newRole === 'Quality Head') {
+      accHops = ['sarah-hosp'];
+    }
+
+    const selectedUser = {
+      role: newRole === 'Platform Admin' ? 'Platform Admin' : newRole,
+      platformRole: newRole === 'Platform Admin' ? 'Platform Admin' : null,
       name: names[newRole] || "User",
-      email: emails[newRole] || activeEmail,
-      hospitalId: activeHospitalId,
-      parentEmail: activeParentEmail
-    });
+      email: emails[newRole] || "user@hospital.org",
+      hospitalId: newRole === 'Platform Admin' ? 'vaidyaq-hq' : currentHospId,
+      activeHospitalId: newRole === 'Platform Admin' ? 'vaidyaq-hq' : currentHospId,
+      organizationId: orgId,
+      accessibleHospitals: accHops,
+      parentEmail: newRole === 'Platform Admin' ? 'admin@vaidyaq.com' : (newRole === 'Quality Head' ? 'quality.head@hospital.org' : 'demo@vaidyaq.com')
+    };
+
+    setCurrentUser(selectedUser);
     logActivity(`Simulated role switched to: ${newRole}`);
+    
+    if (newRole === 'Platform Admin') {
+      setCurrentRoute('/platform/dashboard');
+    } else {
+      setCurrentRoute(`/app/${selectedUser.activeHospitalId}/dashboard`);
+    }
   };
 
   const handleLogout = () => {
@@ -119,7 +146,9 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
   };
 
   const parts = currentRoute.split('/').filter(Boolean);
-  const currentModule = parts[1] || 'dashboard';
+  const isApp = parts[0] === 'app';
+  const isOrg = parts[0] === 'org';
+  const currentModule = (isApp || isOrg) ? (parts[2] || 'dashboard') : (parts[1] || 'dashboard');
 
   return (
     <div className={`sidebar ${sidebarOpen ? 'mobile-open' : ''}`}>
@@ -297,7 +326,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
         </div>
 
         {/* Role Selector (Only shown for Demo Sandbox Users) */}
-        {(currentUser?.email === 'demo@vaidyaq.com' || currentUser?.email === 'quality.head@hospital.org') && (
+        {(currentUser?.email === 'demo@vaidyaq.com' || currentUser?.email === 'quality.head@hospital.org' || currentUser?.email === 'admin@vaidyaq.com' || currentUser?.email === 'super@vaidyaq.com') && (
           <div style={{ marginTop: '0.5rem' }}>
             <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700, marginBottom: '0.25rem' }}>Simulate Access Role</label>
             <select
@@ -313,6 +342,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
               <option value="Staff">Nurse/Staff</option>
               <option value="External Consultant">NABH Consultant</option>
               <option value="Viewer">Assessor (Viewer)</option>
+              <option value="Platform Admin">Platform Admin</option>
             </select>
           </div>
         )}

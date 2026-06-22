@@ -227,14 +227,25 @@ export const QualiNABHProvider = ({ children }) => {
   const loadNamespacedState = (key, defaultValue) => {
     const savedUser = localStorage.getItem('qn_user');
     let activeEmail = null;
+    let hospId = 'demo-hosp';
     if (savedUser) {
       try {
         const parsed = JSON.parse(savedUser);
         activeEmail = parsed.parentEmail || parsed.email;
+        hospId = parsed.activeHospitalId || parsed.hospitalId || 'demo-hosp';
       } catch (e) {}
     }
-    const prefix = activeEmail ? `${activeEmail}_` : '';
-    const saved = localStorage.getItem(prefix + key);
+    
+    // Try hospital-based namespace first
+    const hospPrefix = hospId ? `hosp_${hospId}_` : '';
+    let saved = localStorage.getItem(hospPrefix + key);
+    
+    // Fallback to legacy email namespace
+    if (!saved && activeEmail) {
+      const emailPrefix = `${activeEmail}_`;
+      saved = localStorage.getItem(emailPrefix + key);
+    }
+
     let result;
     if (saved) {
       try {
@@ -310,6 +321,70 @@ export const QualiNABHProvider = ({ children }) => {
     const saved = localStorage.getItem('qn_user');
     return saved ? JSON.parse(saved) : null;
   });
+
+  const [activeHospitalId, setActiveHospitalId] = useState(() => {
+    const savedUser = localStorage.getItem('qn_user');
+    if (savedUser) {
+      try {
+        const parsed = JSON.parse(savedUser);
+        return parsed.activeHospitalId || parsed.hospitalId || 'demo-hosp';
+      } catch (e) {}
+    }
+    return 'demo-hosp';
+  });
+
+  const [activeOrganizationId, setActiveOrganizationId] = useState(() => {
+    const savedUser = localStorage.getItem('qn_user');
+    if (savedUser) {
+      try {
+        const parsed = JSON.parse(savedUser);
+        return parsed.organizationId || null;
+      } catch (e) {}
+    }
+    return null;
+  });
+
+  const [accessibleHospitals, setAccessibleHospitals] = useState(() => {
+    const savedUser = localStorage.getItem('qn_user');
+    if (savedUser) {
+      try {
+        const parsed = JSON.parse(savedUser);
+        return parsed.accessibleHospitals || [parsed.hospitalId || 'demo-hosp'];
+      } catch (e) {}
+    }
+    return ['demo-hosp'];
+  });
+
+  // Sync helper states when currentUser changes
+  useEffect(() => {
+    if (currentUser) {
+      setAccessibleHospitals(currentUser.accessibleHospitals || [currentUser.hospitalId || 'demo-hosp']);
+      setActiveHospitalId(currentUser.activeHospitalId || currentUser.hospitalId || 'demo-hosp');
+      setActiveOrganizationId(currentUser.organizationId || null);
+    } else {
+      setAccessibleHospitals(['demo-hosp']);
+      setActiveHospitalId('demo-hosp');
+      setActiveOrganizationId(null);
+    }
+  }, [currentUser]);
+
+  // Method to switch between branches
+  const switchActiveBranch = (branchId) => {
+    if (accessibleHospitals.includes(branchId)) {
+      setActiveHospitalId(branchId);
+      setCurrentUser(prev => {
+        if (!prev) return prev;
+        const updated = { ...prev, activeHospitalId: branchId };
+        localStorage.setItem('qn_user', JSON.stringify(updated));
+        return updated;
+      });
+      logActivity(`Switched active branch to ${branchId}`);
+      setCurrentRoute(`/app/${branchId}/dashboard`);
+    }
+  };
+
+  const activePrefix = activeHospitalId ? `hosp_${activeHospitalId}_` : (currentUser ? `${currentUser.parentEmail || currentUser.email}_` : '');
+
 
   // Theme State
   const [theme, setTheme] = useState(() => {
@@ -623,41 +698,41 @@ export const QualiNABHProvider = ({ children }) => {
     if (currentUser) {
       const activeEmail = currentUser.parentEmail || currentUser.email;
       const prefix = activeEmail ? `${activeEmail}_` : '';
-      localStorage.setItem(`${prefix}qn_ai_settings`, JSON.stringify(aiSettings));
+      localStorage.setItem(`${activePrefix}qn_ai_settings`, JSON.stringify(aiSettings));
     }
-  }, [aiSettings, currentUser]);
+  }, [aiSettings, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
       const activeEmail = currentUser.parentEmail || currentUser.email;
       const prefix = activeEmail ? `${activeEmail}_` : '';
-      localStorage.setItem(`${prefix}qn_ai_memory`, JSON.stringify(aiMemory));
+      localStorage.setItem(`${activePrefix}qn_ai_memory`, JSON.stringify(aiMemory));
     }
-  }, [aiMemory, currentUser]);
+  }, [aiMemory, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
       const activeEmail = currentUser.parentEmail || currentUser.email;
       const prefix = activeEmail ? `${activeEmail}_` : '';
-      localStorage.setItem(`${prefix}qn_ai_outputs`, JSON.stringify(aiOutputs));
+      localStorage.setItem(`${activePrefix}qn_ai_outputs`, JSON.stringify(aiOutputs));
     }
-  }, [aiOutputs, currentUser]);
+  }, [aiOutputs, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
       const activeEmail = currentUser.parentEmail || currentUser.email;
       const prefix = activeEmail ? `${activeEmail}_` : '';
-      localStorage.setItem(`${prefix}qn_ai_usage_logs`, JSON.stringify(aiUsageLogs));
+      localStorage.setItem(`${activePrefix}qn_ai_usage_logs`, JSON.stringify(aiUsageLogs));
     }
-  }, [aiUsageLogs, currentUser]);
+  }, [aiUsageLogs, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
       const activeEmail = currentUser.parentEmail || currentUser.email;
       const prefix = activeEmail ? `${activeEmail}_` : '';
-      localStorage.setItem(`${prefix}qn_ai_safety_logs`, JSON.stringify(aiSafetyLogs));
+      localStorage.setItem(`${activePrefix}qn_ai_safety_logs`, JSON.stringify(aiSafetyLogs));
     }
-  }, [aiSafetyLogs, currentUser]);
+  }, [aiSafetyLogs, activePrefix]);
 
   // Auto-heal legacy user sessions missing hospitalId or having string 'undefined'
   useEffect(() => {
@@ -710,103 +785,103 @@ export const QualiNABHProvider = ({ children }) => {
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_hospital_mode`, hospitalMode);
+      localStorage.setItem(`${activePrefix}qn_hospital_mode`, hospitalMode);
     }
-  }, [hospitalMode, currentUser]);
+  }, [hospitalMode, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_hospital_name`, hospitalName);
+      localStorage.setItem(`${activePrefix}qn_hospital_name`, hospitalName);
     }
-  }, [hospitalName, currentUser]);
+  }, [hospitalName, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_hospital_beds`, hospitalBeds);
+      localStorage.setItem(`${activePrefix}qn_hospital_beds`, hospitalBeds);
     }
-  }, [hospitalBeds, currentUser]);
+  }, [hospitalBeds, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_hospital_tier`, hospitalTier);
+      localStorage.setItem(`${activePrefix}qn_hospital_tier`, hospitalTier);
     }
-  }, [hospitalTier, currentUser]);
+  }, [hospitalTier, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_active_depts`, JSON.stringify(activeDepts));
+      localStorage.setItem(`${activePrefix}qn_active_depts`, JSON.stringify(activeDepts));
     }
-  }, [activeDepts, currentUser]);
+  }, [activeDepts, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_onboarding_steps`, JSON.stringify(onboardingSteps));
+      localStorage.setItem(`${activePrefix}qn_onboarding_steps`, JSON.stringify(onboardingSteps));
     }
-  }, [onboardingSteps, currentUser]);
+  }, [onboardingSteps, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_onboarding_step`, String(onboardingStep));
+      localStorage.setItem(`${activePrefix}qn_onboarding_step`, String(onboardingStep));
     }
-  }, [onboardingStep, currentUser]);
+  }, [onboardingStep, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_standards`, JSON.stringify(standards));
+      localStorage.setItem(`${activePrefix}qn_standards`, JSON.stringify(standards));
     }
-  }, [standards, currentUser]);
+  }, [standards, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_documents`, JSON.stringify(documents));
+      localStorage.setItem(`${activePrefix}qn_documents`, JSON.stringify(documents));
     }
-  }, [documents, currentUser]);
+  }, [documents, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_audits`, JSON.stringify(audits));
+      localStorage.setItem(`${activePrefix}qn_audits`, JSON.stringify(audits));
     }
-  }, [audits, currentUser]);
+  }, [audits, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_capas`, JSON.stringify(capaItems));
+      localStorage.setItem(`${activePrefix}qn_capas`, JSON.stringify(capaItems));
     }
-  }, [capaItems, currentUser]);
+  }, [capaItems, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_incidents`, JSON.stringify(incidents));
+      localStorage.setItem(`${activePrefix}qn_incidents`, JSON.stringify(incidents));
     }
-  }, [incidents, currentUser]);
+  }, [incidents, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_compliance_flows`, JSON.stringify(complianceFlows));
+      localStorage.setItem(`${activePrefix}qn_compliance_flows`, JSON.stringify(complianceFlows));
     }
-  }, [complianceFlows, currentUser]);
+  }, [complianceFlows, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_committees`, JSON.stringify(committees));
+      localStorage.setItem(`${activePrefix}qn_committees`, JSON.stringify(committees));
     }
-  }, [committees, currentUser]);
+  }, [committees, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_trainings`, JSON.stringify(trainings));
+      localStorage.setItem(`${activePrefix}qn_trainings`, JSON.stringify(trainings));
     }
-  }, [trainings, currentUser]);
+  }, [trainings, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_risks`, JSON.stringify(risks));
+      localStorage.setItem(`${activePrefix}qn_risks`, JSON.stringify(risks));
     }
-  }, [risks, currentUser]);
+  }, [risks, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_licenses`, JSON.stringify(licenses));
+      localStorage.setItem(`${activePrefix}qn_licenses`, JSON.stringify(licenses));
       
       // Auto check and send warning emails for expiring/expired licenses
       if (licenses && licenses.length > 0) {
@@ -848,121 +923,121 @@ export const QualiNABHProvider = ({ children }) => {
         });
       }
     }
-  }, [licenses, currentUser]);
+  }, [licenses, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_tasks`, JSON.stringify(tasks));
+      localStorage.setItem(`${activePrefix}qn_tasks`, JSON.stringify(tasks));
     }
-  }, [tasks, currentUser]);
-
-  useEffect(() => {
-    if (currentUser) {
-      const activeEmail = currentUser.parentEmail || currentUser.email;
-      const prefix = activeEmail ? `${activeEmail}_` : '';
-      localStorage.setItem(`${prefix}qn_sprints`, JSON.stringify(sprints));
-    }
-  }, [sprints, currentUser]);
+  }, [tasks, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
       const activeEmail = currentUser.parentEmail || currentUser.email;
       const prefix = activeEmail ? `${activeEmail}_` : '';
-      localStorage.setItem(`${prefix}qn_reports_list`, JSON.stringify(reportsList));
+      localStorage.setItem(`${activePrefix}qn_sprints`, JSON.stringify(sprints));
     }
-  }, [reportsList, currentUser]);
+  }, [sprints, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
       const activeEmail = currentUser.parentEmail || currentUser.email;
       const prefix = activeEmail ? `${activeEmail}_` : '';
-      localStorage.setItem(`${prefix}qn_task_activities`, JSON.stringify(taskActivities));
+      localStorage.setItem(`${activePrefix}qn_reports_list`, JSON.stringify(reportsList));
     }
-  }, [taskActivities, currentUser]);
+  }, [reportsList, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_audit_logs`, JSON.stringify(auditLogs));
+      const activeEmail = currentUser.parentEmail || currentUser.email;
+      const prefix = activeEmail ? `${activeEmail}_` : '';
+      localStorage.setItem(`${activePrefix}qn_task_activities`, JSON.stringify(taskActivities));
     }
-  }, [auditLogs, currentUser]);
+  }, [taskActivities, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_quality_indicators`, JSON.stringify(qualityIndicators));
+      localStorage.setItem(`${activePrefix}qn_audit_logs`, JSON.stringify(auditLogs));
     }
-  }, [qualityIndicators, currentUser]);
+  }, [auditLogs, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_is_subscribed`, JSON.stringify(isSubscribed));
+      localStorage.setItem(`${activePrefix}qn_quality_indicators`, JSON.stringify(qualityIndicators));
     }
-  }, [isSubscribed, currentUser]);
+  }, [qualityIndicators, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_trial_start_date`, trialStartDate);
+      localStorage.setItem(`${activePrefix}qn_is_subscribed`, JSON.stringify(isSubscribed));
     }
-  }, [trialStartDate, currentUser]);
+  }, [isSubscribed, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_gemini_api_key`, geminiApiKey);
+      localStorage.setItem(`${activePrefix}qn_trial_start_date`, trialStartDate);
     }
-  }, [geminiApiKey, currentUser]);
+  }, [trialStartDate, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_openai_api_key`, openaiApiKey);
+      localStorage.setItem(`${activePrefix}qn_gemini_api_key`, geminiApiKey);
     }
-  }, [openaiApiKey, currentUser]);
+  }, [geminiApiKey, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_anthropic_api_key`, anthropicApiKey);
+      localStorage.setItem(`${activePrefix}qn_openai_api_key`, openaiApiKey);
     }
-  }, [anthropicApiKey, currentUser]);
+  }, [openaiApiKey, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_ai_provider`, aiProvider);
+      localStorage.setItem(`${activePrefix}qn_anthropic_api_key`, anthropicApiKey);
     }
-  }, [aiProvider, currentUser]);
+  }, [anthropicApiKey, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_ai_model`, aiModel);
+      localStorage.setItem(`${activePrefix}qn_ai_provider`, aiProvider);
     }
-  }, [aiModel, currentUser]);
+  }, [aiProvider, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_ai_system_prompt`, aiSystemPrompt);
+      localStorage.setItem(`${activePrefix}qn_ai_model`, aiModel);
     }
-  }, [aiSystemPrompt, currentUser]);
+  }, [aiModel, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_hospital_logo`, hospitalLogo);
+      localStorage.setItem(`${activePrefix}qn_ai_system_prompt`, aiSystemPrompt);
     }
-  }, [hospitalLogo, currentUser]);
+  }, [aiSystemPrompt, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_team_members`, JSON.stringify(teamMembers));
+      localStorage.setItem(`${activePrefix}qn_hospital_logo`, hospitalLogo);
     }
-  }, [teamMembers, currentUser]);
+  }, [hospitalLogo, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_compliance_feed`, JSON.stringify(complianceFeed));
+      localStorage.setItem(`${activePrefix}qn_team_members`, JSON.stringify(teamMembers));
     }
-  }, [complianceFeed, currentUser]);
+  }, [teamMembers, activePrefix]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`${currentUser.parentEmail || currentUser.email}_qn_feed_notifications`, JSON.stringify(feedNotifications));
+      localStorage.setItem(`${activePrefix}qn_compliance_feed`, JSON.stringify(complianceFeed));
     }
-  }, [feedNotifications, currentUser]);
+  }, [complianceFeed, activePrefix]);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem(`${activePrefix}qn_feed_notifications`, JSON.stringify(feedNotifications));
+    }
+  }, [feedNotifications, activePrefix]);
 
   useEffect(() => {
     localStorage.setItem('qn_clients_list', JSON.stringify(clientsList));
@@ -1026,14 +1101,18 @@ export const QualiNABHProvider = ({ children }) => {
     }
   }, []);
 
-  // Reload namespaced states when currentUser changes
+  // Reload namespaced states when currentUser or activeHospitalId changes
   useEffect(() => {
     if (currentUser) {
       const activeEmail = currentUser.parentEmail || currentUser.email;
       const prefix = activeEmail ? `${activeEmail}_` : '';
       
       const getSaved = (key, defaultVal) => {
-        const saved = localStorage.getItem(prefix + key);
+        const hospPrefix = activeHospitalId ? `hosp_${activeHospitalId}_` : '';
+        let saved = localStorage.getItem(hospPrefix + key);
+        if (!saved) {
+          saved = localStorage.getItem(prefix + key);
+        }
         let result;
         if (saved) {
           try { result = JSON.parse(saved); } catch(e) { result = saved; }
@@ -1107,7 +1186,7 @@ export const QualiNABHProvider = ({ children }) => {
       setAiUsageLogs(getSaved('qn_ai_usage_logs', []));
       setAiSafetyLogs(getSaved('qn_ai_safety_logs', []));
     }
-  }, [currentUser]);
+  }, [currentUser, activeHospitalId]);
 
   // Log Security Activity helper
   const logActivity = (action) => {
@@ -2898,6 +2977,10 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
   return (
     <QualiNABHContext.Provider value={{
       currentUser, setCurrentUser,
+      activeHospitalId, setActiveHospitalId,
+      activeOrganizationId, setActiveOrganizationId,
+      accessibleHospitals, setAccessibleHospitals,
+      switchActiveBranch,
       theme, setTheme,
       currentRoute, setCurrentRoute,
       hospitalMode, setHospitalMode, switchHospitalMode,
