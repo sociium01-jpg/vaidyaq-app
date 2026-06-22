@@ -2370,7 +2370,7 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
       currentUser, setCurrentUser,
       theme, setTheme,
       currentRoute, setCurrentRoute,
-      hospitalMode, switchHospitalMode,
+      hospitalMode, setHospitalMode, switchHospitalMode,
       hospitalName, setHospitalName,
       hospitalBeds, setHospitalBeds,
       hospitalTier, setHospitalTier,
