@@ -1,6 +1,7 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { QualiNABHContext } from '../context/QualiNABHContext';
 import { useToast } from '../components/ToastProvider';
+import { jsPDF } from 'jspdf';
 import {
   Shield,
   AlertOctagon,
@@ -32,7 +33,8 @@ import {
   ListTodo,
   FileDown,
   Activity,
-  Copy
+  Copy,
+  Printer
 } from 'lucide-react';
 
 export default function Dashboard({ orgMode, organizationId }) {
@@ -103,6 +105,377 @@ export default function Dashboard({ orgMode, organizationId }) {
   const [pivotIndicator, setPivotIndicator] = useState('All');
   const [pivotDept, setPivotDept] = useState('All');
   const [pivotMonth, setPivotMonth] = useState('All');
+
+  // Date Range Filters State (defaulting to May 1, 2026 to July 1, 2026 to capture all demo data)
+  const [fromDate, setFromDate] = useState('2026-05-01');
+  const [toDate, setToDate] = useState('2026-07-01');
+
+  // Date Range Filter Helper
+  const isWithinDateRange = (dateStr) => {
+    if (!dateStr) return true;
+    const cleanDate = dateStr.substring(0, 10);
+    if (fromDate && cleanDate < fromDate) return false;
+    if (toDate && cleanDate > toDate) return false;
+    return true;
+  };
+
+  // Filtered arrays based on selected date range
+  const displayAudits = (audits || []).filter(a => isWithinDateRange(a.date));
+  const displayCapaItems = (capaItems || []).filter(c => isWithinDateRange(c.dueDate));
+  const displayTasks = (tasks || []).filter(t => isWithinDateRange(t.dueDate));
+  const displayIncidents = (incidents || []).filter(i => isWithinDateRange(i.dateTime));
+  const displayLicenses = (licenses || []).filter(l => isWithinDateRange(l.expiryDate || l.issueDate));
+
+  // Extract all meetings from committees
+  const allMeetings = (committees || []).flatMap(comm => 
+    (comm.meetings || []).map(meet => ({
+      ...meet,
+      committeeId: comm.id,
+      committeeName: comm.name,
+      chair: comm.chair
+    }))
+  );
+  const displayMeetings = allMeetings.filter(m => isWithinDateRange(m.date));
+
+  // Filtered counts
+  const displayOpenCapasCount = displayCapaItems.filter(c => c.status === 'Open').length;
+  const displayPendingAuditsCount = displayAudits.filter(a => a.status === 'Scheduled').length;
+  const displayOverdueTasksCount = displayTasks.filter(t => t.status !== 'Completed' && t.dueDate < new Date().toISOString().split('T')[0]).length;
+  const displayIncidentsCount = displayIncidents.length;
+
+  // 1. Export PDF (Using client-side jsPDF)
+  const handleDownloadPDF = () => {
+    try {
+      const doc = new jsPDF();
+      
+      // Page Border
+      doc.setDrawColor(13, 148, 136); // Teal
+      doc.setLineWidth(1);
+      doc.rect(5, 5, 200, 287); // Border
+      
+      // Header
+      doc.setFillColor(13, 148, 136);
+      doc.rect(5, 5, 200, 25, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.text("VAIDYAQ CLINICAL COMPLIANCE PERFORMANCE REPORT", 12, 20);
+      
+      // Meta Details
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(11);
+      doc.text(`Hospital: ${hospitalName}`, 15, 42);
+      doc.text(`Beds: ${hospitalBeds} | Tier: ${hospitalTier}`, 15, 48);
+      doc.text(`Accreditation Readiness: ${readinessScore}%`, 15, 54);
+      doc.text(`Date Range: ${fromDate || 'All'} to ${toDate || 'All'}`, 15, 60);
+      
+      doc.setDrawColor(200, 200, 200);
+      doc.line(15, 65, 195, 65);
+      
+      // Summary Counts
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("1. Executive Summary Indicators", 15, 75);
+      
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text(`- Total Scheduled Audits: ${displayPendingAuditsCount}`, 20, 85);
+      doc.text(`- Active CAPA Trackers: ${displayOpenCapasCount}`, 20, 91);
+      doc.text(`- Overdue Compliance Tasks: ${displayOverdueTasksCount}`, 20, 97);
+      doc.text(`- Reported Clinical Incidents: ${displayIncidentsCount}`, 20, 103);
+      doc.text(`- Recorded Committee Meetings: ${displayMeetings.length}`, 20, 109);
+      
+      doc.line(15, 115, 195, 115);
+      
+      // Active CAPA list
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("2. Active CAPA Items", 15, 125);
+      
+      doc.setFontSize(9);
+      let y = 135;
+      if (displayCapaItems.length === 0) {
+        doc.setFont("helvetica", "italic");
+        doc.text("No active CAPA items in this date range.", 20, y);
+        y += 10;
+      } else {
+        doc.setFont("helvetica", "bold");
+        doc.text("CAPA ID", 15, y);
+        doc.text("Department", 35, y);
+        doc.text("Responsible", 65, y);
+        doc.text("Priority", 105, y);
+        doc.text("Due Date", 125, y);
+        doc.text("Status", 150, y);
+        
+        doc.line(15, y + 2, 195, y + 2);
+        y += 7;
+        doc.setFont("helvetica", "normal");
+        
+        displayCapaItems.slice(0, 8).forEach(c => {
+          doc.text((c.id || '').substring(0, 8), 15, y);
+          doc.text((c.department || '').substring(0, 15), 35, y);
+          doc.text((c.responsible || '').substring(0, 20), 65, y);
+          doc.text((c.priority || ''), 105, y);
+          doc.text((c.dueDate || ''), 125, y);
+          doc.text((c.status || ''), 150, y);
+          y += 6;
+        });
+      }
+      
+      doc.line(15, y + 3, 195, y + 3);
+      y += 10;
+      
+      // Recent Audits
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("3. Recent Internal Audits", 15, y);
+      y += 10;
+      
+      doc.setFontSize(9);
+      if (displayAudits.length === 0) {
+        doc.setFont("helvetica", "italic");
+        doc.text("No audits scheduled or completed in this date range.", 20, y);
+        y += 10;
+      } else {
+        doc.setFont("helvetica", "bold");
+        doc.text("Audit ID", 15, y);
+        doc.text("Title", 35, y);
+        doc.text("Department", 85, y);
+        doc.text("Date", 120, y);
+        doc.text("Status", 145, y);
+        doc.text("Gaps", 170, y);
+        
+        doc.line(15, y + 2, 195, y + 2);
+        y += 7;
+        doc.setFont("helvetica", "normal");
+        
+        displayAudits.slice(0, 8).forEach(a => {
+          doc.text((a.id || '').substring(0, 8), 15, y);
+          doc.text((a.title || '').substring(0, 25), 35, y);
+          doc.text((a.department || ''), 85, y);
+          doc.text((a.date || ''), 120, y);
+          doc.text((a.status || ''), 145, y);
+          doc.text(`${(a.findings || []).length} NCs`, 170, y);
+          y += 6;
+        });
+      }
+      
+      doc.save(`VaidyaQ_Compliance_Report_${hospitalName.replace(/\s+/g, '_')}.pdf`);
+      showToast({ title: "PDF Generated", message: "Compliance Performance report PDF downloaded.", type: "success" });
+    } catch (err) {
+      console.error(err);
+      showToast({ title: "Export Error", message: "Could not compile PDF report.", type: "error" });
+    }
+  };
+
+  // 2. Export Excel (XLS)
+  const handleExportExcel = () => {
+    let html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+    <head><meta charset="utf-8"/><style>
+      table { border-collapse: collapse; font-family: sans-serif; font-size: 10pt; }
+      th { background-color: #0d9488; color: white; font-weight: bold; border: 1px solid #d1d5db; padding: 6px; }
+      td { border: 1px solid #d1d5db; padding: 6px; }
+      .header { font-size: 14pt; font-weight: bold; color: #111827; }
+      .meta { font-size: 9pt; color: #4b5563; }
+    </style></head>
+    <body>
+      <div class="header">NABH Compliance & Quality Performance Summary - ${hospitalName}</div>
+      <div class="meta">Date Filter: ${fromDate || 'All'} to ${toDate || 'All'}</div>
+      <div class="meta">Accreditation Readiness Score: <b>${readinessScore}%</b></div>
+      <div class="meta">Exported Date: ${new Date().toLocaleDateString('en-IN')}</div>
+      <br/>
+      <h3>1. Summary Indicators</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Indicator Metric</th>
+            <th>Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Total Scheduled Audits</td><td>${displayPendingAuditsCount}</td></tr>
+          <tr><td>Active CAPA Trackers</td><td>${displayOpenCapasCount}</td></tr>
+          <tr><td>Overdue Tasks</td><td>${displayOverdueTasksCount}</td></tr>
+          <tr><td>Reported Patient Incidents</td><td>${displayIncidentsCount}</td></tr>
+        </tbody>
+      </table>
+      <br/>
+      <h3>2. Active CAPA Items</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>CAPA ID</th>
+            <th>Source</th>
+            <th>Department</th>
+            <th>Responsible</th>
+            <th>Priority</th>
+            <th>Due Date</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>`;
+    displayCapaItems.forEach(c => {
+      html += `<tr>
+        <td>${c.id}</td>
+        <td>${c.source}</td>
+        <td>${c.department}</td>
+        <td>${c.responsible}</td>
+        <td>${c.priority}</td>
+        <td>${c.dueDate}</td>
+        <td>${c.status}</td>
+      </tr>`;
+    });
+    html += `</tbody></table>
+      <br/>
+      <h3>3. Internal Audits</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Audit ID</th>
+            <th>Title</th>
+            <th>Department</th>
+            <th>Auditor</th>
+            <th>Date</th>
+            <th>Status</th>
+            <th>Findings Count</th>
+          </tr>
+        </thead>
+        <tbody>`;
+    displayAudits.forEach(a => {
+      html += `<tr>
+        <td>${a.id}</td>
+        <td>${a.title}</td>
+        <td>${a.department}</td>
+        <td>${a.auditor}</td>
+        <td>${a.date}</td>
+        <td>${a.status}</td>
+        <td>${(a.findings || []).length}</td>
+      </tr>`;
+    });
+    html += `</tbody></table>
+      <br/>
+      <h3>4. Clinical Committee Meetings</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Committee</th>
+            <th>Meeting Date</th>
+            <th>Chairperson</th>
+            <th>Agenda</th>
+            <th>Action Items Count</th>
+          </tr>
+        </thead>
+        <tbody>`;
+    displayMeetings.forEach(m => {
+      html += `<tr>
+        <td>${m.committeeName}</td>
+        <td>${m.date}</td>
+        <td>${m.chair}</td>
+        <td>${m.agenda}</td>
+        <td>${(m.actionItems || []).length}</td>
+      </tr>`;
+    });
+    html += `</tbody></table></body></html>`;
+
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `VaidyaQ_Dashboard_Report_${hospitalName.replace(/\s+/g, '_')}.xls`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast({ title: "Excel Exported", message: "Compliance performance report XLS downloaded.", type: "success" });
+  };
+
+  // 3. Export Word (DOC)
+  const handleExportDOC = () => {
+    let html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+    <head><meta charset="utf-8"/><style>
+      body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; }
+      h1 { color: #0d9488; border-bottom: 2px solid #0d9488; padding-bottom: 6px; font-size: 20pt; }
+      h2 { color: #0f766e; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px; font-size: 14pt; margin-top: 20px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+      th { background-color: #f3f4f6; font-weight: bold; border: 1px solid #d1d5db; padding: 8px; text-align: left; }
+      td { border: 1px solid #d1d5db; padding: 8px; }
+      .summary-box { background-color: #f0fdfa; padding: 12px; border: 1px solid #ccfbf1; border-radius: 6px; margin-bottom: 20px; }
+    </style></head>
+    <body>
+      <h1>VaidyaQ Executive Compliance Briefing</h1>
+      <div class="summary-box">
+        <p><b>Hospital / Facility Name:</b> ${hospitalName}</p>
+        <p><b>Statutory Capacity:</b> ${hospitalBeds} Beds | Tier: ${hospitalTier}</p>
+        <p><b>Date Range:</b> ${fromDate || 'All'} to ${toDate || 'All'}</p>
+        <p><b>NABH 6th Edition Readiness Index:</b> ${readinessScore}%</p>
+        <p><b>Exported Date:</b> ${new Date().toLocaleDateString('en-IN')}</p>
+      </div>
+      
+      <h2>1. Key Quality and Performance Indicators</h2>
+      <ul>
+        <li><b>Scheduled Audits:</b> ${displayPendingAuditsCount} pending</li>
+        <li><b>Open CAPA Items:</b> ${displayOpenCapasCount} active remediation trackers</li>
+        <li><b>Overdue Compliance Tasks:</b> ${displayOverdueTasksCount} tasks requiring immediate attention</li>
+        <li><b>Reported Clinical Incidents:</b> ${displayIncidentsCount} cases logged</li>
+      </ul>
+      
+      <h2>2. Active Corrective Actions (CAPA)</h2>`;
+      if (displayCapaItems.length === 0) {
+        html += `<p>No active CAPA items within this date range.</p>`;
+      } else {
+        html += `<table>
+          <thead>
+            <tr>
+              <th>CAPA ID</th>
+              <th>Department</th>
+              <th>Responsible</th>
+              <th>Action Plan</th>
+              <th>Due Date</th>
+            </tr>
+          </thead>
+          <tbody>`;
+        displayCapaItems.forEach(c => {
+          html += `<tr>
+            <td>${c.id}</td>
+            <td>${c.department}</td>
+            <td>${c.responsible}</td>
+            <td>${c.correctiveAction}</td>
+            <td>${c.dueDate}</td>
+          </tr>`;
+        });
+        html += `</tbody></table>`;
+      }
+      
+      html += `<h2>3. Committee Meetings Minutes Summary</h2>`;
+      if (displayMeetings.length === 0) {
+        html += `<p>No committee meetings recorded in this date range.</p>`;
+      } else {
+        displayMeetings.forEach(m => {
+          html += `<div style="margin-top: 15px; padding: 10px; border-left: 4px solid #0d9488; background-color: #fafafa;">
+            <p><b>Committee:</b> ${m.committeeName} | <b>Date:</b> ${m.date}</p>
+            <p><b>Agenda:</b> ${m.agenda}</p>
+            <p><b>Minutes:</b> ${m.minutes}</p>
+          </div>`;
+        });
+      }
+      
+      html += `</body></html>`;
+
+      const blob = new Blob([html], { type: 'application/msword' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `VaidyaQ_Compliance_Executive_Briefing_${hospitalName.replace(/\s+/g, '_')}.doc`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast({ title: "Word Document Downloaded", message: "Compliance briefing brief downloaded.", type: "success" });
+  };
+
+  // 4. Print Summary
+  const handlePrint = () => {
+    window.print();
+    logActivity("Triggered print dialogue for the Compliance Dashboard.");
+  };
 
   // Sync state on context ready
   useEffect(() => {
@@ -614,11 +987,105 @@ export default function Dashboard({ orgMode, organizationId }) {
   // 2. HOSPITAL ADMIN (Director) DASHBOARD
   // ----------------------------------------------------
   const renderHospitalAdminDashboard = () => {
+    // Re-calculate date-filtered high risk departments
+    const activeCapas = displayCapaItems.filter(c => c.status === 'Open');
+    const expiredLicenses = displayLicenses.filter(l => l.status === 'Expired');
+    const riskDepts = new Set();
+    activeCapas.forEach(c => riskDepts.add(c.department));
+    expiredLicenses.forEach(l => riskDepts.add(l.responsible || "Administration"));
+    const filteredHighRiskDeptsCount = riskDepts.size;
+
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-        <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0 }}>Command Center Director Suite</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '2px' }}>Accreditation readiness indicators, active team operations, and compliance status for {hospitalName}.</p>
+        {/* Dashboard Header, Exporter & Filters */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '1rem',
+          paddingBottom: '1rem',
+          borderBottom: '1px solid var(--border-color)'
+        }}>
+          <div>
+            <h2 style={{ fontSize: '1.6rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+              Command Center Director Suite
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '2px' }}>
+              Accreditation readiness indicators, active team operations, and compliance status for {hospitalName}.
+            </p>
+          </div>
+          
+          {/* Controls: Date Picker & Export Buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            {/* Date Filters */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: 'var(--bg-secondary)', padding: '0.4rem 0.8rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>From:</span>
+              <input 
+                type="date" 
+                value={fromDate} 
+                onChange={(e) => setFromDate(e.target.value)} 
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.8rem',
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+              />
+              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginLeft: '0.5rem' }}>To:</span>
+              <input 
+                type="date" 
+                value={toDate} 
+                onChange={(e) => setToDate(e.target.value)} 
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.8rem',
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+              />
+            </div>
+            
+            {/* Export Actions */}
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button 
+                onClick={handleDownloadPDF} 
+                className="btn btn-secondary flex align-center gap-1" 
+                style={{ padding: '0.5rem 0.75rem', fontSize: '0.75rem', fontWeight: 700 }}
+                title="Download PDF Report"
+              >
+                <FileDown size={14} /> PDF
+              </button>
+              <button 
+                onClick={handleExportExcel} 
+                className="btn btn-secondary flex align-center gap-1" 
+                style={{ padding: '0.5rem 0.75rem', fontSize: '0.75rem', fontWeight: 700 }}
+                title="Download Excel Spreadsheet"
+              >
+                <FileDown size={14} /> Excel
+              </button>
+              <button 
+                onClick={handleExportDOC} 
+                className="btn btn-secondary flex align-center gap-1" 
+                style={{ padding: '0.5rem 0.75rem', fontSize: '0.75rem', fontWeight: 700 }}
+                title="Download Word Document"
+              >
+                <FileDown size={14} /> Word
+              </button>
+              <button 
+                onClick={handlePrint} 
+                className="btn btn-secondary flex align-center gap-1" 
+                style={{ padding: '0.5rem 0.75rem', fontSize: '0.75rem', fontWeight: 700 }}
+                title="Print Dashboard Report"
+              >
+                <Printer size={14} /> Print
+              </button>
+            </div>
+          </div>
         </div>
 
         {isEmptyState && renderWelcomeChecklist()}
@@ -643,7 +1110,7 @@ export default function Dashboard({ orgMode, organizationId }) {
             </div>
             <div className="card flex flex-col justify-between" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Risk Hotspots</div>
-              <div style={{ fontSize: '1.6rem', fontWeight: 800, color: highRiskDeptsCount > 0 ? 'var(--color-danger)' : 'var(--color-success)', marginTop: '0.5rem' }}>{highRiskDeptsCount} Departments</div>
+              <div style={{ fontSize: '1.6rem', fontWeight: 800, color: filteredHighRiskDeptsCount > 0 ? 'var(--color-danger)' : 'var(--color-success)', marginTop: '0.5rem' }}>{filteredHighRiskDeptsCount} Departments</div>
               <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '0.5rem' }}>Active risk mitigation trackers</div>
             </div>
             <div className="card flex flex-col justify-between" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
@@ -652,14 +1119,210 @@ export default function Dashboard({ orgMode, organizationId }) {
               <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '0.5rem' }}>Requires Quality Head signature</div>
             </div>
             <div className="card flex flex-col justify-between" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>AI Outputs (Drafts)</div>
-              <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.5rem' }}>{aiOutputs.length} Drafts</div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '0.5rem' }}>Stored securely inside drafts folder</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Patient Incidents</div>
+              <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.5rem' }}>{displayIncidentsCount} Cases</div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '0.5rem' }}>Logged within selected range</div>
             </div>
           </div>
         </div>
 
-        {/* Hospital Setup Identity & Profile Settings panel */}
+        {/* Dynamic Interactive Charts */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+          {/* Chart 1: Incident Trends */}
+          <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <TrendingUp size={18} style={{ color: 'var(--color-danger)' }} />
+              Clinical Incident Trends
+            </h3>
+            <div style={{ height: '180px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+              {(() => {
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const values = Array(12).fill(0);
+                displayIncidents.forEach(inc => {
+                  if (inc.dateTime) {
+                    try {
+                      const mIdx = new Date(inc.dateTime.split(' ')[0]).getMonth();
+                      if (mIdx >= 0 && mIdx < 12) values[mIdx]++;
+                    } catch(e) {}
+                  }
+                });
+                const maxVal = Math.max(...values, 4);
+                return (
+                  <div style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'flex-end', justifyContent: 'space-around', padding: '0 0.5rem' }}>
+                    {values.map((val, mIdx) => {
+                      const barHeight = (val / maxVal) * 120;
+                      return (
+                        <div key={mIdx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                          <span style={{ fontSize: '0.65rem', fontWeight: 700, color: val > 0 ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>{val}</span>
+                          <div style={{
+                            width: '16px',
+                            height: `${Math.max(barHeight, 4)}px`,
+                            background: val > 0 ? 'linear-gradient(to top, rgba(239, 68, 68, 0.8), rgba(239, 68, 68, 0.4))' : 'var(--bg-tertiary)',
+                            borderRadius: '4px 4px 0 0',
+                            marginTop: '0.25rem',
+                            transition: 'all 0.3s ease'
+                          }} />
+                          <span style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', marginTop: '0.25rem', fontWeight: 600 }}>{months[mIdx]}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+
+          {/* Chart 2: CAPAs by Department */}
+          <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Activity size={18} style={{ color: 'var(--primary)' }} />
+              Active CAPAs by Department
+            </h3>
+            <div style={{ height: '180px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '0.5rem' }}>
+              {(() => {
+                const deptMap = {};
+                displayCapaItems.forEach(c => {
+                  deptMap[c.department] = (deptMap[c.department] || 0) + 1;
+                });
+                const depts = Object.keys(deptMap);
+                if (depts.length === 0) {
+                  return <div style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>No active CAPAs found in this range.</div>;
+                }
+                const maxVal = Math.max(...Object.values(deptMap), 2);
+                return depts.slice(0, 4).map(dept => {
+                  const val = deptMap[dept];
+                  const widthPercent = (val / maxVal) * 100;
+                  return (
+                    <div key={dept} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', fontWeight: 600 }}>
+                        <span>{dept}</span>
+                        <span>{val} CAPAs</span>
+                      </div>
+                      <div style={{ height: '8px', width: '100%', backgroundColor: 'var(--bg-tertiary)', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${widthPercent}%`, background: 'linear-gradient(to right, var(--primary), var(--secondary))', borderRadius: '4px', transition: 'width 0.5s ease' }} />
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+        </div>
+
+        {/* Audits & Meetings Section */}
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr', gap: '1.5rem', flexWrap: 'wrap' }}>
+          {/* Recent Internal Audits list */}
+          <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <ClipboardList size={18} style={{ color: 'var(--primary)' }} />
+              Audit Performance Ledger (Filtered)
+            </h3>
+            {displayAudits.length === 0 ? (
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>No audits matched this date range.</p>
+            ) : (
+              <div className="table-container" style={{ maxHeight: '280px', overflowY: 'auto' }}>
+                <table className="table" style={{ fontSize: '0.8rem' }}>
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th>Dept</th>
+                      <th>Date</th>
+                      <th>Status</th>
+                      <th>Critical Gaps</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayAudits.slice(0, 5).map(aud => {
+                      const unresolved = (aud.findings || []).filter(f => !f.resolved).length;
+                      return (
+                        <tr key={aud.id}>
+                          <td><strong>{aud.title}</strong></td>
+                          <td>{aud.department}</td>
+                          <td>{aud.date}</td>
+                          <td>
+                            <span className={`badge ${aud.status === 'Completed' ? 'badge-success' : 'badge-warning'}`}>
+                              {aud.status}
+                            </span>
+                          </td>
+                          <td>
+                            {unresolved > 0 ? (
+                              <span className="badge badge-danger">{unresolved} Critical</span>
+                            ) : (
+                              <span className="badge badge-success">0 Gaps</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Committee Meetings summary cards */}
+          <div className="card flex flex-col" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Calendar size={18} style={{ color: 'var(--primary)' }} />
+              Committee Meetings (Filtered)
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', overflowY: 'auto', maxHeight: '280px' }}>
+              {displayMeetings.length === 0 ? (
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>No committee meetings found in this range.</p>
+              ) : (
+                displayMeetings.slice(0, 4).map((meet, mIdx) => (
+                  <div key={mIdx} style={{
+                    padding: '0.75rem',
+                    backgroundColor: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.35rem'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <strong style={{ fontSize: '0.8rem', color: 'var(--text-primary)' }}>{meet.committeeName}</strong>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: 'bold' }}>{meet.date}</span>
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                      <b>Agenda:</b> {meet.agenda}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>
+                      <b>Attendees:</b> {meet.attendees.join(', ')}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Onboarding Wizard Template Importer */}
+        {!onboardingSteps.importTemplates && (
+          <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', borderLeft: '6px solid var(--primary)' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Sparkles style={{ color: 'var(--primary)' }} />
+              Import NABH 6th Edition Templates
+            </h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1.25rem' }}>
+              Initialize your compliance vault with preloaded statutory standards (AAC, COP, MOM, FMS, HRM) outlining mandatory SOP checklists and audit scoring registries.
+            </p>
+            {isImporting ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <div style={{ height: '6px', width: '100%', backgroundColor: 'var(--bg-tertiary)', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${importProgress}%`, backgroundColor: 'var(--primary)', transition: 'width 0.3s ease' }}></div>
+                </div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 'bold' }}>{importStatusText} ({importProgress}%)</span>
+              </div>
+            ) : (
+              <button onClick={handleImportTemplates} className="btn btn-primary glow-premium" style={{ padding: '0.5rem 1.25rem', fontSize: '0.8rem', cursor: 'pointer' }}>
+                Import Checklists & Outline Frameworks
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Hospital Setup Identity & Profile Settings panel (Kept below summary and reports) */}
         <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
           <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: '0 0 1rem 0' }}>Hospital Profile & Operational Scope</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -705,31 +1368,6 @@ export default function Dashboard({ orgMode, organizationId }) {
             </div>
           </div>
         </div>
-
-        {/* Onboarding Wizard Template Importer */}
-        {!onboardingSteps.importTemplates && (
-          <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', borderLeft: '6px solid var(--primary)' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Sparkles style={{ color: 'var(--primary)' }} />
-              Import NABH 6th Edition Templates
-            </h3>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1.25rem' }}>
-              Initialize your compliance vault with preloaded statutory standards (AAC, COP, MOM, FMS, HRM) outlining mandatory SOP checklists and audit scoring registries.
-            </p>
-            {isImporting ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <div style={{ height: '6px', width: '100%', backgroundColor: 'var(--bg-tertiary)', borderRadius: '3px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${importProgress}%`, backgroundColor: 'var(--primary)', transition: 'width 0.3s ease' }}></div>
-                </div>
-                <span style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 'bold' }}>{importStatusText} ({importProgress}%)</span>
-              </div>
-            ) : (
-              <button onClick={handleImportTemplates} className="btn btn-primary glow-premium" style={{ padding: '0.5rem 1.25rem', fontSize: '0.8rem', cursor: 'pointer' }}>
-                Import Checklists & Outline Frameworks
-              </button>
-            )}
-          </div>
-        )}
       </div>
     );
   };

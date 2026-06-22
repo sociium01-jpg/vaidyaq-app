@@ -300,12 +300,14 @@ Please output the checklist items as a clean list with each item on a new line, 
     closeCapa(selectedCapaToClose, currentUser.name);
     
     // Also mark finding resolved in audits
-    audits.forEach(aud => {
-      aud.findings.forEach(find => {
-        if (find.capaId === selectedCapaToClose) {
-          linkFindingToCapa(aud.id, find.id, selectedCapaToClose);
-        }
-      });
+    (audits || []).forEach(aud => {
+      if (aud && aud.findings) {
+        aud.findings.forEach(find => {
+          if (find && find.capaId === selectedCapaToClose) {
+            linkFindingToCapa(aud.id, find.id, selectedCapaToClose);
+          }
+        });
+      }
     });
 
     logActivity(`Closed CAPA: ${selectedCapaToClose} with evidence: ${closureEvidence}`);
@@ -419,8 +421,8 @@ Please output the checklist items as a clean list with each item on a new line, 
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{aud.checklist.length} verified checks</span>
                       </td>
                       <td>
-                        {aud.findings.filter(f => !f.resolved).length > 0 ? (
-                          <span className="badge badge-danger">{aud.findings.filter(f => !f.resolved).length} Critical</span>
+                        {(aud?.findings || []).filter(f => !f.resolved).length > 0 ? (
+                          <span className="badge badge-danger">{(aud?.findings || []).filter(f => !f.resolved).length} Critical</span>
                         ) : (
                           <span className="badge badge-success">0 Gaps</span>
                         )}
@@ -428,7 +430,7 @@ Please output the checklist items as a clean list with each item on a new line, 
                     </tr>
 
                     {/* Audit Findings Sub Table if findings exist */}
-                    {aud.findings && aud.findings.length > 0 && (
+                    {aud?.findings && aud.findings.length > 0 && (
                       <tr>
                         <td colSpan="8" style={{ backgroundColor: 'var(--bg-tertiary)', padding: '0.5rem 1.5rem' }}>
                           <div style={{ padding: '0.75rem', backgroundColor: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
@@ -445,7 +447,7 @@ Please output the checklist items as a clean list with each item on a new line, 
                                 </tr>
                               </thead>
                               <tbody>
-                                {aud.findings.map((find, fIdx) => (
+                                {(aud?.findings || []).map((find, fIdx) => (
                                   <tr key={fIdx}>
                                     <td style={{ color: 'var(--text-primary)' }}>{find.issue}</td>
                                     <td><span className={`badge ${find.severity === 'High' ? 'badge-danger' : 'badge-warning'}`}>{find.severity}</span></td>
@@ -1563,7 +1565,7 @@ Please output the checklist items as a clean list with each item on a new line, 
                     onChange={(e) => setInvestigationForm({ ...investigationForm, capaId: e.target.value })}
                   >
                     <option value="">-- No CAPA Link --</option>
-                    {capaItems.map(c => (
+                    {(capaItems || []).map(c => (
                       <option key={c.id} value={c.id}>[{(c?.id || '').substring(0, 8)}] {(c?.correctiveAction || '').substring(0, 35)}...</option>
                     ))}
                   </select>

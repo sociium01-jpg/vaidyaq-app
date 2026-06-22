@@ -2690,7 +2690,7 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
   const linkFindingToCapa = (auditId, findingId, capaId) => {
     setAudits(prev => prev.map(a => {
       if (a.id === auditId) {
-        const updatedFindings = a.findings.map(f => {
+        const updatedFindings = (a.findings || []).map(f => {
           if (f.id === findingId) {
             return { ...f, capaId, resolved: true };
           }
