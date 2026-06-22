@@ -46,7 +46,8 @@ function AppContent() {
     forcePaymentScreen,
     setForcePaymentScreen,
     hospitalMode,
-    logActivity
+    logActivity,
+    accessibleHospitals
   } = useContext(QualiNABHContext);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -88,7 +89,15 @@ function AppContent() {
         setCurrentRoute('/platform/dashboard');
       } else if (isAppRoute) {
         const potentialHospId = parts[1];
-        const validHospIds = ['demo-hosp', 'sarah-hosp', 'sarah-hosp-2', ...(currentUser.accessibleHospitals || [])];
+        const validHospIds = [
+          'demo-hosp', 
+          'sarah-hosp', 
+          'sarah-hosp-2', 
+          currentUser.hospitalId, 
+          currentUser.activeHospitalId, 
+          ...(accessibleHospitals || []), 
+          ...(currentUser.accessibleHospitals || [])
+        ].filter(Boolean);
         if (!potentialHospId || !validHospIds.includes(potentialHospId)) {
           const activeHosp = currentUser.activeHospitalId || currentUser.hospitalId || 'demo-hosp';
           const targetModule = potentialHospId && !validHospIds.includes(potentialHospId) ? potentialHospId : 'dashboard';
@@ -99,7 +108,7 @@ function AppContent() {
         setCurrentRoute(`/app/${activeHosp}/dashboard`);
       }
     }
-  }, [currentRoute, currentUser]);
+  }, [currentRoute, currentUser, accessibleHospitals]);
 
   // Platform Console Route
   if (isPlatformRoute) {
@@ -129,6 +138,8 @@ function AppContent() {
   const activeHospitalIdFromUrl = isAppRoute ? parts[1] : null;
   const isAuthorizedForHosp = !activeHospitalIdFromUrl || (currentUser && (
     currentUser.hospitalId === activeHospitalIdFromUrl || 
+    currentUser.activeHospitalId === activeHospitalIdFromUrl || 
+    (accessibleHospitals && accessibleHospitals.includes(activeHospitalIdFromUrl)) ||
     (currentUser.accessibleHospitals && currentUser.accessibleHospitals.includes(activeHospitalIdFromUrl)) ||
     currentUser.platformRole === 'Platform Admin' || currentUser.role === 'Platform Admin'
   ));
