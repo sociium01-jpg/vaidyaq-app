@@ -120,8 +120,13 @@ export default function PublicPages() {
       setCurrentRoute('/app/dashboard');
     } else {
       // Look up sub-users database
-      const globalSubUsers = JSON.parse(localStorage.getItem('qn_global_sub_users') || '[]');
-      const subUser = globalSubUsers.find(u => u.email.toLowerCase() === signInEmail.toLowerCase());
+      let globalSubUsers = [];
+      try {
+        globalSubUsers = JSON.parse(localStorage.getItem('qn_global_sub_users') || '[]');
+      } catch (e) {
+        console.warn("[Login] Failed to parse qn_global_sub_users", e);
+      }
+      const subUser = (globalSubUsers || []).find(u => u && u.email && u.email.toLowerCase() === signInEmail.toLowerCase());
       if (subUser) {
         if (signInPassword !== subUser.password) {
           setSignInError("Incorrect password. Please verify your credentials and try again.");

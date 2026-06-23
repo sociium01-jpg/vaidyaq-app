@@ -131,7 +131,7 @@ function ToastItem({ toast, onDismiss }) {
             fontSize: '13px', fontWeight: 600, color: variant.color,
             marginBottom: '2px', letterSpacing: '0.2px',
           }}>
-            {variant.label}
+            {toast.title || variant.label}
           </div>
           <div style={{
             fontSize: '13px', color: 'var(--text-secondary)',
@@ -183,8 +183,25 @@ export default function ToastProvider({ children }) {
 
   const showToast = useCallback((message, type = 'info') => {
     const id = ++toastIdCounter;
+
+    let msg = '';
+    let t = type;
+    let title = '';
+
+    if (message && typeof message === 'object') {
+      msg = message.message || message.description || '';
+      t = message.type || 'info';
+      title = message.title || '';
+    } else {
+      msg = message;
+      t = type;
+    }
+
+    const finalMessage = typeof msg === 'object' ? JSON.stringify(msg) : String(msg || '');
+    const finalTitle = typeof title === 'object' ? JSON.stringify(title) : String(title || '');
+
     setToasts(prev => {
-      const next = [...prev, { id, message, type }];
+      const next = [...prev, { id, message: finalMessage, type: t, title: finalTitle }];
       // Keep max toasts, evict oldest
       if (next.length > MAX_TOASTS) {
         return next.slice(next.length - MAX_TOASTS);
