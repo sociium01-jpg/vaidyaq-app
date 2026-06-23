@@ -390,12 +390,58 @@ function AppContent() {
   );
 }
 
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error('[VaidyaQ ErrorBoundary]', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: '#0f172a', color: '#e2e8f0', fontFamily: 'Inter, system-ui, sans-serif', padding: '2rem', textAlign: 'center' }}>
+          <div style={{ maxWidth: '480px' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚠️</div>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.5rem' }}>Something went wrong</h1>
+            <p style={{ color: '#94a3b8', fontSize: '0.85rem', lineHeight: 1.6, marginBottom: '1.5rem' }}>
+              VaidyaQ encountered an unexpected error. This is usually a temporary issue.
+            </p>
+            <p style={{ color: '#64748b', fontSize: '0.75rem', marginBottom: '1.5rem', wordBreak: 'break-word' }}>
+              {this.state.error?.message || 'Unknown error'}
+            </p>
+            <button
+              onClick={() => { localStorage.clear(); window.location.href = '/'; }}
+              style={{ padding: '0.7rem 1.5rem', backgroundColor: '#6366f1', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', marginRight: '0.5rem' }}
+            >
+              Reset & Reload
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              style={{ padding: '0.7rem 1.5rem', backgroundColor: 'transparent', color: '#94a3b8', border: '1px solid #334155', borderRadius: '8px', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   return (
-    <QualiNABHProvider>
-      <ToastProvider>
-        <AppContent />
-      </ToastProvider>
-    </QualiNABHProvider>
+    <ErrorBoundary>
+      <QualiNABHProvider>
+        <ToastProvider>
+          <AppContent />
+        </ToastProvider>
+      </QualiNABHProvider>
+    </ErrorBoundary>
   );
 }

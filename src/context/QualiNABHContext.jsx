@@ -404,22 +404,34 @@ export const QualiNABHProvider = ({ children }) => {
 
   // Current Router Tab
   const [currentRoute, setCurrentRouteState] = useState(() => {
-    return window.location.pathname || '/';
+    const hash = window.location.hash;
+    if (hash) {
+      return hash.substring(1) || '/';
+    }
+    const path = window.location.pathname;
+    if (path && path !== '/') {
+      // Gracefully translate legacy pathname to hash routing to avoid server-side 404s on refresh
+      setTimeout(() => {
+        window.history.replaceState(null, '', '/');
+        window.location.hash = path;
+      }, 0);
+      return path;
+    }
+    return '/';
   });
 
   const setCurrentRoute = (route) => {
-    if (window.location.pathname !== route) {
-      window.history.pushState(null, '', route);
-    }
+    window.location.hash = route;
     setCurrentRouteState(route);
   };
 
   useEffect(() => {
-    const handlePopState = () => {
-      setCurrentRouteState(window.location.pathname || '/');
+    const handleHashChange = () => {
+      const hash = window.location.hash;
+      setCurrentRouteState(hash.substring(1) || '/');
     };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
 

@@ -53,7 +53,8 @@ export default function PublicPages() {
     setTrialStartDate,
     setIsSubscribed,
     setHospitalLogo,
-    setTeamMembers
+    setTeamMembers,
+    setClientsList
   } = useContext(QualiNABHContext);
 
   useEffect(() => {
