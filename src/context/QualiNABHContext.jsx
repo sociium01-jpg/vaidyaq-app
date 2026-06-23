@@ -401,6 +401,9 @@ export const QualiNABHProvider = ({ children }) => {
   const canSave = currentUser && !isReloading && prevPrefixRef.current === activePrefix;
 
   // Theme State
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('qn_theme') || 'dark';
+  });
 
   // Current Router Tab
   const [currentRoute, setCurrentRouteState] = useState(() => {
