@@ -86,8 +86,11 @@ export default function Dashboard({ orgMode, organizationId }) {
     setDocuments,
     activeHospitalId,
     accessibleHospitals,
-    switchActiveBranch
+    switchActiveBranch,
+    incidents,
+    committees
   } = useContext(QualiNABHContext);
+
 
   const { showToast } = useToast();
 

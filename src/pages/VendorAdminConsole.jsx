@@ -32,8 +32,10 @@ export default function VendorAdminConsole() {
     logSimulatedDownload,
     setCurrentRoute,
     onboardingSteps,
-    hospitalName
+    hospitalName,
+    setTransactions
   } = useContext(QualiNABHContext);
+
 
   // Authentication State
   const [isLoggedIn, setIsLoggedIn] = useState(false);

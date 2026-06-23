@@ -130,8 +130,10 @@ export default function AIInsightsModule() {
     teamMembers,
     addHospitalTask,
     tasks,
-    setCurrentRoute
+    setCurrentRoute,
+    aiProvider
   } = useContext(QualiNABHContext);
+
 
   const { showToast } = useToast();
 

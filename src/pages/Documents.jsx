@@ -117,8 +117,10 @@ export default function Documents() {
     addDocument,
     sendSimulatedEmail,
     addIncident,
-    setLicenses
+    setLicenses,
+    setCurrentRoute
   } = useContext(QualiNABHContext);
+
 
   // Main Tabs State
   const [activeMainTab, setActiveMainTab] = useState('vault'); // 'vault', 'sop-draft', 'registers'

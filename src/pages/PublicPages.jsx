@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import { QualiNABHContext } from '../context/QualiNABHContext';
 import VaidyaQLogo from '../components/VaidyaQLogo';
 import {
@@ -167,6 +167,30 @@ export default function PublicPages() {
   const [mockupChatText, setMockupChatText] = useState("Click one of the blue prompt buttons below to ask me a compliance question about our mock hospital.");
   const [typing, setTyping] = useState(false);
 
+  const triggerMockupChat = (type) => {
+    if (typing) return;
+    setMockupActiveQuery(type);
+    setTyping(true);
+    setMockupChatText("Thinking...");
+    
+    let responseText = "";
+    if (type === 'narcotics') {
+      responseText = "VaidyaQ Audit Scan detected: 1 Narcotic Expiry incident in the Pharmacy. Risk: HIGH. Recommended Action: Isolate expired batches in locked red bin and log immediate disposal manifest under dual sign-off.";
+    } else if (type === 'syringes') {
+      responseText = "VaidyaQ Audit Scan detected: Out-of-stock emergency syringes in the ICU crash cart. Recommended Action: Raise automated urgent restocking request in central store and update crash cart verification checklist.";
+    } else if (type === 'overall') {
+      responseText = "Overall Hospital Accreditation readiness is at 84% based on 6th Edition guidelines. Key gaps: 1 expired license (Pharmacy), 3 overdue tasks, and 5 missing evidence documents (mainly in Fire Safety).";
+    } else {
+      responseText = "Click one of the blue prompt buttons below to ask me a compliance question about our mock hospital.";
+    }
+
+    setTimeout(() => {
+      setMockupChatText(responseText);
+      setTyping(false);
+    }, 800);
+  };
+
+
   // 2. Interactive Audit Readiness Checker Widget States
   const [quizStep, setQuizStep] = useState(1);
   const [quizAnswers, setQuizAnswers] = useState({ q1: '', q2: '', q3: '' });
@@ -181,6 +205,7 @@ export default function PublicPages() {
   const [heroVideoProgress, setHeroVideoProgress] = useState(0);
   const [heroVideoTime, setHeroVideoTime] = useState(0);
   const [activeHeroTab, setActiveHeroTab] = useState('video'); // 'video' or 'dashboard'
+  const heroVideoRef = useRef(null);
 
   // 5. Testimonial Slider States
   const [activeTestimonial, setActiveTestimonial] = useState(0);
@@ -474,24 +499,16 @@ Key Benefits of the SaaS Model:
     }
   ];
 
-  // Hero Video loop timer
+  // Hero Video - Synchronize play/pause with real video reference
   useEffect(() => {
-    let interval = null;
-    if (heroVideoPlaying && activeHeroTab === 'video') {
-      interval = setInterval(() => {
-        setHeroVideoProgress(prev => {
-          const next = prev + 1;
-          if (next >= 100) return 0;
-          return next;
-        });
-      }, 50); // 50ms * 100 = 5000ms (5 seconds)
+    if (heroVideoRef.current) {
+      if (heroVideoPlaying && activeHeroTab === 'video') {
+        heroVideoRef.current.play().catch(e => console.log("Video autoplay prevented", e));
+      } else {
+        heroVideoRef.current.pause();
+      }
     }
-    return () => clearInterval(interval);
   }, [heroVideoPlaying, activeHeroTab]);
-
-  useEffect(() => {
-    setHeroVideoTime((heroVideoProgress / 100) * 5);
-  }, [heroVideoProgress]);
 
   // Video Walkthrough player loop (Lower section)
   useEffect(() => {
@@ -784,50 +801,46 @@ Key Benefits of the SaaS Model:
                     </button>
                   </div>
 
-                  {/* ACTIVE HERO TAB: AI VIDEO PLAYER */}
+                  {/* ACTIVE HERO TAB: REAL VIDEO LOOP */}
                   {activeHeroTab === 'video' ? (
-                    <div style={{ flex: 1, position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#090d16', color: '#fff' }}>
+                    <div style={{ flex: 1, position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#000', color: '#fff' }}>
                       {/* Video Screen Viewport */}
                       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '280px' }}>
-                        {/* Image 0 (Hallway scene) */}
-                        <img
-                          src="/indian_doctors_hallway.png"
-                          alt="Indian Doctors Hallway"
-                          style={{
-                            position: 'absolute',
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            transition: 'opacity 0.6s ease-in-out',
-                            opacity: heroVideoProgress < 50 ? 1 : 0
+                        <video
+                          ref={heroVideoRef}
+                          src="https://assets.mixkit.co/videos/preview/mixkit-surgeons-performing-a-surgery-in-a-sterile-room-41834-large.mp4"
+                          autoPlay={heroVideoPlaying}
+                          loop
+                          muted
+                          playsInline
+                          onTimeUpdate={() => {
+                            if (heroVideoRef.current) {
+                              const duration = heroVideoRef.current.duration || 5;
+                              const currentTime = heroVideoRef.current.currentTime;
+                              setHeroVideoProgress((currentTime / duration) * 100);
+                              setHeroVideoTime(currentTime);
+                            }
                           }}
-                        />
-                        {/* Image 1 (Consultation scene) */}
-                        <img
-                          src="/indian_doctor_nurse_consult.png"
-                          alt="Indian Doctor Nurse Consultation"
                           style={{
                             position: 'absolute',
                             width: '100%',
                             height: '100%',
-                            objectFit: 'cover',
-                            transition: 'opacity 0.6s ease-in-out',
-                            opacity: heroVideoProgress >= 50 ? 1 : 0
+                            objectFit: 'cover'
                           }}
                         />
 
                         {/* Pulsing Live Badge Overlay */}
-                        <div style={{ position: 'absolute', top: '12px', left: '12px', display: 'flex', alignItems: 'center', gap: '0.4rem', backgroundColor: 'rgba(0,0,0,0.6)', padding: '0.25rem 0.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.2)' }}>
+                        <div style={{ position: 'absolute', top: '12px', left: '12px', display: 'flex', alignItems: 'center', gap: '0.4rem', backgroundColor: 'rgba(0,0,0,0.6)', padding: '0.25rem 0.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.2)', zIndex: 2 }}>
                           <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#ef4444', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
-                          <span style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>● LIVE AI VIDEO</span>
+                          <span style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>● LIVE WALKTHROUGH</span>
                         </div>
 
                         {/* Overlay Subtitle Captions based on time */}
-                        <div style={{ position: 'absolute', bottom: '16px', left: '12px', right: '12px', backgroundColor: 'rgba(15,23,42,0.85)', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', textAlign: 'center' }}>
+                        <div style={{ position: 'absolute', bottom: '16px', left: '12px', right: '12px', backgroundColor: 'rgba(15,23,42,0.85)', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', textAlign: 'center', zIndex: 2 }}>
                           <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--primary)' }}>
                             {heroVideoProgress < 50 ? "Scene 1: Clinical Team Audit Briefing" : "Scene 2: SOP Customization & AI Mapping"}
                           </div>
-                          <div style={{ fontSize: '0.65rem', color: '#cbd5e1', marginTop: '0.2.rem' }}>
+                          <div style={{ fontSize: '0.65rem', color: '#cbd5e1', marginTop: '0.2rem' }}>
                             {heroVideoProgress < 50 
                               ? "Quality Officers briefing nursing staff on drug expiry checks in central wards."
                               : "Quality Head using VaidyaQ AI Co-Pilot to map digital guidelines."}
@@ -836,7 +849,7 @@ Key Benefits of the SaaS Model:
                       </div>
 
                       {/* Video Player Scrubber & Controls */}
-                      <div style={{ padding: '0.75rem 1rem', backgroundColor: '#0f172a', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <div style={{ padding: '0.75rem 1rem', backgroundColor: '#0f172a', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: '0.75rem', zIndex: 2 }}>
                         {/* Play/Pause Button */}
                         <button
                           onClick={() => setHeroVideoPlaying(!heroVideoPlaying)}
@@ -853,6 +866,10 @@ Key Benefits of the SaaS Model:
                             const clickX = e.clientX - rect.left;
                             const progressVal = Math.round((clickX / rect.width) * 100);
                             setHeroVideoProgress(progressVal);
+                            if (heroVideoRef.current) {
+                              const duration = heroVideoRef.current.duration || 5;
+                              heroVideoRef.current.currentTime = (progressVal / 100) * duration;
+                            }
                           }}
                         >
                           <div style={{ height: '100%', width: `${heroVideoProgress}%`, backgroundColor: 'var(--primary)', borderRadius: '2px' }} />
@@ -860,10 +877,10 @@ Key Benefits of the SaaS Model:
 
                         {/* Scrubber Time stamps */}
                         <span style={{ fontSize: '0.7rem', fontFamily: 'monospace', color: '#94a3b8' }}>
-                          0:0{Math.floor(heroVideoTime)} / 0:05
+                          0:{Math.floor(heroVideoTime) < 10 ? `0${Math.floor(heroVideoTime)}` : Math.floor(heroVideoTime)} / 0:{heroVideoRef.current && !isNaN(heroVideoRef.current.duration) ? Math.floor(heroVideoRef.current.duration) : '05'}
                         </span>
 
-                        <span style={{ fontSize: '0.6rem', padding: '0.1rem 0.25rem', backgroundColor: 'rgba(255,255,255,0.1)', color: '#fff', borderRadius: '4px', fontWeight: 'bold' }}>AI GEN</span>
+                        <span style={{ fontSize: '0.65rem', padding: '0.1rem 0.25rem', backgroundColor: 'rgba(255,255,255,0.1)', color: '#fff', borderRadius: '4px', fontWeight: 'bold' }}>AI GEN</span>
                       </div>
                     </div>
                   ) : (
