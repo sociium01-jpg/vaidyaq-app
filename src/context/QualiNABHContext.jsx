@@ -2945,14 +2945,15 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
     if (globalDepts.some(gd => stdDept.includes(gd))) return true;
 
     // Check if standard department matches any selected active department
-    return activeDepts.some(ad => {
+    return (activeDepts || []).some(ad => {
+      if (!ad) return false;
       const normalizedAd = ad.toLowerCase();
       return normalizedAd.includes(stdDept) || stdDept.includes(normalizedAd);
     });
   };
 
   // Computed readiness scoring indices
-  const activeStandards = standards.filter(isStandardActive);
+  const activeStandards = (standards || []).filter(isStandardActive);
   const totalStandardsCount = activeStandards.length;
   const maxPossibleScore = totalStandardsCount * 10;
   const currentEarnedScore = activeStandards.reduce((sum, s) => sum + s.score, 0);
@@ -2961,18 +2962,19 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
   const readinessScore = Math.round(rawScore * 10) / 10;
 
   const evidenceUploadedCount = activeStandards.filter(s => {
-    return documents.some(doc => doc.mappedStandards && doc.mappedStandards.includes(s.id) && doc.status === "Approved");
+    return (documents || []).some(doc => doc && doc.mappedStandards && doc.mappedStandards.includes(s.id) && doc.status === "Approved");
   }).length;
 
   const missingEvidenceCount = totalStandardsCount - evidenceUploadedCount;
-  const openCapasCount = capaItems.filter(c => c.status === "Open").length;
-  const overdueTasksCount = tasks.filter(t => {
+  const openCapasCount = (capaItems || []).filter(c => c && c.status === "Open").length;
+  const overdueTasksCount = (tasks || []).filter(t => {
+    if (!t) return false;
     const isLegacyOpen = t.status === "Pending";
     const isOpen = !["Completed", "Done", "Closed"].includes(t.status) && t.status !== "Pending";
     return (isLegacyOpen || isOpen) && t.dueDate && new Date(t.dueDate) < new Date();
   }).length;
-  const pendingAuditsCount = audits.filter(a => a.status === "Scheduled").length;
-  const incidentsThisMonthCount = incidents.length;
+  const pendingAuditsCount = (audits || []).filter(a => a && a.status === "Scheduled").length;
+  const incidentsThisMonthCount = (incidents || []).length;
 
   return (
     <QualiNABHContext.Provider value={{
