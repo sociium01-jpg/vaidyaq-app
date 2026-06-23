@@ -83,6 +83,7 @@ export default function Dashboard({ orgMode, organizationId }) {
     teamMembers,
     updateStandardScore,
     addDocument,
+    setDocuments,
     activeHospitalId,
     accessibleHospitals,
     switchActiveBranch
@@ -113,7 +114,7 @@ export default function Dashboard({ orgMode, organizationId }) {
   // Date Range Filter Helper
   const isWithinDateRange = (dateStr) => {
     if (!dateStr) return true;
-    const cleanDate = dateStr.substring(0, 10);
+    const cleanDate = String(dateStr).substring(0, 10);
     if (fromDate && cleanDate < fromDate) return false;
     if (toDate && cleanDate > toDate) return false;
     return true;
@@ -581,24 +582,24 @@ export default function Dashboard({ orgMode, organizationId }) {
 
           {/* Step 2: Quality Team Setup */}
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', fontSize: '0.85rem' }}>
-            <div style={{ color: teamMembers.length > 0 ? 'var(--color-success)' : 'var(--text-tertiary)', marginTop: '2px' }}>
+            <div style={{ color: (teamMembers || []).length > 0 ? 'var(--color-success)' : 'var(--text-tertiary)', marginTop: '2px' }}>
               <CheckCircle2 size={16} />
             </div>
             <div>
-              <strong style={{ color: 'var(--text-primary)' }}>Coordinate Quality Committee team ({teamMembers.length} active)</strong>
+              <strong style={{ color: 'var(--text-primary)' }}>Coordinate Quality Committee team ({(teamMembers || []).length} active)</strong>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Invite board members and coordinators to outline responsibilities.</div>
             </div>
           </div>
 
           {/* Step 3: Template Importing */}
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', fontSize: '0.85rem' }}>
-            <div style={{ color: onboardingSteps.importTemplates ? 'var(--color-success)' : 'var(--text-tertiary)', marginTop: '2px' }}>
+            <div style={{ color: onboardingSteps?.importTemplates ? 'var(--color-success)' : 'var(--text-tertiary)', marginTop: '2px' }}>
               <CheckCircle2 size={16} />
             </div>
             <div style={{ flex: 1 }}>
               <strong style={{ color: 'var(--text-primary)' }}>Initialize NABH 6th Edition Templates</strong>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Preload default outline structures for statutory license requirements and SOP guides.</div>
-              {!onboardingSteps.importTemplates && (
+              {!onboardingSteps?.importTemplates && (
                 <div style={{ marginTop: '0.5rem' }}>
                   {isImporting ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', maxWidth: '250px' }}>
@@ -747,7 +748,7 @@ export default function Dashboard({ orgMode, organizationId }) {
   const renderOrganizationDashboard = () => {
     const orgBranches = currentUser?.accessibleHospitals || ['demo-hosp', 'sarah-hosp'];
     const branchData = orgBranches.map(hospId => {
-      const clientObj = clientsList.find(c => c.hospitalId === hospId) || { hospitalName: hospId === 'demo-hosp' ? "City Central Metro Hospital" : hospId === 'sarah-hosp' ? "Central City Clinic" : hospId, beds: 50 };
+      const clientObj = (clientsList || []).find(c => c && c.hospitalId === hospId) || { hospitalName: hospId === 'demo-hosp' ? "City Central Metro Hospital" : hospId === 'sarah-hosp' ? "Central City Clinic" : hospId, beds: 50 };
       const metrics = getBranchMetrics(hospId);
       return {
         id: hospId,
@@ -1105,7 +1106,7 @@ export default function Dashboard({ orgMode, organizationId }) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
             <div className="card flex flex-col justify-between" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Active Quality Team</div>
-              <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.5rem' }}>{teamMembers.length} Members</div>
+              <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.5rem' }}>{(teamMembers || []).length} Members</div>
               <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '0.5rem' }}>Role-based boundaries enforced</div>
             </div>
             <div className="card flex flex-col justify-between" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
@@ -1115,7 +1116,7 @@ export default function Dashboard({ orgMode, organizationId }) {
             </div>
             <div className="card flex flex-col justify-between" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Pending SOP Approvals</div>
-              <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.5rem' }}>{documents.filter(d=>d.status==='Pending Review').length} Outlines</div>
+              <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.5rem' }}>{(documents || []).filter(d=>d.status==='Pending Review').length} Outlines</div>
               <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '0.5rem' }}>Requires Quality Head signature</div>
             </div>
             <div className="card flex flex-col justify-between" style={{ padding: '1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
@@ -1416,7 +1417,7 @@ export default function Dashboard({ orgMode, organizationId }) {
           <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: '0 0 1rem 0' }}>Outstanding Evidence Document Gaps</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '300px', overflowY: 'auto' }}>
-              {standards.filter(s => s.score < 10).slice(0, 5).map(gap => (
+              {(standards || []).filter(s => s && s.score < 10).slice(0, 5).map(gap => (
                 <div key={gap.id} style={{ padding: '0.75rem', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <strong style={{ fontSize: '0.8rem', color: 'var(--text-primary)' }}>{gap.id}: {gap.title}</strong>
@@ -1449,10 +1450,10 @@ export default function Dashboard({ orgMode, organizationId }) {
           <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: '0 0 1rem 0' }}>SOP Drafts Pending Signature Approval</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '300px', overflowY: 'auto' }}>
-              {documents.filter(d => d.status === 'Pending Review').length === 0 ? (
+              {(documents || []).filter(d => d && d.status === 'Pending Review').length === 0 ? (
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>No drafts require signature sign-off.</p>
               ) : (
-                documents.filter(d => d.status === 'Pending Review').map(doc => (
+                (documents || []).filter(d => d && d.status === 'Pending Review').map(doc => (
                   <div key={doc.id} style={{ padding: '0.75rem', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                       <strong style={{ fontSize: '0.8rem', color: 'var(--text-primary)' }}>{doc.title}</strong>
@@ -1460,8 +1461,8 @@ export default function Dashboard({ orgMode, organizationId }) {
                     </div>
                     <button 
                       onClick={() => {
-                        const updatedDocs = documents.map(d => d.id === doc.id ? { ...d, status: 'Approved', approvedBy: currentUser.name, lastReviewed: new Date().toISOString().split('T')[0] } : d);
-                        addDocument(doc); 
+                        const updatedDocs = (documents || []).map(d => d.id === doc.id ? { ...d, status: 'Approved', approvedBy: currentUser?.name || currentUser?.email || 'Admin', lastReviewed: new Date().toISOString().split('T')[0] } : d);
+                        setDocuments(updatedDocs); 
                         showToast({ title: "SOP Approved", message: `Successfully signed off "${doc.title}".`, type: "success" });
                       }}
                       style={{ padding: '0.25rem 0.6rem', fontSize: '0.65rem', fontWeight: 'bold', cursor: 'pointer', borderRadius: '4px', border: 'none', backgroundColor: 'var(--primary)', color: 'white' }}
@@ -1482,14 +1483,14 @@ export default function Dashboard({ orgMode, organizationId }) {
   // 4. DEPARTMENT HEAD DASHBOARD
   // ----------------------------------------------------
   const renderDepartmentHeadDashboard = () => {
-    const dept = currentUser.department || 'Pharmacy';
-    const deptStandards = standards.filter(s => s.department === dept);
+    const dept = currentUser?.department || 'Pharmacy';
+    const deptStandards = (standards || []).filter(s => s && s.department === dept);
     const deptReadiness = deptStandards.length > 0 
       ? Math.round((deptStandards.reduce((acc, s) => acc + s.score, 0) / (deptStandards.length * 10)) * 100) 
       : 100;
 
-    const deptTasks = tasks.filter(t => t.department === dept && t.status !== 'Completed');
-    const deptAudits = audits.filter(a => a.department === dept);
+    const deptTasks = (tasks || []).filter(t => t && t.department === dept && t.status !== 'Completed');
+    const deptAudits = (audits || []).filter(a => a && a.department === dept);
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -1588,13 +1589,13 @@ export default function Dashboard({ orgMode, organizationId }) {
   // 5. STAFF (Employee) DASHBOARD
   // ----------------------------------------------------
   const renderStaffDashboard = () => {
-    const myTasks = tasks.filter(t => t.assignedToEmail === currentUser.email || t.assignedTo === currentUser.name);
-    const myOpenTasks = myTasks.filter(t => t.status !== 'Completed');
+    const myTasks = (tasks || []).filter(t => t && (t.assignedToEmail === currentUser?.email || t.assignedTo === currentUser?.name));
+    const myOpenTasks = myTasks.filter(t => t && t.status !== 'Completed');
     
     // Check overdue tasks
     const today = new Date();
     today.setHours(0,0,0,0);
-    const overdueCount = myOpenTasks.filter(t => new Date(t.dueDate) < today).length;
+    const overdueCount = myOpenTasks.filter(t => t && new Date(t.dueDate) < today).length;
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', fontFamily: 'var(--font-body)' }}>
@@ -1711,7 +1712,7 @@ export default function Dashboard({ orgMode, organizationId }) {
       const indicatorsList = ['falls', 'medicationErrors', 'infections', 'needleSticks'];
       const labelMap = { falls: 'Falls', medicationErrors: 'Medication Errors', infections: 'Infections', needleSticks: 'Needle Sticks' };
       
-      qualityIndicators.forEach(row => {
+      (qualityIndicators || []).forEach(row => {
         if (pivotMonth !== 'All' && row.month !== pivotMonth) return;
         
         indicatorsList.forEach(ind => {
@@ -1840,7 +1841,7 @@ export default function Dashboard({ orgMode, organizationId }) {
                 </tr>
               </thead>
               <tbody>
-                {qualityIndicators.map(row => {
+                {(qualityIndicators || []).map(row => {
                   const indicatorsList = ['falls', 'medicationErrors', 'infections', 'needleSticks'];
                   const labelMap = { falls: 'Falls', medicationErrors: 'Medication Errors', infections: 'Infections', needleSticks: 'Needle Sticks' };
 

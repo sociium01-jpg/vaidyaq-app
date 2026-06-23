@@ -33,7 +33,7 @@ export default function Breadcrumb() {
   if (isMobile) return null;
 
   // Normalize currentRoute (e.g. /app/tasks -> /app/tasks)
-  const parts = currentRoute.split('/').filter(Boolean);
+  const parts = (currentRoute || '/app/dashboard').split('/').filter(Boolean);
   const isAppRoute = parts[0] === 'app';
   const moduleName = isAppRoute ? parts[1] : null;
   const subModuleName = isAppRoute ? parts[2] : null;

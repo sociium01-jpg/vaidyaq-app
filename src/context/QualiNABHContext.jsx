@@ -747,15 +747,15 @@ export const QualiNABHProvider = ({ children }) => {
           correctHospitalId = 'sarah-hosp';
         } else {
           // Look up in clientsList
-          const client = clientsList.find(c => c.email.toLowerCase() === email);
+          const client = (clientsList || []).find(c => c && c.email && c.email.toLowerCase() === email);
           if (client) {
             correctHospitalId = client.hospitalId;
           } else {
             // Check sub users
             const globalSubUsers = JSON.parse(localStorage.getItem('qn_global_sub_users') || '[]');
-            const subUser = globalSubUsers.find(u => u.email.toLowerCase() === email);
-            if (subUser) {
-              const parentClient = clientsList.find(c => c.email.toLowerCase() === subUser.parentEmail.toLowerCase());
+            const subUser = (globalSubUsers || []).find(u => u && u.email && u.email.toLowerCase() === email);
+            if (subUser && subUser.parentEmail) {
+              const parentClient = (clientsList || []).find(c => c && c.email && c.email.toLowerCase() === subUser.parentEmail.toLowerCase());
               correctHospitalId = parentClient ? parentClient.hospitalId : 'demo-hosp';
             } else {
               correctHospitalId = 'demo-hosp'; // default fallback
@@ -2882,7 +2882,7 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
     return () => clearInterval(timer);
   }, []);
 
-  const clientRecord = currentUser ? clientsList.find(c => c.email.toLowerCase() === (currentUser.parentEmail || currentUser.email).toLowerCase()) : null;
+  const clientRecord = currentUser ? (clientsList || []).find(c => c && c.email && c.email.toLowerCase() === (currentUser.parentEmail || currentUser.email || '').toLowerCase()) : null;
 
   const trialTimeLeftMs = (() => {
     if (isSubscribed || !clientRecord) return 0;

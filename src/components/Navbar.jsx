@@ -27,8 +27,8 @@ export default function Navbar({ setSidebarOpen, onSearchClick, onNotificationCl
   const notificationsList = [];
   
   // 1. Check for expired/expiring licenses
-  licenses.forEach(lic => {
-    if (lic.status === 'Expired') {
+  (licenses || []).forEach(lic => {
+    if (lic && lic.status === 'Expired') {
       notificationsList.push({
         id: `notif-lic-${lic.id}`,
         type: 'danger',
@@ -133,8 +133,8 @@ export default function Navbar({ setSidebarOpen, onSearchClick, onNotificationCl
                 backgroundSize: '1rem'
               }}
             >
-              {accessibleHospitals.map(hospId => {
-                const hospObj = clientsList.find(c => c.hospitalId === hospId);
+              {(accessibleHospitals || []).map(hospId => {
+                const hospObj = (clientsList || []).find(c => c && c.hospitalId === hospId);
                 return (
                   <option key={hospId} value={hospId}>
                     🏥 {hospObj ? hospObj.hospitalName : hospId}
