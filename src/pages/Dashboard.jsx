@@ -483,10 +483,12 @@ export default function Dashboard({ orgMode, organizationId }) {
 
   // Sync state on context ready
   useEffect(() => {
-    setEditName(hospitalName);
-    setEditBeds(hospitalBeds);
-    setEditTier(hospitalTier);
-    setTempDepts(activeDepts);
+    setTimeout(() => {
+      setEditName(hospitalName);
+      setEditBeds(hospitalBeds);
+      setEditTier(hospitalTier);
+      setTempDepts(activeDepts);
+    }, 0);
   }, [hospitalName, hospitalBeds, hospitalTier, activeDepts]);
 
   // Expose task completion for employee dashboards

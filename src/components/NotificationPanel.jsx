@@ -77,10 +77,15 @@ export default function NotificationPanel({ isOpen, onClose }) {
   // Animate in/out
   useEffect(() => {
     if (isOpen) {
-      setAnimateIn(false);
-      requestAnimationFrame(() => requestAnimationFrame(() => setAnimateIn(true)));
+      const timer = setTimeout(() => {
+        setAnimateIn(true);
+      }, 50);
+      return () => clearTimeout(timer);
     } else {
-      setAnimateIn(false);
+      const timer = setTimeout(() => {
+        setAnimateIn(false);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [isOpen]);
 

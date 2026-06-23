@@ -48,6 +48,11 @@ export default function FAB() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  const handleClose = () => {
+    setIsAnimating(false);
+    setTimeout(() => setIsOpen(false), 300);
+  };
+
   // Close on outside click
   useEffect(() => {
     if (!isOpen) return;
@@ -63,11 +68,6 @@ export default function FAB() {
   const handleOpen = () => {
     setIsOpen(true);
     setIsAnimating(true);
-  };
-
-  const handleClose = () => {
-    setIsAnimating(false);
-    setTimeout(() => setIsOpen(false), 300);
   };
 
   const handleAction = (route) => {

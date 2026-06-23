@@ -214,18 +214,20 @@ export default function VendorAdminConsole() {
   // Prepopulate first client for Finance Invoice builder & expense on load
   useEffect(() => {
     if (clientsList.length > 0) {
-      if (!financeSelectedClient) {
-        setFinanceSelectedClient(clientsList[0].hospitalId);
-      }
-      if (!expenseClientId) {
-        setExpenseClientId(clientsList[0].hospitalId);
+      if (!financeSelectedClient || !expenseClientId) {
+        setTimeout(() => {
+          setFinanceSelectedClient(prev => prev || clientsList[0].hospitalId);
+          setExpenseClientId(prev => prev || clientsList[0].hospitalId);
+        }, 0);
       }
     }
   }, [clientsList, financeSelectedClient, expenseClientId]);
 
   // Sync internal gemini key input state if parent changes
   useEffect(() => {
-    setApiKeyInput(vendorGeminiKey);
+    setTimeout(() => {
+      setApiKeyInput(vendorGeminiKey);
+    }, 0);
   }, [vendorGeminiKey]);
 
   // Prepopulate ticket inputs when a ticket is loaded into its own page
@@ -233,10 +235,12 @@ export default function VendorAdminConsole() {
     if (selectedTicket) {
       const ticket = supportTickets.find(t => t.id === selectedTicket);
       if (ticket) {
-        setTicketStatusInput(ticket.status);
-        setTicketAssigneeInput(ticket.assignedOperator);
-        setTicketResolutionNotes('');
-        setTicketSaveSuccess(false);
+        setTimeout(() => {
+          setTicketStatusInput(ticket.status);
+          setTicketAssigneeInput(ticket.assignedOperator);
+          setTicketResolutionNotes('');
+          setTicketSaveSuccess(false);
+        }, 0);
       }
     }
   }, [selectedTicket, supportTickets]);

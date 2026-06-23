@@ -63,14 +63,19 @@ export default function SearchModal({ isOpen, onClose }) {
   // Animate in when opened
   useEffect(() => {
     if (isOpen) {
-      setAnimateIn(false);
-      requestAnimationFrame(() => requestAnimationFrame(() => setAnimateIn(true)));
-      setQuery('');
-      setActiveCategory('all');
-      setSelectedIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 80);
+      const timer = setTimeout(() => {
+        setAnimateIn(true);
+        setQuery('');
+        setActiveCategory('all');
+        setSelectedIndex(0);
+        inputRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
     } else {
-      setAnimateIn(false);
+      const timer = setTimeout(() => {
+        setAnimateIn(false);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [isOpen]);
 
@@ -133,8 +138,7 @@ export default function SearchModal({ isOpen, onClose }) {
     ).slice(0, 20);
   }, [allResults, query, activeCategory]);
 
-  // Reset index when results change
-  useEffect(() => { setSelectedIndex(0); }, [filteredResults]);
+  // Reset index handled directly in event handlers to prevent cascading renders
 
   // Save recent search
   const saveRecent = useCallback((term) => {
@@ -240,7 +244,7 @@ export default function SearchModal({ isOpen, onClose }) {
             ref={inputRef}
             type="text"
             value={query}
-            onChange={e => setQuery(e.target.value)}
+            onChange={e => { setQuery(e.target.value); setSelectedIndex(0); }}
             placeholder="Search standards, documents, CAPAs, tasks..."
             style={{
               flex: 1, border: 'none', outline: 'none',
@@ -319,7 +323,7 @@ export default function SearchModal({ isOpen, onClose }) {
               {recentSearches.map((term, idx) => (
                 <button
                   key={idx}
-                  onClick={() => setQuery(term)}
+                  onClick={() => { setQuery(term); setSelectedIndex(0); }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: '8px',
                     width: '100%', padding: '8px 12px', borderRadius: '8px',

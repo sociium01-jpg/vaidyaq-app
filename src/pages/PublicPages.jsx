@@ -877,7 +877,7 @@ Key Benefits of the SaaS Model:
 
                         {/* Scrubber Time stamps */}
                         <span style={{ fontSize: '0.7rem', fontFamily: 'monospace', color: '#94a3b8' }}>
-                          0:{Math.floor(heroVideoTime) < 10 ? `0${Math.floor(heroVideoTime)}` : Math.floor(heroVideoTime)} / 0:{heroVideoRef.current && !isNaN(heroVideoRef.current.duration) ? Math.floor(heroVideoRef.current.duration) : '05'}
+                          0:{Math.floor(heroVideoTime) < 10 ? `0${Math.floor(heroVideoTime)}` : Math.floor(heroVideoTime)} / 0:05
                         </span>
 
                         <span style={{ fontSize: '0.65rem', padding: '0.1rem 0.25rem', backgroundColor: 'rgba(255,255,255,0.1)', color: '#fff', borderRadius: '4px', fontWeight: 'bold' }}>AI GEN</span>

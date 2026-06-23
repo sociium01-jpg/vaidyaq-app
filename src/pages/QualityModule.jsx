@@ -62,7 +62,10 @@ export default function QualityModule() {
   const [newAuditForm, setNewAuditForm] = useState({ title: '', department: defaultDept, date: '', checklistItem: '', checklist: [] });
   const [newCapaForm, setNewCapaForm] = useState({ source: '', department: defaultDept, responsible: '', dueDate: '', priority: 'High', rootCause: '', correctiveAction: '', preventiveAction: '' });
   const [newIncidentForm, setNewIncidentForm] = useState({ type: 'Medication Error', department: defaultDept, severity: 'Medium', description: '', immediateAction: '', investigator: '', shift: 'Morning', deidentified: true });
-  
+
+  // Audit Calendar Month/Year states (Moved to top-level to satisfy Rules of Hooks)
+  const [calMonth, setCalMonth] = useState(() => new Date().getMonth());
+  const [calYear, setCalYear] = useState(() => new Date().getFullYear());
   const [selectedCapaToClose, setSelectedCapaToClose] = useState(null);
   const [closureEvidence, setClosureEvidence] = useState('');
 
@@ -486,8 +489,6 @@ Please output the checklist items as a clean list with each item on a new line, 
           {/* ── Audit Calendar View ── */}
           {(() => {
             const today = new Date();
-            const [calMonth, setCalMonth] = React.useState(today.getMonth());
-            const [calYear, setCalYear] = React.useState(today.getFullYear());
             const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
             const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
             const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();

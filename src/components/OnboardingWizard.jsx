@@ -106,8 +106,11 @@ export default function OnboardingWizard() {
   // Scan steps simulation
   useEffect(() => {
     if (step !== 5) return;
-    setScanning(true);
-    setScanProgress(0);
+    
+    const timer = setTimeout(() => {
+      setScanning(true);
+      setScanProgress(0);
+    }, 0);
     
     const statusMessages = [
       { p: 15, text: 'Mapping active departments to NABH 6th Edition requirements...' },

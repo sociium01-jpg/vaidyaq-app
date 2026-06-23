@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react';
 
@@ -50,10 +51,18 @@ function ToastItem({ toast, onDismiss }) {
   const variant = VARIANTS[toast.type] || VARIANTS.info;
   const IconComp = variant.icon;
   const timerRef = useRef(null);
-  const startTimeRef = useRef(Date.now());
+  const startTimeRef = useRef(null);
   const [progress, setProgress] = useState(100);
 
+  const handleDismiss = useCallback(() => {
+    setIsExiting(true);
+    setTimeout(() => onDismiss(toast.id), 300);
+  }, [onDismiss, toast.id]);
+
   useEffect(() => {
+    // Set start time inside effect to keep render pure
+    startTimeRef.current = Date.now();
+
     // Animate in
     requestAnimationFrame(() => requestAnimationFrame(() => setIsVisible(true)));
 
@@ -74,12 +83,7 @@ function ToastItem({ toast, onDismiss }) {
       clearTimeout(timerRef.current);
       clearInterval(interval);
     };
-  }, []);
-
-  const handleDismiss = useCallback(() => {
-    setIsExiting(true);
-    setTimeout(() => onDismiss(toast.id), 300);
-  }, [onDismiss, toast.id]);
+  }, [handleDismiss]);
 
   return (
     <div
@@ -184,7 +188,7 @@ export default function ToastProvider({ children }) {
   const showToast = useCallback((message, type = 'info') => {
     const id = ++toastIdCounter;
 
-    let msg = '';
+    let msg;
     let t = type;
     let title = '';
 

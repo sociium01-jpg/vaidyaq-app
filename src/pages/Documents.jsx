@@ -166,24 +166,24 @@ export default function Documents() {
   const [activeRegisterForm, setActiveRegisterForm] = useState(null); // 'fire', 'waste', 'training', 'cert', 'calibration', 'incident'
 
   // Register Fields states
-  const [fireForm, setFireForm] = useState({ date: new Date().toISOString().slice(0, 10), supervisor: 'Mr. Verma (Facilities Manager)', attendees: 'Ramesh Kumar, Sister Gracy, Priya Sharma, Aarav Sharma', gaps: 'Billing corridor rear door exit was partially blocked by spare beds. ICU bell decibel volume check was faint.', correctiveAction: 'Moved spare beds to cellar store. Scheduled maintenance check for fire alarms speaker.' });
-  const [wasteForm, setWasteForm] = useState({ date: new Date().toISOString().slice(0, 10), yellowWeight: '5.2', redWeight: '9.4', blueWeight: '3.0', sharpsWeight: '1.8', manifestNum: 'BMW-2026-99321', handler: 'Aarav Sharma (Housekeeping Officer)' });
-  const [trainingForm, setTrainingForm] = useState({ date: new Date().toISOString().slice(0, 10), topic: 'Clinical Hand Hygiene & Scrubbing', trainer: 'Dr. Sarah Paul (Quality Head)', attendeesCount: '18', passingRate: '100', quizCode: 'QZ-HH-093' });
+  const [fireForm, setFireForm] = useState(() => ({ date: new Date().toISOString().slice(0, 10), supervisor: 'Mr. Verma (Facilities Manager)', attendees: 'Ramesh Kumar, Sister Gracy, Priya Sharma, Aarav Sharma', gaps: 'Billing corridor rear door exit was partially blocked by spare beds. ICU bell decibel volume check was faint.', correctiveAction: 'Moved spare beds to cellar store. Scheduled maintenance check for fire alarms speaker.' }));
+  const [wasteForm, setWasteForm] = useState(() => ({ date: new Date().toISOString().slice(0, 10), yellowWeight: '5.2', redWeight: '9.4', blueWeight: '3.0', sharpsWeight: '1.8', manifestNum: 'BMW-2026-99321', handler: 'Aarav Sharma (Housekeeping Officer)' }));
+  const [trainingForm, setTrainingForm] = useState(() => ({ date: new Date().toISOString().slice(0, 10), topic: 'Clinical Hand Hygiene & Scrubbing', trainer: 'Dr. Sarah Paul (Quality Head)', attendeesCount: '18', passingRate: '100', quizCode: 'QZ-HH-093' }));
   const [staffCertForm, setStaffCertForm] = useState({ staffName: 'Dr. Sen', role: 'Pharmacist', certName: 'State Pharmacy Council Registered Pharmacist License', council: 'State Pharmacy Council Board', issueDate: '2025-05-12', expiryDate: '2030-05-12' });
-  const [calibrationForm, setCalibrationForm] = useState({ name: 'ICU Ventilator (Main Wing)', serialNum: 'VENT-ICU-2026-081', date: new Date().toISOString().slice(0, 10), nextDue: new Date(Date.now() + 180*24*60*60*1000).toISOString().slice(0,10), agency: 'Standard Calibration Services Ltd.', status: 'Pass' });
-  const [incidentForm, setIncidentForm] = useState({ type: 'Medication Error', date: new Date().toISOString().slice(0, 16).replace('T', ' '), dept: 'Pharmacy', desc: 'A double dosage of pediatric paracetamol was prepared but intercepted by senior nurse during drug count.', immediateAction: 'Dispensation stopped immediately, audit logged and doctor alerted.', severity: 'Medium' });
+  const [calibrationForm, setCalibrationForm] = useState(() => ({ name: 'ICU Ventilator (Main Wing)', serialNum: 'VENT-ICU-2026-081', date: new Date().toISOString().slice(0, 10), nextDue: new Date(Date.now() + 180*24*60*60*1000).toISOString().slice(0,10), agency: 'Standard Calibration Services Ltd.', status: 'Pass' }));
+  const [incidentForm, setIncidentForm] = useState(() => ({ type: 'Medication Error', date: new Date().toISOString().slice(0, 16).replace('T', ' '), dept: 'Pharmacy', desc: 'A double dosage of pediatric paracetamol was prepared but intercepted by senior nurse during drug count.', immediateAction: 'Dispensation stopped immediately, audit logged and doctor alerted.', severity: 'Medium' }));
 
   // Sync selected doc details with global documents list
   useEffect(() => {
     if (selectedDocDetails) {
       const current = documents.find(d => d.id === selectedDocDetails.id);
-      if (current) {
-        setSelectedDocDetails(current);
-      } else {
-        setSelectedDocDetails(null);
+      if (current !== selectedDocDetails) {
+        setTimeout(() => {
+          setSelectedDocDetails(current || null);
+        }, 0);
       }
     }
-  }, [documents]);
+  }, [documents, selectedDocDetails]);
 
   const handleStartEdit = () => {
     if (!selectedDocDetails) return;

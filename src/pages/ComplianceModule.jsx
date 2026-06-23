@@ -378,7 +378,6 @@ export default function ComplianceModule() {
 
       setTimeout(() => {
         let matchedId = flowId;
-        let matchedName = "";
         
         if (text.includes("infection") || text.includes("hand hygiene") || text.includes("hygiene")) {
           matchedId = "IPC";
@@ -397,7 +396,7 @@ export default function ComplianceModule() {
         }
 
         const matchedFlow = complianceFlows.find(f => f.id === matchedId);
-        matchedName = matchedFlow ? matchedFlow.name : matchedId;
+        const matchedName = matchedFlow ? matchedFlow.name : matchedId;
 
         let docType = "Evidence";
         if (file.name.toLowerCase().includes("policy")) docType = "Policy";

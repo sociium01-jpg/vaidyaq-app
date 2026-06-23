@@ -41,12 +41,12 @@ export default function CommitteeModule() {
   
   // Action item builder in registrar
   const [actionItems, setActionItems] = useState([]);
-  const [newActionItem, setNewActionItem] = useState({
+  const [newActionItem, setNewActionItem] = useState(() => ({
     task: '',
     assignedTo: '',
     dueDate: new Date(Date.now() + 7*24*60*60*1000).toISOString().slice(0, 10),
     status: 'Pending'
-  });
+  }));
 
   // AI Minutes Drafter states
   const [rawTranscript, setRawTranscript] = useState('');

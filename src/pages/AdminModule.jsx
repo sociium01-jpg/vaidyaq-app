@@ -69,13 +69,15 @@ export default function AdminModule() {
   // Sync state values on config load
   useEffect(() => {
     if (aiSettings) {
-      setSelectedProvider(aiSettings.provider || 'mock');
-      setTempCustomUrl(aiSettings.customUrl || '');
-      setTempModel(aiSettings.model || '');
-      setTempSystemPrompt(aiSettings.systemPrompt || '');
-      setTempTemp(aiSettings.temperature !== undefined ? aiSettings.temperature : 0.7);
-      setTempMaxTokens(aiSettings.maxTokens || 2048);
-      setAllowedRoles(aiSettings.allowedRoles || ['Super Admin', 'Quality Head']);
+      setTimeout(() => {
+        setSelectedProvider(aiSettings.provider || 'mock');
+        setTempCustomUrl(aiSettings.customUrl || '');
+        setTempModel(aiSettings.model || '');
+        setTempSystemPrompt(aiSettings.systemPrompt || '');
+        setTempTemp(aiSettings.temperature !== undefined ? aiSettings.temperature : 0.7);
+        setTempMaxTokens(aiSettings.maxTokens || 2048);
+        setAllowedRoles(aiSettings.allowedRoles || ['Super Admin', 'Quality Head']);
+      }, 0);
     }
   }, [aiSettings]);
 

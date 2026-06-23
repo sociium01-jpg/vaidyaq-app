@@ -1,4 +1,5 @@
-import React, { createContext, useState, useEffect, useRef } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useState, useEffect, useCallback } from 'react';
 
 export const QualiNABHContext = createContext();
 
@@ -204,15 +205,9 @@ const assertNoMockDataForProductionTenant = (email, key, data) => {
   if (!email) return data;
   const isDemo = email === 'demo@vaidyaq.com' || email === 'quality.head@hospital.org';
   if (!isDemo && data && Array.isArray(data) && data.length > 0) {
+    const mockIdRegex = /^(doc|audit|capa|inc|task|tick)-\d{1,3}$/;
     const hasMockId = data.some(item => 
-      item && typeof item.id === 'string' && (
-        item.id.startsWith('doc-') || 
-        item.id.startsWith('audit-') || 
-        item.id.startsWith('capa-') || 
-        item.id.startsWith('inc-') || 
-        item.id.startsWith('task-') || 
-        item.id.startsWith('tick-')
-      )
+      item && typeof item.id === 'string' && mockIdRegex.test(item.id)
     );
     if (hasMockId) {
       console.warn(`[Security Guard] Production tenant ${email} attempted to load mock data for key: ${key}. Enforcing clean slate.`);
@@ -333,62 +328,82 @@ export const QualiNABHProvider = ({ children }) => {
     return safeJsonParse('qn_user', null);
   });
 
-  const [activeHospitalId, setActiveHospitalId] = useState(() => {
-    const savedUser = localStorage.getItem('qn_user');
-    if (savedUser) {
-      try {
-        const parsed = JSON.parse(savedUser);
-        return parsed.activeHospitalId || parsed.hospitalId || 'demo-hosp';
-      } catch (e) {}
-    }
-    return 'demo-hosp';
+  // Simulated Email Notification Archive
+  const [emailLogs, setEmailLogs] = useState(() => {
+    const defaultMails = [
+      { id: "mail-1", recipient: "quality.head@hospital.org", subject: "Welcome to VaidyaQ - 7-Day Free Trial", body: "Hello Dr. Sarah Paul, thank you for signing up to VaidyaQ. Your 7-day trial is now active.", sentAt: "2026-06-09 10:15", category: "Signup" }
+    ];
+    return safeJsonParse('qn_email_logs', defaultMails);
   });
 
-  const [activeOrganizationId, setActiveOrganizationId] = useState(() => {
-    const savedUser = localStorage.getItem('qn_user');
-    if (savedUser) {
-      try {
-        const parsed = JSON.parse(savedUser);
-        return parsed.organizationId || null;
-      } catch (e) {}
-    }
-    return null;
+  // Audit Logs
+  const [auditLogs, setAuditLogs] = useState(() => {
+    return loadNamespacedState('qn_audit_logs', defaultAuditLogs);
   });
 
-  const [accessibleHospitals, setAccessibleHospitals] = useState(() => {
-    const savedUser = localStorage.getItem('qn_user');
-    if (savedUser) {
-      try {
-        const parsed = JSON.parse(savedUser);
-        return parsed.accessibleHospitals || [parsed.hospitalId || 'demo-hosp'];
-      } catch (e) {}
-    }
-    return ['demo-hosp'];
-  });
+  const activeHospitalId = currentUser ? (currentUser.activeHospitalId || currentUser.hospitalId || 'demo-hosp') : 'demo-hosp';
+  const activeOrganizationId = currentUser ? (currentUser.organizationId || null) : null;
+  const accessibleHospitals = currentUser ? (currentUser.accessibleHospitals || [currentUser.hospitalId || 'demo-hosp']) : ['demo-hosp'];
 
-  // Sync helper states when currentUser changes
-  useEffect(() => {
-    if (currentUser) {
-      setAccessibleHospitals(currentUser.accessibleHospitals || [currentUser.hospitalId || 'demo-hosp']);
-      setActiveHospitalId(currentUser.activeHospitalId || currentUser.hospitalId || 'demo-hosp');
-      setActiveOrganizationId(currentUser.organizationId || null);
-    } else {
-      setAccessibleHospitals(['demo-hosp']);
-      setActiveHospitalId('demo-hosp');
-      setActiveOrganizationId(null);
-    }
+  const setActiveHospitalId = (id) => {
+    setCurrentUser(prev => {
+      if (!prev) return prev;
+      const updated = { ...prev, activeHospitalId: id };
+      localStorage.setItem('qn_user', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const setActiveOrganizationId = (orgId) => {
+    setCurrentUser(prev => {
+      if (!prev) return prev;
+      const updated = { ...prev, organizationId: orgId };
+      localStorage.setItem('qn_user', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const setAccessibleHospitals = (hospitals) => {
+    setCurrentUser(prev => {
+      if (!prev) return prev;
+      const updated = { ...prev, accessibleHospitals: hospitals };
+      localStorage.setItem('qn_user', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  // Log Security Activity helper (Moved up to prevent access-before-declaration)
+  const logActivity = useCallback((action) => {
+    const newLog = {
+      id: `log-${Date.now()}`,
+      timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
+      user: currentUser ? currentUser.email : 'system',
+      role: currentUser ? currentUser.role : 'guest',
+      action,
+      ipAddress: "192.168.1.108"
+    };
+    setAuditLogs(prev => [newLog, ...prev]);
   }, [currentUser]);
+
+  // Helper to send transactional emails and save copy to office folder (Moved up to prevent access-before-declaration)
+  const sendSimulatedEmail = useCallback((recipient, subject, body, category) => {
+    const newMail = {
+      id: `mail-${Date.now()}`,
+      recipient,
+      subject,
+      body,
+      sentAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
+      category
+    };
+    setEmailLogs(prev => [newMail, ...prev]);
+    logActivity(`Simulated email sent to ${recipient}: ${subject}`);
+  }, [logActivity]);
 
   // Method to switch between branches
   const switchActiveBranch = (branchId) => {
     if (accessibleHospitals.includes(branchId)) {
+      setIsReloading(true);
       setActiveHospitalId(branchId);
-      setCurrentUser(prev => {
-        if (!prev) return prev;
-        const updated = { ...prev, activeHospitalId: branchId };
-        localStorage.setItem('qn_user', JSON.stringify(updated));
-        return updated;
-      });
       logActivity(`Switched active branch to ${branchId}`);
       setCurrentRoute('/app/dashboard');
     }
@@ -397,8 +412,8 @@ export const QualiNABHProvider = ({ children }) => {
   const activePrefix = activeHospitalId ? `hosp_${activeHospitalId}_` : (currentUser ? `${currentUser.parentEmail || currentUser.email}_` : '');
 
   const [isReloading, setIsReloading] = useState(false);
-  const prevPrefixRef = useRef(activePrefix);
-  const canSave = currentUser && !isReloading && prevPrefixRef.current === activePrefix;
+  const [prevPrefix, setPrevPrefix] = useState(activePrefix);
+  const canSave = currentUser && !isReloading && prevPrefix === activePrefix;
 
   // Theme State
   const [theme, setTheme] = useState(() => {
@@ -591,13 +606,6 @@ export const QualiNABHProvider = ({ children }) => {
     return safeJsonParse('qn_support_tickets', defaultTickets);
   });
 
-  // Simulated Email Notification Archive
-  const [emailLogs, setEmailLogs] = useState(() => {
-    const defaultMails = [
-      { id: "mail-1", recipient: "quality.head@hospital.org", subject: "Welcome to VaidyaQ - 7-Day Free Trial", body: "Hello Dr. Sarah Paul, thank you for signing up to VaidyaQ. Your 7-day trial is now active.", sentAt: "2026-06-09 10:15", category: "Signup" }
-    ];
-    return safeJsonParse('qn_email_logs', defaultMails);
-  });
 
   // Simulated Payment Transactions Registry
   const [transactions, setTransactions] = useState(() => {
@@ -653,9 +661,7 @@ export const QualiNABHProvider = ({ children }) => {
     return loadNamespacedState('qn_tasks', defaultTasks);
   });
 
-  const [auditLogs, setAuditLogs] = useState(() => {
-    return loadNamespacedState('qn_audit_logs', defaultAuditLogs);
-  });
+
 
   const [qualityIndicators, setQualityIndicators] = useState(() => {
     return loadNamespacedState('qn_quality_indicators', defaultQualityIndicators);
@@ -721,40 +727,30 @@ export const QualiNABHProvider = ({ children }) => {
   // Sync AI states with local storage (namespaced)
   useEffect(() => {
     if (canSave) {
-      const activeEmail = currentUser.parentEmail || currentUser.email;
-      const prefix = activeEmail ? `${activeEmail}_` : '';
       localStorage.setItem(`${activePrefix}qn_ai_settings`, JSON.stringify(aiSettings));
     }
   }, [aiSettings, activePrefix, canSave]);
 
   useEffect(() => {
     if (canSave) {
-      const activeEmail = currentUser.parentEmail || currentUser.email;
-      const prefix = activeEmail ? `${activeEmail}_` : '';
       localStorage.setItem(`${activePrefix}qn_ai_memory`, JSON.stringify(aiMemory));
     }
   }, [aiMemory, activePrefix, canSave]);
 
   useEffect(() => {
     if (canSave) {
-      const activeEmail = currentUser.parentEmail || currentUser.email;
-      const prefix = activeEmail ? `${activeEmail}_` : '';
       localStorage.setItem(`${activePrefix}qn_ai_outputs`, JSON.stringify(aiOutputs));
     }
   }, [aiOutputs, activePrefix, canSave]);
 
   useEffect(() => {
     if (canSave) {
-      const activeEmail = currentUser.parentEmail || currentUser.email;
-      const prefix = activeEmail ? `${activeEmail}_` : '';
       localStorage.setItem(`${activePrefix}qn_ai_usage_logs`, JSON.stringify(aiUsageLogs));
     }
   }, [aiUsageLogs, activePrefix, canSave]);
 
   useEffect(() => {
     if (canSave) {
-      const activeEmail = currentUser.parentEmail || currentUser.email;
-      const prefix = activeEmail ? `${activeEmail}_` : '';
       localStorage.setItem(`${activePrefix}qn_ai_safety_logs`, JSON.stringify(aiSafetyLogs));
     }
   }, [aiSafetyLogs, activePrefix, canSave]);
@@ -788,12 +784,14 @@ export const QualiNABHProvider = ({ children }) => {
           }
         }
         
-        // Auto-heal
-        setCurrentUser(prev => {
-          if (!prev) return prev;
-          if (prev.hospitalId === correctHospitalId) return prev;
-          return { ...prev, hospitalId: correctHospitalId };
-        });
+        // Auto-heal (wrapped in setTimeout to prevent cascading render warnings)
+        setTimeout(() => {
+          setCurrentUser(prev => {
+            if (!prev) return prev;
+            if (prev.hospitalId === correctHospitalId) return prev;
+            return { ...prev, hospitalId: correctHospitalId };
+          });
+        }, 0);
       }
     }
   }, [currentUser, clientsList]);
@@ -958,24 +956,18 @@ export const QualiNABHProvider = ({ children }) => {
 
   useEffect(() => {
     if (canSave) {
-      const activeEmail = currentUser.parentEmail || currentUser.email;
-      const prefix = activeEmail ? `${activeEmail}_` : '';
       localStorage.setItem(`${activePrefix}qn_sprints`, JSON.stringify(sprints));
     }
   }, [sprints, activePrefix, canSave]);
 
   useEffect(() => {
     if (canSave) {
-      const activeEmail = currentUser.parentEmail || currentUser.email;
-      const prefix = activeEmail ? `${activeEmail}_` : '';
       localStorage.setItem(`${activePrefix}qn_reports_list`, JSON.stringify(reportsList));
     }
   }, [reportsList, activePrefix, canSave]);
 
   useEffect(() => {
     if (canSave) {
-      const activeEmail = currentUser.parentEmail || currentUser.email;
-      const prefix = activeEmail ? `${activeEmail}_` : '';
       localStorage.setItem(`${activePrefix}qn_task_activities`, JSON.stringify(taskActivities));
     }
   }, [taskActivities, activePrefix, canSave]);
@@ -1129,111 +1121,103 @@ export const QualiNABHProvider = ({ children }) => {
   // Reload namespaced states when currentUser or activeHospitalId changes
   useEffect(() => {
     if (currentUser) {
-      setIsReloading(true);
-      const activeEmail = currentUser.parentEmail || currentUser.email;
-      const prefix = activeEmail ? `${activeEmail}_` : '';
-      
-      const getSaved = (key, defaultVal) => {
-        const hospPrefix = activeHospitalId ? `hosp_${activeHospitalId}_` : '';
-        let saved = localStorage.getItem(hospPrefix + key);
-        if (!saved) {
-          saved = localStorage.getItem(prefix + key);
-        }
-        let result;
-        if (saved) {
-          try { result = JSON.parse(saved); } catch(e) { result = saved; }
-        } else {
-          // Fallbacks
-          const isDemo = activeEmail === 'demo@vaidyaq.com' || activeEmail === 'quality.head@hospital.org';
-          if (isDemo) {
-            const globalSaved = localStorage.getItem(key);
-            if (globalSaved) {
-              try { result = JSON.parse(globalSaved); } catch(e) {}
-            }
-            if (result === undefined) {
-              result = defaultVal;
-            }
+      setTimeout(() => {
+        setIsReloading(true);
+        const activeEmail = currentUser.parentEmail || currentUser.email;
+        const prefix = activeEmail ? `${activeEmail}_` : '';
+        
+        const getSaved = (key, defaultVal) => {
+          const hospPrefix = activeHospitalId ? `hosp_${activeHospitalId}_` : '';
+          let saved = localStorage.getItem(hospPrefix + key);
+          if (!saved) {
+            saved = localStorage.getItem(prefix + key);
+          }
+          let result;
+          if (saved) {
+            try { result = JSON.parse(saved); } catch(e) { result = saved; }
           } else {
-            if (key === 'qn_standards') {
-              result = defaultStandards.map(s => ({ ...s, score: 0, status: "Not Met" }));
-            } else if (key === 'qn_licenses') {
-              result = defaultLicenses.map(l => ({
-                ...l,
-                issueDate: '',
-                expiryDate: '',
-                responsible: (l.responsible && typeof l.responsible === 'string' && l.responsible.includes('(')) ? l.responsible.substring(l.responsible.indexOf('(') + 1, l.responsible.length - 1) : (l.responsible || 'Administration'),
-                status: 'Expired'
-              }));
+            // Fallbacks
+            const isDemo = activeEmail === 'demo@vaidyaq.com' || activeEmail === 'quality.head@hospital.org';
+            if (isDemo) {
+              const globalSaved = localStorage.getItem(key);
+              if (globalSaved) {
+                try { result = JSON.parse(globalSaved); } catch(e) {}
+              }
+              if (result === undefined) {
+                result = defaultVal;
+              }
             } else {
-              result = Array.isArray(defaultVal) ? [] : typeof defaultVal === 'object' ? {} : defaultVal;
+              if (key === 'qn_standards') {
+                result = defaultStandards.map(s => ({ ...s, score: 0, status: "Not Met" }));
+              } else if (key === 'qn_licenses') {
+                result = defaultLicenses.map(l => ({
+                  ...l,
+                  issueDate: '',
+                  expiryDate: '',
+                  responsible: (l.responsible && typeof l.responsible === 'string' && l.responsible.includes('(')) ? l.responsible.substring(l.responsible.indexOf('(') + 1, l.responsible.length - 1) : (l.responsible || 'Administration'),
+                  status: 'Expired'
+                }));
+              } else {
+                result = Array.isArray(defaultVal) ? [] : typeof defaultVal === 'object' ? {} : defaultVal;
+              }
             }
           }
-        }
-        return assertNoMockDataForProductionTenant(activeEmail, key, result);
-      };
+          return assertNoMockDataForProductionTenant(activeEmail, key, result);
+        };
 
-      setHospitalMode(getSaved('qn_hospital_mode', 'active'));
-      setHospitalName(getSaved('qn_hospital_name', 'City Central Metro Hospital'));
-      setHospitalBeds(String(getSaved('qn_hospital_beds', '120')));
-      setHospitalTier(getSaved('qn_hospital_tier', 'Full Accreditation'));
-      setActiveDepts(getSaved('qn_active_depts', ['ICU', 'Pharmacy', 'Emergency', 'OT', 'Housekeeping / Facilities', 'HR / Staffing']));
-      setOnboardingSteps(getSaved('qn_onboarding_steps', { identity: false, departments: false, importTemplates: false, firstSop: false }));
-      setOnboardingStep(Number(getSaved('qn_onboarding_step', 1)));
-      setStandards(getSaved('qn_standards', defaultStandards));
-      setIsSubscribed(getSaved('qn_is_subscribed', false));
-      setTrialStartDate(getSaved('qn_trial_start_date', new Date().toISOString()));
-      setGeminiApiKey(getSaved('qn_gemini_api_key', ''));
-      setOpenaiApiKey(getSaved('qn_openai_api_key', ''));
-      setAnthropicApiKey(getSaved('qn_anthropic_api_key', ''));
-      setAiProvider(getSaved('qn_ai_provider', 'mock'));
-      setAiModel(getSaved('qn_ai_model', 'gemini-2.5-flash'));
-      setAiSystemPrompt(getSaved('qn_ai_system_prompt', 'You are a clinical quality auditor and NABH 6th Edition compliance consultant. Generate precise compliance reports, audit checklists, SOP text, and CAPA corrective measures for hospital administration.'));
-      setHospitalLogo(getSaved('qn_hospital_logo', '🛡️'));
-      setTeamMembers(getSaved('qn_team_members', [
-        { email: "quality.head@hospital.org", name: "Dr. Sarah Paul", role: "Quality Head", department: "Quality Control" },
-        { email: "super@vaidyaq.com", name: "Col. Roy", role: "Super Admin", department: "Board" },
-        { email: "pharmacy@hospital.org", name: "Dr. Sen", role: "Department Head", department: "Pharmacy" }
-      ]));
-      setDocuments(getSaved('qn_documents', defaultDocuments));
-      setAudits(getSaved('qn_audits', defaultAudits));
-      setCapaItems(getSaved('qn_capas', defaultCapas));
-      setIncidents(getSaved('qn_incidents', defaultIncidents));
-      setLicenses(getSaved('qn_licenses', defaultLicenses));
-      setTasks(getSaved('qn_tasks', defaultTasks));
-      setAuditLogs(getSaved('qn_audit_logs', defaultAuditLogs));
-      setQualityIndicators(getSaved('qn_quality_indicators', defaultQualityIndicators));
-      setComplianceFeed(getSaved('qn_compliance_feed', defaultComplianceFeed));
-      setFeedNotifications(getSaved('qn_feed_notifications', [
-        { id: "notif-1", title: "ABDM Update", message: "New ABDM v3.0 guidelines released. Check the News Feed.", type: "warning", read: false }
-      ]));
-      setAiSettings(getSaved('qn_ai_settings', defaultAiSettings));
-      setAiMemory(getSaved('qn_ai_memory', []));
-      setAiOutputs(getSaved('qn_ai_outputs', []));
-      setAiUsageLogs(getSaved('qn_ai_usage_logs', []));
-      setAiSafetyLogs(getSaved('qn_ai_safety_logs', []));
+        setHospitalMode(getSaved('qn_hospital_mode', 'active'));
+        setHospitalName(getSaved('qn_hospital_name', 'City Central Metro Hospital'));
+        setHospitalBeds(String(getSaved('qn_hospital_beds', '120')));
+        setHospitalTier(getSaved('qn_hospital_tier', 'Full Accreditation'));
+        setActiveDepts(getSaved('qn_active_depts', ['ICU', 'Pharmacy', 'Emergency', 'OT', 'Housekeeping / Facilities', 'HR / Staffing']));
+        setOnboardingSteps(getSaved('qn_onboarding_steps', { identity: false, departments: false, importTemplates: false, firstSop: false }));
+        setOnboardingStep(Number(getSaved('qn_onboarding_step', 1)));
+        setStandards(getSaved('qn_standards', defaultStandards));
+        setIsSubscribed(getSaved('qn_is_subscribed', false));
+        setTrialStartDate(getSaved('qn_trial_start_date', new Date().toISOString()));
+        setGeminiApiKey(getSaved('qn_gemini_api_key', ''));
+        setOpenaiApiKey(getSaved('qn_openai_api_key', ''));
+        setAnthropicApiKey(getSaved('qn_anthropic_api_key', ''));
+        setAiProvider(getSaved('qn_ai_provider', 'mock'));
+        setAiModel(getSaved('qn_ai_model', 'gemini-2.5-flash'));
+        setAiSystemPrompt(getSaved('qn_ai_system_prompt', 'You are a clinical quality auditor and NABH 6th Edition compliance consultant. Generate precise compliance reports, audit checklists, SOP text, and CAPA corrective measures for hospital administration.'));
+        setHospitalLogo(getSaved('qn_hospital_logo', '🛡️'));
+        setTeamMembers(getSaved('qn_team_members', [
+          { email: "quality.head@hospital.org", name: "Dr. Sarah Paul", role: "Quality Head", department: "Quality Control" },
+          { email: "super@vaidyaq.com", name: "Col. Roy", role: "Super Admin", department: "Board" },
+          { email: "pharmacy@hospital.org", name: "Dr. Sen", role: "Department Head", department: "Pharmacy" }
+        ]));
+        setDocuments(getSaved('qn_documents', defaultDocuments));
+        setAudits(getSaved('qn_audits', defaultAudits));
+        setCapaItems(getSaved('qn_capas', defaultCapas));
+        setIncidents(getSaved('qn_incidents', defaultIncidents));
+        setLicenses(getSaved('qn_licenses', defaultLicenses));
+        setTasks(getSaved('qn_tasks', defaultTasks));
+        setAuditLogs(getSaved('qn_audit_logs', defaultAuditLogs));
+        setQualityIndicators(getSaved('qn_quality_indicators', defaultQualityIndicators));
+        setComplianceFeed(getSaved('qn_compliance_feed', defaultComplianceFeed));
+        setFeedNotifications(getSaved('qn_feed_notifications', [
+          { id: "notif-1", title: "ABDM Update", message: "New ABDM v3.0 guidelines released. Check the News Feed.", type: "warning", read: false }
+        ]));
+        setAiSettings(getSaved('qn_ai_settings', defaultAiSettings));
+        setAiMemory(getSaved('qn_ai_memory', []));
+        setAiOutputs(getSaved('qn_ai_outputs', []));
+        setAiUsageLogs(getSaved('qn_ai_usage_logs', []));
+        setAiSafetyLogs(getSaved('qn_ai_safety_logs', []));
+      }, 0);
     }
   }, [currentUser, activeHospitalId]);
 
   // Clear reloading flag and update prevPrefix once reloading state renders
   useEffect(() => {
     if (isReloading) {
-      setIsReloading(false);
-      prevPrefixRef.current = activePrefix;
+      setTimeout(() => {
+        setIsReloading(false);
+        setPrevPrefix(activePrefix);
+      }, 0);
     }
   }, [isReloading, activePrefix]);
 
-  // Log Security Activity helper
-  const logActivity = (action) => {
-    const newLog = {
-      id: `log-${Date.now()}`,
-      timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-      user: currentUser.email,
-      role: currentUser.role,
-      action,
-      ipAddress: "192.168.1.108"
-    };
-    setAuditLogs(prev => [newLog, ...prev]);
-  };
 
   // Switch Hospital State Mode ('new' vs 'active')
   const switchHospitalMode = (mode) => {
@@ -1246,6 +1230,7 @@ export const QualiNABHProvider = ({ children }) => {
       setCapaItems([]);
       setIncidents([]);
       setTasks([]);
+      setQualityIndicators([]);
       setLicenses(defaultLicenses.map(l => ({ ...l, status: 'Active' }))); // active but unmapped
       setHospitalName('My New Hospital');
       setHospitalBeds('50');
@@ -1262,6 +1247,7 @@ export const QualiNABHProvider = ({ children }) => {
       setIncidents(defaultIncidents);
       setLicenses(defaultLicenses);
       setTasks(defaultTasks);
+      setQualityIndicators(defaultQualityIndicators);
       setHospitalName('City Central Metro Hospital');
       setHospitalBeds('120');
       setHospitalTier('Full Accreditation');
@@ -1272,19 +1258,6 @@ export const QualiNABHProvider = ({ children }) => {
   };
 
   // SignUp a new Client
-  // Helper to send transactional emails and save copy to office folder
-  const sendSimulatedEmail = (recipient, subject, body, category) => {
-    const newMail = {
-      id: `mail-${Date.now()}`,
-      recipient,
-      subject,
-      body,
-      sentAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
-      category
-    };
-    setEmailLogs(prev => [newMail, ...prev]);
-    logActivity(`Simulated email sent to ${recipient}: ${subject}`);
-  };
 
   // Support ticket filing desk
   const addSupportTicket = (title, description, priority, category) => {
@@ -2907,7 +2880,7 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
   };
 
   // Live countdown ticker
-  const [liveNow, setLiveNow] = useState(Date.now());
+  const [liveNow, setLiveNow] = useState(() => Date.now());
 
   useEffect(() => {
     const timer = setInterval(() => {
