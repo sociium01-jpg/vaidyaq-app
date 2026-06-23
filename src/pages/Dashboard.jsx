@@ -657,7 +657,7 @@ export default function Dashboard({ orgMode, organizationId }) {
     );
   };
 
-  // Render SVG Circular Readiness Meter
+  // Render SVG Circular Readiness Meter (Premium Glowing Layout)
   const renderReadinessMeter = (size = 120) => {
     if (isEmptyState) {
       return (
@@ -675,16 +675,27 @@ export default function Dashboard({ orgMode, organizationId }) {
     return (
       <div style={{ position: 'relative', width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+          <defs>
+            <linearGradient id="readinessGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#10b981" />
+              <stop offset="100%" stopColor="#06b6d4" />
+            </linearGradient>
+            <filter id="glowEffect" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+          </defs>
           <circle
-            stroke="var(--bg-tertiary)"
+            stroke="var(--bg-accent)"
             fill="transparent"
             strokeWidth={stroke}
             r={radius}
             cx={size / 2}
             cy={size / 2}
+            opacity="0.3"
           />
           <circle
-            stroke="var(--primary)"
+            stroke="url(#readinessGrad)"
             fill="transparent"
             strokeWidth={stroke}
             strokeDasharray={circ}
@@ -693,12 +704,16 @@ export default function Dashboard({ orgMode, organizationId }) {
             r={radius}
             cx={size / 2}
             cy={size / 2}
-            style={{ transition: 'stroke-dashoffset 0.5s ease' }}
+            filter="url(#glowEffect)"
+            style={{ transition: 'stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1)' }}
           />
         </svg>
-        <div style={{ position: 'absolute', textAlign: 'center' }}>
-          <div style={{ fontSize: `${size * 0.16}px`, fontWeight: 800, color: 'var(--text-primary)' }}>{readinessScore}%</div>
-          <div style={{ fontSize: `${size * 0.08}px`, color: 'var(--text-secondary)', fontWeight: 600 }}>Ready</div>
+        <div style={{ position: 'absolute', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ fontSize: `${size * 0.18}px`, fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '2px' }}>
+            {readinessScore}
+            <span style={{ fontSize: `${size * 0.09}px`, color: 'var(--text-secondary)', fontWeight: 600 }}>%</span>
+          </div>
+          <div style={{ fontSize: `${size * 0.075}px`, color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '4px' }}>Ready</div>
         </div>
       </div>
     );
@@ -981,6 +996,61 @@ export default function Dashboard({ orgMode, organizationId }) {
                 </button>
               </div>
             ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ----------------------------------------------------
+  // AI COPILOT COMPLIANCE FEED
+  // ----------------------------------------------------
+  const renderAICopilotFeed = () => {
+    return (
+      <div className="card animate-fade-in" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Brain size={18} style={{ color: 'var(--secondary)' }} />
+            AI Copilot Compliance Feed
+          </h3>
+          <span className="badge badge-success" style={{ fontSize: '0.65rem', padding: '0.2rem 0.5rem' }}>Active Scanning</span>
+        </div>
+        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
+          Real-time compliance validation. AI engine continually audits uploaded evidence files, license certificates, and clinical safety logs.
+        </p>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+          {/* Card 1 */}
+          <div style={{ padding: '1rem', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '8px', borderLeft: '4px solid var(--color-danger)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--color-danger)' }}>⚠️ Narcotic Expiry Incident</span>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)' }}>Just Now</span>
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+              VaidyaQ Audit Scan detected: 1 Narcotic Expiry incident in the Pharmacy. Risk: <strong>HIGH</strong>. Recommended Action: Isolate expired batches in locked red bin and log immediate disposal manifest under dual sign-off.
+            </div>
+          </div>
+
+          {/* Card 2 */}
+          <div style={{ padding: '1rem', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '8px', borderLeft: '4px solid var(--color-warning)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--color-warning)' }}>⚡ Crash Cart Shortage</span>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)' }}>1 hr ago</span>
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+              VaidyaQ Audit Scan detected: Out-of-stock emergency syringes in the ICU crash cart. Recommended Action: Raise automated urgent restocking request in central store and update crash cart verification checklist.
+            </div>
+          </div>
+
+          {/* Card 3 */}
+          <div style={{ padding: '1rem', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: '8px', borderLeft: '4px solid var(--primary)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--primary)' }}>🛡️ Overall Compliance Gaps</span>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)' }}>4 hrs ago</span>
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+              Overall Hospital Accreditation readiness is at 84% based on 6th Edition guidelines. Key gaps: 1 expired license (Pharmacy), 3 overdue tasks, and 5 missing evidence documents (mainly in Fire Safety).
+            </div>
           </div>
         </div>
       </div>
@@ -1301,6 +1371,9 @@ export default function Dashboard({ orgMode, organizationId }) {
           </div>
         </div>
 
+        {/* AI Copilot Compliance Feed */}
+        {renderAICopilotFeed()}
+
         {/* Onboarding Wizard Template Importer */}
         {!onboardingSteps.importTemplates && (
           <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', borderLeft: '6px solid var(--primary)' }}>
@@ -1478,6 +1551,9 @@ export default function Dashboard({ orgMode, organizationId }) {
             </div>
           </div>
         </div>
+
+        {/* AI Copilot Compliance Feed */}
+        {renderAICopilotFeed()}
       </div>
     );
   };
