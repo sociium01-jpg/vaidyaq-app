@@ -144,7 +144,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
     }
   };
 
-  const parts = currentRoute.split('/').filter(Boolean);
+  const parts = (currentRoute || '/app/dashboard').split('/').filter(Boolean);
   const currentModule = parts[1] || 'dashboard';
 
   return (

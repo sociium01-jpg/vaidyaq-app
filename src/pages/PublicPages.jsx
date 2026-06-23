@@ -78,7 +78,7 @@ export default function PublicPages() {
 
   const handleCustomSignIn = (e) => {
     e.preventDefault();
-    const existingClient = clientsList.find(c => c.email.toLowerCase() === signInEmail.toLowerCase());
+    const existingClient = (clientsList || []).find(c => c && c.email && c.email.toLowerCase() === signInEmail.toLowerCase());
     if (existingClient) {
       const storedPassword = existingClient.password || "demo123";
       if (signInPassword !== storedPassword) {
@@ -98,7 +98,7 @@ export default function PublicPages() {
         clientToLoad.planExpiryDate = trialExpiry;
         clientToLoad.status = "Active Trial";
         
-        setClientsList(prev => prev.map(c => c.email.toLowerCase() === signInEmail.toLowerCase() ? clientToLoad : c));
+        setClientsList(prev => (prev || []).map(c => c && c.email && c.email.toLowerCase() === signInEmail.toLowerCase() ? clientToLoad : c));
       }
 
       setHospitalName(clientToLoad.hospitalName);
@@ -129,7 +129,7 @@ export default function PublicPages() {
         }
 
         // Find the parent client to load their configuration
-        const parentClient = clientsList.find(c => c.email.toLowerCase() === subUser.parentEmail.toLowerCase());
+        const parentClient = (clientsList || []).find(c => c && c.email && c.email.toLowerCase() === subUser.parentEmail.toLowerCase());
         if (parentClient) {
           setHospitalName(parentClient.hospitalName);
           setHospitalBeds(String(parentClient.beds));

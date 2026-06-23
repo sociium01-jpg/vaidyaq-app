@@ -275,7 +275,7 @@ export const QualiNABHProvider = ({ children }) => {
             ...l,
             issueDate: '',
             expiryDate: '',
-            responsible: l.responsible.includes('(') ? l.responsible.substring(l.responsible.indexOf('(') + 1, l.responsible.length - 1) : l.responsible,
+            responsible: (l.responsible && typeof l.responsible === 'string' && l.responsible.includes('(')) ? l.responsible.substring(l.responsible.indexOf('(') + 1, l.responsible.length - 1) : (l.responsible || 'Administration'),
             status: 'Expired'
           }));
         } else if (key === 'qn_compliance_flows') {
@@ -1135,7 +1135,7 @@ export const QualiNABHProvider = ({ children }) => {
                 ...l,
                 issueDate: '',
                 expiryDate: '',
-                responsible: l.responsible.includes('(') ? l.responsible.substring(l.responsible.indexOf('(') + 1, l.responsible.length - 1) : l.responsible,
+                responsible: (l.responsible && typeof l.responsible === 'string' && l.responsible.includes('(')) ? l.responsible.substring(l.responsible.indexOf('(') + 1, l.responsible.length - 1) : (l.responsible || 'Administration'),
                 status: 'Expired'
               }));
             } else {
@@ -1335,7 +1335,7 @@ export const QualiNABHProvider = ({ children }) => {
       firstLoginDate: signup // Signup automatically logs them in!
     };
 
-    setClientsList(prev => [newClient, ...prev]);
+    setClientsList(prev => [newClient, ...(prev || [])]);
 
     // Set as active client context settings
     setHospitalName(hospitalNameInput);
@@ -1363,7 +1363,7 @@ export const QualiNABHProvider = ({ children }) => {
       ...l,
       issueDate: '',
       expiryDate: '',
-      responsible: l.responsible.includes('(') ? l.responsible.substring(l.responsible.indexOf('(') + 1, l.responsible.length - 1) : l.responsible,
+      responsible: (l.responsible && typeof l.responsible === 'string' && l.responsible.includes('(')) ? l.responsible.substring(l.responsible.indexOf('(') + 1, l.responsible.length - 1) : (l.responsible || 'Administration'),
       status: 'Expired'
     })));
     setTrainings([]);
@@ -1436,8 +1436,8 @@ export const QualiNABHProvider = ({ children }) => {
     };
     setTransactions(prev => [newTrans, ...prev]);
 
-    setClientsList(prev => prev.map(c => {
-      if (c.email === currentUser.email) {
+    setClientsList(prev => (prev || []).map(c => {
+      if (c && c.email === currentUser?.email) {
         return { 
           ...c, 
           isSubscribed: true, 
@@ -1468,8 +1468,8 @@ export const QualiNABHProvider = ({ children }) => {
     setHospitalLogo(logo);
     setHospitalName(name);
     setHospitalBeds(String(beds));
-    setClientsList(prev => prev.map(c => {
-      if (c.hospitalName === hospitalName || c.email === currentUser.email) {
+    setClientsList(prev => (prev || []).map(c => {
+      if (c && (c.hospitalName === hospitalName || c.email === currentUser?.email)) {
         return { ...c, hospitalName: name, beds: Number(beds), address, regId };
       }
       return c;
@@ -1508,8 +1508,8 @@ export const QualiNABHProvider = ({ children }) => {
 
     // 1. Owner change
     if (currentUser.role === 'Super Admin' && !currentUser.parentEmail) {
-      setClientsList(prev => prev.map(c => {
-        if (c.email.toLowerCase() === currentUser.email.toLowerCase()) {
+      setClientsList(prev => (prev || []).map(c => {
+        if (c && c.email && c.email.toLowerCase() === currentUser?.email?.toLowerCase()) {
           return { ...c, password: newPassword };
         }
         return c;
@@ -1979,8 +1979,8 @@ export const QualiNABHProvider = ({ children }) => {
   };
 
   const setClientStatusOverride = (hospId, statusValue) => {
-    setClientsList(prev => prev.map(c => {
-      if (c.hospitalId === hospId) {
+    setClientsList(prev => (prev || []).map(c => {
+      if (c && c.hospitalId === hospId) {
         const isCurrentHosp = c.hospitalName === hospitalName || c.email.toLowerCase() === (currentUser?.parentEmail || currentUser?.email)?.toLowerCase();
         let updatedClient = { ...c, status: statusValue, isSubscribed: statusValue === 'Paid' };
         

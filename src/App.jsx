@@ -68,7 +68,7 @@ function AppContent() {
   }, []);
 
   // Parse route parameters
-  const parts = currentRoute.split('/').filter(Boolean);
+  const parts = (currentRoute || '/').split('/').filter(Boolean);
   const routeType = parts[0]; // 'app', 'org', 'platform', etc.
   const isAppRoute = routeType === 'app';
   const isOrgRoute = routeType === 'org';

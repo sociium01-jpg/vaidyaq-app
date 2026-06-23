@@ -58,7 +58,7 @@ export default function Tasks() {
   } = useContext(QualiNABHContext);
 
   // Parse routing tabs
-  const parts = currentRoute.split('/').filter(Boolean);
+  const parts = (currentRoute || '/app/tasks').split('/').filter(Boolean);
   const activeTab = parts[2] || 'list'; // 'list', 'kanban', 'backlog'
 
   const [showTaskModal, setShowTaskModal] = useState(false);
