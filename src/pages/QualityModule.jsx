@@ -29,6 +29,7 @@ export default function QualityModule() {
     incidents,
     setIncidents,
     addIncident,
+    saveRCAData,
     qualityIndicators,
     setQualityIndicators,
     logActivity,
@@ -72,12 +73,18 @@ export default function QualityModule() {
   const [selectedIncidentToInvestigate, setSelectedIncidentToInvestigate] = useState(null);
   const [investigationForm, setInvestigationForm] = useState({ investigator: '', rootCause: '', capaId: '' });
   const [selectedMatrixCell, setSelectedMatrixCell] = useState(null);
-  const [isFiveWhy, setIsFiveWhy] = useState(false);
+  const [rcaType, setRcaType] = useState('notes'); // 'notes', '5why', 'fishbone'
   const [why1, setWhy1] = useState('');
   const [why2, setWhy2] = useState('');
   const [why3, setWhy3] = useState('');
   const [why4, setWhy4] = useState('');
   const [why5, setWhy5] = useState('');
+  const [fishbonePeople, setFishbonePeople] = useState('');
+  const [fishboneProcess, setFishboneProcess] = useState('');
+  const [fishboneEquipment, setFishboneEquipment] = useState('');
+  const [fishboneEnvironment, setFishboneEnvironment] = useState('');
+  const [fishboneMaterials, setFishboneMaterials] = useState('');
+  const [fishboneManagement, setFishboneManagement] = useState('');
 
   // AI Assistant Draft Statuses
   const [aiDraftLoading, setAiDraftLoading] = useState(false);
@@ -276,22 +283,36 @@ Please output the checklist items as a clean list with each item on a new line, 
   const handleSaveInvestigation = (e) => {
     e.preventDefault();
     let finalRootCause = investigationForm.rootCause;
-    if (isFiveWhy) {
+    let fiveWhysObj = null;
+    let fishboneObj = null;
+
+    if (rcaType === '5why') {
       finalRootCause = `Root Cause (5-Why Analysis):\n1. Why? ${why1}\n2. Why? ${why2}\n3. Why? ${why3}\n4. Why? ${why4}\n5. Why? ${why5}`;
+      fiveWhysObj = { why1, why2, why3, why4, why5 };
+    } else if (rcaType === 'fishbone') {
+      finalRootCause = `Root Cause (Fishbone Diagram):\n- People/Staff: ${fishbonePeople}\n- Process/Methods: ${fishboneProcess}\n- Equipment/Tech: ${fishboneEquipment}\n- Materials/Supplies: ${fishboneMaterials}\n- Environment/Workplace: ${fishboneEnvironment}\n- Management/Org: ${fishboneManagement}`;
+      fishboneObj = {
+        people: fishbonePeople,
+        process: fishboneProcess,
+        equipment: fishboneEquipment,
+        materials: fishboneMaterials,
+        environment: fishboneEnvironment,
+        management: fishboneManagement
+      };
     }
-    setIncidents(prev => prev.map(inc => {
-      if (inc.id === selectedIncidentToInvestigate.id) {
-        return {
-          ...inc,
-          status: "Closed",
-          investigator: investigationForm.investigator,
-          rootCause: finalRootCause,
-          capaId: investigationForm.capaId
-        };
-      }
-      return inc;
-    }));
-    logActivity(`Closed investigation on incident ${selectedIncidentToInvestigate.id}. RCA logged.`);
+
+    const rcaObj = {
+      type: rcaType,
+      investigator: investigationForm.investigator,
+      capaId: investigationForm.capaId,
+      status: "Closed",
+      rootCauseSummary: finalRootCause,
+      rootCauseNotes: rcaType === 'notes' ? investigationForm.rootCause : '',
+      fiveWhys: fiveWhysObj,
+      fishbone: fishboneObj
+    };
+
+    saveRCAData(selectedIncidentToInvestigate.id, rcaObj);
     setSelectedIncidentToInvestigate(null);
   };
 
@@ -716,20 +737,83 @@ Please output the checklist items as a clean list with each item on a new line, 
                             </span>
                           </td>
                           <td>
-                            {inc.status !== 'Closed' ? (
-                              <button
-                                onClick={() => {
-                                  setSelectedIncidentToInvestigate(inc);
-                                  setInvestigationForm({ investigator: inc.investigator || '', rootCause: '', capaId: '' });
-                                }}
-                                className="btn btn-secondary"
-                                style={{ padding: '2px 8px', fontSize: '0.7rem' }}
-                              >
-                                Investigate
-                              </button>
-                            ) : (
-                              <span style={{ fontSize: '0.7rem', color: 'var(--color-success)', fontWeight: 'bold' }}>Resolved</span>
-                            )}
+                            <div className="flex gap-1">
+                              {inc.status !== 'Closed' ? (
+                                <button
+                                  onClick={() => {
+                                    setSelectedIncidentToInvestigate(inc);
+                                    const rca = inc.rca || {};
+                                    setRcaType(rca.type || 'notes');
+                                    setInvestigationForm({
+                                      investigator: inc.investigator || currentUser.name || '',
+                                      rootCause: rca.rootCauseNotes || inc.rootCause || '',
+                                      capaId: inc.capaId || ''
+                                    });
+                                    if (rca.type === '5why' && rca.fiveWhys) {
+                                      setWhy1(rca.fiveWhys.why1 || '');
+                                      setWhy2(rca.fiveWhys.why2 || '');
+                                      setWhy3(rca.fiveWhys.why3 || '');
+                                      setWhy4(rca.fiveWhys.why4 || '');
+                                      setWhy5(rca.fiveWhys.why5 || '');
+                                    } else {
+                                      setWhy1(''); setWhy2(''); setWhy3(''); setWhy4(''); setWhy5('');
+                                    }
+                                    if (rca.type === 'fishbone' && rca.fishbone) {
+                                      setFishbonePeople(rca.fishbone.people || '');
+                                      setFishboneProcess(rca.fishbone.process || '');
+                                      setFishboneEquipment(rca.fishbone.equipment || '');
+                                      setFishboneEnvironment(rca.fishbone.environment || '');
+                                      setFishboneMaterials(rca.fishbone.materials || '');
+                                      setFishboneManagement(rca.fishbone.management || '');
+                                    } else {
+                                      setFishbonePeople(''); setFishboneProcess(''); setFishboneEquipment('');
+                                      setFishboneEnvironment(''); setFishboneMaterials(''); setFishboneManagement('');
+                                    }
+                                  }}
+                                  className="btn btn-secondary"
+                                  style={{ padding: '2px 8px', fontSize: '0.7rem' }}
+                                >
+                                  Investigate
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setSelectedIncidentToInvestigate(inc);
+                                    const rca = inc.rca || {};
+                                    setRcaType(rca.type || 'notes');
+                                    setInvestigationForm({
+                                      investigator: inc.investigator || currentUser.name || '',
+                                      rootCause: rca.rootCauseNotes || inc.rootCause || '',
+                                      capaId: inc.capaId || ''
+                                    });
+                                    if (rca.type === '5why' && rca.fiveWhys) {
+                                      setWhy1(rca.fiveWhys.why1 || '');
+                                      setWhy2(rca.fiveWhys.why2 || '');
+                                      setWhy3(rca.fiveWhys.why3 || '');
+                                      setWhy4(rca.fiveWhys.why4 || '');
+                                      setWhy5(rca.fiveWhys.why5 || '');
+                                    } else {
+                                      setWhy1(''); setWhy2(''); setWhy3(''); setWhy4(''); setWhy5('');
+                                    }
+                                    if (rca.type === 'fishbone' && rca.fishbone) {
+                                      setFishbonePeople(rca.fishbone.people || '');
+                                      setFishboneProcess(rca.fishbone.process || '');
+                                      setFishboneEquipment(rca.fishbone.equipment || '');
+                                      setFishboneEnvironment(rca.fishbone.environment || '');
+                                      setFishboneMaterials(rca.fishbone.materials || '');
+                                      setFishboneManagement(rca.fishbone.management || '');
+                                    } else {
+                                      setFishbonePeople(''); setFishboneProcess(''); setFishboneEquipment('');
+                                      setFishboneEnvironment(''); setFishboneMaterials(''); setFishboneManagement('');
+                                    }
+                                  }}
+                                  className="btn btn-secondary"
+                                  style={{ padding: '2px 8px', fontSize: '0.7rem', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+                                >
+                                  View RCA
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1497,38 +1581,48 @@ Please output the checklist items as a clean list with each item on a new line, 
                   />
                 </div>
 
-                <div style={{ display: 'flex', gap: '10px', margin: '0.5rem 0', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                <div style={{ display: 'flex', gap: '8px', margin: '0.5rem 0', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', flexWrap: 'wrap' }}>
                   <button 
                     type="button" 
-                    className={`btn ${!isFiveWhy ? 'btn-primary' : 'btn-secondary'}`}
+                    className={`btn ${rcaType === 'notes' ? 'btn-primary' : 'btn-secondary'}`}
                     style={{ fontSize: '0.75rem', padding: '4px 10px', cursor: 'pointer' }}
-                    onClick={() => setIsFiveWhy(false)}
+                    onClick={() => setRcaType('notes')}
                   >
                     Basic RCA Notes
                   </button>
                   <button 
                     type="button" 
-                    className={`btn ${isFiveWhy ? 'btn-primary' : 'btn-secondary'}`}
+                    className={`btn ${rcaType === '5why' ? 'btn-primary' : 'btn-secondary'}`}
                     style={{ fontSize: '0.75rem', padding: '4px 10px', cursor: 'pointer' }}
-                    onClick={() => setIsFiveWhy(true)}
+                    onClick={() => setRcaType('5why')}
                   >
-                    🎓 Interactive 5-Why Worksheet
+                    🎓 5-Why Worksheet
+                  </button>
+                  <button 
+                    type="button" 
+                    className={`btn ${rcaType === 'fishbone' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ fontSize: '0.75rem', padding: '4px 10px', cursor: 'pointer' }}
+                    onClick={() => setRcaType('fishbone')}
+                  >
+                    🐟 Fishbone (Ishikawa)
                   </button>
                 </div>
 
-                {!isFiveWhy ? (
+                {rcaType === 'notes' && (
                   <div className="form-group animate-fadeIn">
                     <label className="form-label">Root Cause Analysis (RCA) *</label>
                     <textarea
                       rows="4"
-                      required={!isFiveWhy}
+                      required={rcaType === 'notes'}
                       className="form-control"
                       placeholder="Log RCA findings (gaps, training lapses, environment hazards)..."
                       value={investigationForm.rootCause}
                       onChange={(e) => setInvestigationForm({ ...investigationForm, rootCause: e.target.value })}
                     />
                   </div>
-                ) : (
+                )}
+
+                {rcaType === '5why' && (
                   <div className="rca-worksheet animate-fadeIn" style={{ margin: '0.5rem 0' }}>
                     <label className="form-label" style={{ marginBottom: '8px' }}>RCA 5-Why Worksheet *</label>
                     {[
@@ -1543,7 +1637,7 @@ Please output the checklist items as a clean list with each item on a new line, 
                         <div className="rca-why-input">
                           <label>{stepObj.label}</label>
                           <textarea
-                            required={isFiveWhy}
+                            required={rcaType === '5why'}
                             rows="2"
                             className="form-control"
                             style={{ minHeight: '40px', padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
@@ -1552,6 +1646,36 @@ Please output the checklist items as a clean list with each item on a new line, 
                             placeholder="Enter description..."
                           />
                         </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {rcaType === 'fishbone' && (
+                  <div className="fishbone-worksheet animate-fadeIn" style={{ margin: '0.5rem 0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <label className="form-label" style={{ marginBottom: '4px' }}>Fishbone Diagram Inputs (Categories) *</label>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                      Identify contributing factors across standard root cause domains.
+                    </div>
+                    {[
+                      { val: fishbonePeople, setVal: setFishbonePeople, label: "People / Staff", placeholder: "e.g., training gaps, fatigue, communication failures..." },
+                      { val: fishboneProcess, setVal: setFishboneProcess, label: "Process / Methods", placeholder: "e.g., outdated SOPs, unclear protocols, handoff issues..." },
+                      { val: fishboneEquipment, setVal: setFishboneEquipment, label: "Equipment / Tech", placeholder: "e.g., device malfunction, software bugs, poor calibration..." },
+                      { val: fishboneMaterials, setVal: setFishboneMaterials, label: "Materials / Supplies", placeholder: "e.g., expired drugs, incorrect consumables, incomplete charts..." },
+                      { val: fishboneEnvironment, setVal: setFishboneEnvironment, label: "Environment / Workplace", placeholder: "e.g., noise distraction, poor lighting, slippery floors..." },
+                      { val: fishboneManagement, setVal: setFishboneManagement, label: "Management / Organization", placeholder: "e.g., staffing shortage, lack of supervision, budget constraint..." }
+                    ].map((fbObj, idx) => (
+                      <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px', backgroundColor: 'var(--bg-tertiary)', padding: '0.5rem', borderRadius: '6px' }}>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>{fbObj.label}</label>
+                        <textarea
+                          required={rcaType === 'fishbone'}
+                          rows="2"
+                          className="form-control"
+                          style={{ minHeight: '35px', padding: '0.3rem 0.5rem', fontSize: '0.75rem' }}
+                          value={fbObj.val}
+                          onChange={(e) => fbObj.setVal(e.target.value)}
+                          placeholder={fbObj.placeholder}
+                        />
                       </div>
                     ))}
                   </div>

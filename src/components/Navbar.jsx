@@ -5,6 +5,7 @@ import { Bell, Search, Sparkles, User, AlertTriangle, Menu } from 'lucide-react'
 export default function Navbar({ setSidebarOpen, onSearchClick, onNotificationClick }) {
   const {
     setCurrentRoute,
+    currentRoute,
     openCapasCount,
     overdueTasksCount,
     licenses,
@@ -147,6 +148,24 @@ export default function Navbar({ setSidebarOpen, onSearchClick, onNotificationCl
           <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
             🏥 {hospitalName}
           </span>
+        )}
+        {currentUser?.organizationId && (
+          <div className="flex align-center gap-1" style={{ marginLeft: '0.5rem', backgroundColor: 'var(--bg-tertiary)', padding: '2px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex' }}>
+            <button
+              onClick={() => setCurrentRoute('/app/dashboard')}
+              className={`btn ${!currentRoute?.startsWith('/org/') ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', border: 'none', cursor: 'pointer', borderRadius: '6px', fontWeight: 600 }}
+            >
+              🏥 Branch
+            </button>
+            <button
+              onClick={() => setCurrentRoute('/org/dashboard')}
+              className={`btn ${currentRoute?.startsWith('/org/') ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', border: 'none', cursor: 'pointer', borderRadius: '6px', fontWeight: 600 }}
+            >
+              🏢 Group
+            </button>
+          </div>
         )}
         <span className="badge badge-neutral" style={{ fontSize: '0.65rem' }}>
           {hospitalBeds} Beds • {hospitalTier}

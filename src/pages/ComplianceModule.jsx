@@ -36,7 +36,8 @@ export default function ComplianceModule() {
     currentUser,
     setTasks,
     audits,
-    trainings
+    trainings,
+    updateDocumentDetails
   } = useContext(QualiNABHContext);
 
   const [activeSubTab, setActiveSubTab] = useState('standards'); // 'standards', 'docs', 'licenses', 'flow', 'calendar'
@@ -737,6 +738,116 @@ export default function ComplianceModule() {
                   🔒 <strong>Local AES-256 Mock Secured:</strong> This document is encrypted at rest to safeguard clinical process intelligence.
                 </div>
               )}
+
+              {/* Document Lifecycle & Legal Hold Controls */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.75rem', backgroundColor: 'var(--bg-secondary)' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-tertiary)' }}>Lifecycle Controls</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+                  {selectedDoc.status === 'Draft' && (
+                    <button 
+                      onClick={() => {
+                        updateDocumentDetails(selectedDoc.id, { status: 'Pending Review' });
+                        setSelectedDoc(prev => ({ ...prev, status: 'Pending Review' }));
+                      }}
+                      className="btn btn-secondary" 
+                      style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem' }}
+                    >
+                      Submit for Review
+                    </button>
+                  )}
+                  {selectedDoc.status === 'Pending Review' && (
+                    <button 
+                      onClick={() => {
+                        updateDocumentDetails(selectedDoc.id, { status: 'Approved', approvedBy: currentUser.name || 'System Admin' });
+                        setSelectedDoc(prev => ({ ...prev, status: 'Approved', approvedBy: currentUser.name || 'System Admin' }));
+                      }}
+                      className="btn btn-primary" 
+                      style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem' }}
+                    >
+                      Approve & Publish
+                    </button>
+                  )}
+                  {selectedDoc.status === 'Approved' && (
+                    <button 
+                      onClick={() => {
+                        updateDocumentDetails(selectedDoc.id, { status: 'Superseded' });
+                        setSelectedDoc(prev => ({ ...prev, status: 'Superseded' }));
+                      }}
+                      className="btn btn-secondary" 
+                      style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--color-danger)' }}
+                    >
+                      Mark as Superseded
+                    </button>
+                  )}
+                  <button 
+                    onClick={() => {
+                      const newHoldState = !selectedDoc.isLegalHold;
+                      updateDocumentDetails(selectedDoc.id, { isLegalHold: newHoldState });
+                      setSelectedDoc(prev => ({ ...prev, isLegalHold: newHoldState }));
+                    }}
+                    className="btn btn-secondary"
+                    style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem', marginLeft: 'auto' }}
+                  >
+                    {selectedDoc.isLegalHold ? '⚠️ Release Legal Hold' : '🔒 Apply Legal Hold'}
+                  </button>
+                </div>
+              </div>
+
+              {selectedDoc.isLegalHold && (
+                <div style={{ padding: '0.5rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--color-danger)', border: '1px solid var(--color-danger)', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600 }}>
+                  ⚠️ <strong>LEGAL HOLD ACTIVE:</strong> This document is locked under legal retention controls. No deletion or editing is allowed.
+                </div>
+              )}
+
+              {/* Attestation Sign-off */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.75rem', backgroundColor: 'var(--bg-secondary)' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-tertiary)' }}>Employee Attestations</div>
+                
+                {selectedDoc.status === 'Approved' ? (
+                  <>
+                    {(selectedDoc.attestations || []).some(a => a.email === currentUser.email) ? (
+                      <div style={{ fontSize: '0.8rem', color: 'var(--color-success)', fontWeight: 600 }}>
+                        ✓ You attested to this policy on {(selectedDoc.attestations || []).find(a => a.email === currentUser.email)?.timestamp.substring(0, 10)}
+                      </div>
+                    ) : (
+                      <button 
+                        onClick={() => {
+                          const newAttestation = {
+                            name: currentUser.name || 'Staff User',
+                            email: currentUser.email,
+                            timestamp: new Date().toISOString()
+                          };
+                          const updatedAttestations = [...(selectedDoc.attestations || []), newAttestation];
+                          updateDocumentDetails(selectedDoc.id, { attestations: updatedAttestations });
+                          setSelectedDoc(prev => ({ ...prev, attestations: updatedAttestations }));
+                        }}
+                        className="btn btn-primary"
+                        style={{ fontSize: '0.75rem', padding: '0.4rem 0.8rem', display: 'flex', alignItems: 'center', gap: '4px', width: 'max-content' }}
+                      >
+                        ✍️ Sign Policy Attestation
+                      </button>
+                    )}
+
+                    {(selectedDoc.attestations || []).length > 0 ? (
+                      <div style={{ marginTop: '0.5rem' }}>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>Attested Staff ({(selectedDoc.attestations || []).length})</div>
+                        <div style={{ maxHeight: '80px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {(selectedDoc.attestations || []).map((a, aIdx) => (
+                            <div key={aIdx} style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
+                              <span>{a.name} ({a.email})</span>
+                              <span style={{ color: 'var(--text-tertiary)', fontSize: '0.7rem' }}>{a.timestamp.substring(0, 16).replace('T', ' ')}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>No attestations signed yet.</div>
+                    )}
+                  </>
+                ) : (
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>Attestations are only open for Approved & published documents.</div>
+                )}
+              </div>
 
               <div style={{ backgroundColor: 'var(--bg-tertiary)', padding: '1rem', borderRadius: '8px', flex: 1, minHeight: '150px' }}>
                 <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-tertiary)', fontWeight: 700, marginBottom: '0.5rem' }}>Content Body</div>

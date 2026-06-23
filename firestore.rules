@@ -26,6 +26,11 @@ service cloud.firestore {
         (getUserRole(hospitalId) == 'Super Admin' || getUserRole(hospitalId) == 'Quality Head' || getUserRole(hospitalId) == 'Hospital Admin');
     }
 
+    // Tenant Data: hospitals and their subcollections, readable/writable by authenticated hospital members
+    match /hospitals/{hospitalId}/{document=**} {
+      allow read, write: if isAuthenticated() && isMemberOf(hospitalId);
+    }
+
     // AI Settings Collection: isolated by hospitalId, writeable only by admins
     match /ai_settings/{settingId} {
       allow read: if isAuthenticated() && isMemberOf(resource.data.hospitalId);

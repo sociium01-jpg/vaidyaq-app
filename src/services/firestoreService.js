@@ -26,6 +26,110 @@ import {
 } from 'firebase/firestore';
 
 // ──────────────────────────────────────────────
+// Root Collection helper
+// ──────────────────────────────────────────────
+
+/**
+ * Creates a new document in a root-level collection.
+ *
+ * @param {string} collectionName - Name of the root collection (e.g. "ai_usage_logs").
+ * @param {Object} data          - Document data to write.
+ * @returns {Promise<{id: string} | null>}
+ *   The new document reference (with `id`), or null on failure.
+ */
+export async function createRootDocument(collectionName, data) {
+  if (!isConfigured) {
+    console.warn('[firestoreService] Firebase is not configured — document not created.');
+    return null;
+  }
+
+  try {
+    const colRef = collection(db, collectionName);
+    const docRef = await addDoc(colRef, {
+      ...data,
+      createdAt: serverTimestamp(),
+    });
+    return { id: docRef.id };
+  } catch (error) {
+    console.warn(`[firestoreService] createRootDocument(${collectionName}) failed:`, error);
+    return null;
+  }
+}
+
+/**
+ * Subscribes to real-time updates on a root-level collection with optional filters.
+ */
+export function subscribeToRootCollection(collectionName, callback, filters = []) {
+  if (!isConfigured) {
+    console.warn('[firestoreService] Firebase is not configured — subscription skipped.');
+    return null;
+  }
+
+  try {
+    const colRef = collection(db, collectionName);
+    const constraints = filters.map((f) => where(f.field, f.operator, f.value));
+    const q = constraints.length > 0 ? query(colRef, ...constraints) : query(colRef);
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const docs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        callback(docs);
+      },
+      (error) => {
+        console.warn(`[firestoreService] subscribeToRootCollection(${collectionName}) error:`, error);
+      }
+    );
+
+    return unsubscribe;
+  } catch (error) {
+    console.warn(`[firestoreService] subscribeToRootCollection(${collectionName}) failed:`, error);
+    return null;
+  }
+}
+
+/**
+ * Updates a root-level document.
+ */
+export async function updateRootDocument(collectionName, docId, data) {
+  if (!isConfigured) {
+    console.warn('[firestoreService] Firebase is not configured — update skipped.');
+    return false;
+  }
+
+  try {
+    const docRef = doc(db, collectionName, docId);
+    await updateDoc(docRef, {
+      ...data,
+      updatedAt: serverTimestamp(),
+    });
+    return true;
+  } catch (error) {
+    console.warn(`[firestoreService] updateRootDocument(${collectionName}/${docId}) failed:`, error);
+    return false;
+  }
+}
+
+/**
+ * Deletes a root-level document.
+ */
+export async function deleteRootDocument(collectionName, docId) {
+  if (!isConfigured) {
+    console.warn('[firestoreService] Firebase is not configured — delete skipped.');
+    return false;
+  }
+
+  try {
+    const docRef = doc(db, collectionName, docId);
+    await deleteDoc(docRef);
+    return true;
+  } catch (error) {
+    console.warn(`[firestoreService] deleteRootDocument(${collectionName}/${docId}) failed:`, error);
+    return false;
+  }
+}
+
+// ──────────────────────────────────────────────
 // Reference helpers
 // ──────────────────────────────────────────────
 

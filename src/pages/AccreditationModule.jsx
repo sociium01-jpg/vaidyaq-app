@@ -30,7 +30,9 @@ export default function AccreditationModule() {
     logActivity,
     complianceKnowledgeBase,
     analyzeEvidenceFile,
-    addDocument
+    addDocument,
+    selectedProgram,
+    changeStandardsProgram
   } = useContext(QualiNABHContext);
 
   const [activeSubTab, setActiveSubTab] = useState('assessment'); // 'assessment', 'gap', 'matrix'
@@ -46,13 +48,14 @@ export default function AccreditationModule() {
 
   // Group by chapter helper
   const getChapterData = () => {
-    const chapters = ['AAC', 'COP', 'MOM', 'FMS', 'HRM'];
+    const chapters = [...new Set(standards.map(s => s.chapter))];
     const names = {
       AAC: 'Access, Assessment & Continuity of Care',
       COP: 'Care of Patients',
       MOM: 'Management of Medication',
       FMS: 'Facility Management & Safety',
-      HRM: 'Human Resource Management'
+      HRM: 'Human Resource Management',
+      DHS: 'Digital Health Standards'
     };
 
     return chapters.map(ch => {
@@ -64,7 +67,7 @@ export default function AccreditationModule() {
 
       return {
         code: ch,
-        name: names[ch],
+        name: names[ch] || `${ch} Chapter`,
         standards: chStandards,
         score: pct
       };
@@ -136,17 +139,43 @@ export default function AccreditationModule() {
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Sub Tabs */}
-      <div className="tabs-container">
-        <button onClick={() => setActiveSubTab('assessment')} className={`tab-btn ${activeSubTab === 'assessment' ? 'active' : ''}`}>
-          Self-Assessment Toolkit
-        </button>
-        <button onClick={() => setActiveSubTab('gap')} className={`tab-btn ${activeSubTab === 'gap' ? 'active' : ''}`}>
-          Chapter Gap Analysis
-        </button>
-        <button onClick={() => setActiveSubTab('matrix')} className={`tab-btn ${activeSubTab === 'matrix' ? 'active' : ''}`}>
-          Evidence Mapping Matrix
-        </button>
+      {/* Sub Tabs & Library Switcher */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div className="tabs-container" style={{ margin: 0 }}>
+          <button onClick={() => setActiveSubTab('assessment')} className={`tab-btn ${activeSubTab === 'assessment' ? 'active' : ''}`}>
+            Self-Assessment Toolkit
+          </button>
+          <button onClick={() => setActiveSubTab('gap')} className={`tab-btn ${activeSubTab === 'gap' ? 'active' : ''}`}>
+            Chapter Gap Analysis
+          </button>
+          <button onClick={() => setActiveSubTab('matrix')} className={`tab-btn ${activeSubTab === 'matrix' ? 'active' : ''}`}>
+            Evidence Mapping Matrix
+          </button>
+        </div>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Standards Program:</label>
+          <select 
+            value={selectedProgram}
+            onChange={(e) => changeStandardsProgram(e.target.value)}
+            style={{
+              padding: '0.4rem 0.8rem',
+              fontSize: '0.75rem',
+              borderRadius: '6px',
+              border: '1px solid var(--border-color)',
+              backgroundColor: 'var(--bg-secondary)',
+              color: 'var(--text-primary)',
+              outline: 'none',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all var(--transition-fast)'
+            }}
+          >
+            <option value="NABH 6th Edition">NABH Full Accreditation (6th Edition)</option>
+            <option value="NABH Entry-Level">NABH Entry-Level Certification</option>
+            <option value="Digital Health">Digital Health Standards</option>
+          </select>
+        </div>
       </div>
 
       {/* Floating Alert for Upload */}

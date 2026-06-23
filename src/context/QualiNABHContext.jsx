@@ -1,4 +1,6 @@
 import React, { createContext, useState, useEffect, useRef } from 'react';
+import { isConfigured } from '../firebase';
+import * as firestoreService from '../services/firestoreService';
 
 export const QualiNABHContext = createContext();
 
@@ -21,6 +23,20 @@ const defaultStandards = [
 
   { id: "HRM.1.a", chapter: "HRM", title: "Credentialing of Professionals", description: "Qualifications and license verifications are kept for all doctors and nurses.", evidenceRequired: "Staff Credentials SOP, License Auditing", status: "Fully Met", score: 10, department: "HR" },
   { id: "HRM.2.b", chapter: "HRM", title: "Infection Control Training", description: "All staff members undergo basic training in hand hygiene and infection control.", evidenceRequired: "Training Attendance, Evaluation Quiz", status: "Partially Met", score: 5, department: "Infection Control" }
+];
+
+const entryLevelStandards = [
+  { id: "AAC.1", chapter: "AAC", title: "Registration Process", description: "Established registration process for patient entry.", evidenceRequired: "Registration SOP", status: "Not Met", score: 0, department: "OPD" },
+  { id: "COP.1", chapter: "COP", title: "General Care", description: "General care guidelines for patients.", evidenceRequired: "Patient Care Guidelines", status: "Not Met", score: 0, department: "Nursing" },
+  { id: "MOM.1", chapter: "MOM", title: "Medication List", description: "Formulary or list of stock drugs is available.", evidenceRequired: "Medicine Formulary", status: "Not Met", score: 0, department: "Pharmacy" },
+  { id: "FMS.1", chapter: "FMS", title: "Fire Safety Basic NOC", description: "Fire NOC and basic safety systems are operational.", evidenceRequired: "Fire NOC Copy", status: "Not Met", score: 0, department: "Security & Facility" },
+  { id: "HRM.1", chapter: "HRM", title: "Staff Records", description: "Personnel records of active doctors and nurses are verified.", evidenceRequired: "HR Files", status: "Not Met", score: 0, department: "HR" }
+];
+
+const digitalHealthStandards = [
+  { id: "DHS.1.a", chapter: "DHS", title: "ABHA ID Integration", description: "Systems allow patients to link their health accounts using ABHA ID.", evidenceRequired: "ABHA Integration Certificate", status: "Not Met", score: 0, department: "IT / Medical Records" },
+  { id: "DHS.2.b", chapter: "DHS", title: "Teleconsultation Records", description: "Telehealth consultations are documented digitally with consent logs.", evidenceRequired: "Telehealth Consent Policy", status: "Not Met", score: 0, department: "OPD" },
+  { id: "DHS.3.c", chapter: "DHS", title: "Data Security Policy", description: "Active firewalls, encryption-at-rest, and user role limitations are active.", evidenceRequired: "IT Security SOP", status: "Not Met", score: 0, department: "IT" }
 ];
 
 const defaultDocuments = [
@@ -477,6 +493,10 @@ export const QualiNABHProvider = ({ children }) => {
     return loadNamespacedState('qn_standards', defaultStandards);
   });
 
+  const [selectedProgram, setSelectedProgram] = useState(() => {
+    return loadNamespacedState('qn_selected_program', 'NABH 6th Edition');
+  });
+
   // SaaS Multi-tenant & Vendor Admin States - demo-hosp configured with email demo@vaidyaq.com and password demo123
   const [clientsList, setClientsList] = useState(() => {
     const signup = new Date(Date.now() - 3*24*60*60*1000).toISOString();
@@ -718,6 +738,69 @@ export const QualiNABHProvider = ({ children }) => {
     return loadNamespacedState('qn_ai_safety_logs', []);
   });
 
+  // Real-time Firestore Subscriptions
+  useEffect(() => {
+    if (isConfigured && activeHospitalId) {
+      console.log(`[QualiNABHContext] Attaching Firestore subscriptions for hospital: ${activeHospitalId}`);
+
+      const unsubDocs = firestoreService.subscribeToCollection(activeHospitalId, 'documents', setDocuments);
+      const unsubAudits = firestoreService.subscribeToCollection(activeHospitalId, 'audits', setAudits);
+      const unsubCapas = firestoreService.subscribeToCollection(activeHospitalId, 'capas', setCapaItems);
+      const unsubIncidents = firestoreService.subscribeToCollection(activeHospitalId, 'incidents', setIncidents);
+      const unsubLicenses = firestoreService.subscribeToCollection(activeHospitalId, 'licenses', setLicenses);
+      const unsubTasks = firestoreService.subscribeToCollection(activeHospitalId, 'tasks', setTasks);
+      const unsubAuditLogs = firestoreService.subscribeToCollection(activeHospitalId, 'auditLogs', setAuditLogs);
+      
+      const unsubStandards = firestoreService.subscribeToCollection(activeHospitalId, 'standards', (data) => {
+        if (data && data.length > 0) setStandards(data);
+      });
+      const unsubFlows = firestoreService.subscribeToCollection(activeHospitalId, 'compliance_flows', (data) => {
+        if (data && data.length > 0) setComplianceFlows(data);
+      });
+      const unsubCommittees = firestoreService.subscribeToCollection(activeHospitalId, 'committees', (data) => {
+        if (data && data.length > 0) setCommittees(data);
+      });
+      const unsubTrainings = firestoreService.subscribeToCollection(activeHospitalId, 'trainings', setTrainings);
+      const unsubRisks = firestoreService.subscribeToCollection(activeHospitalId, 'risks', setRisks);
+      const unsubSprints = firestoreService.subscribeToCollection(activeHospitalId, 'sprints', setSprints);
+      const unsubReports = firestoreService.subscribeToCollection(activeHospitalId, 'reports_list', setReportsList);
+      const unsubActivities = firestoreService.subscribeToCollection(activeHospitalId, 'task_activities', setTaskActivities);
+
+      // AI Root Collections
+      const aiFilters = [{ field: 'hospitalId', operator: '==', value: activeHospitalId }];
+      const unsubAiSettings = firestoreService.subscribeToRootCollection('ai_settings', (data) => {
+        if (data && data.length > 0) setAiSettings(data[0]);
+      }, aiFilters);
+      const unsubAiMemory = firestoreService.subscribeToRootCollection('ai_memory', setAiMemory, aiFilters);
+      const unsubAiOutputs = firestoreService.subscribeToRootCollection('ai_outputs', setAiOutputs, aiFilters);
+      const unsubAiUsage = firestoreService.subscribeToRootCollection('ai_usage_logs', setAiUsageLogs, aiFilters);
+      const unsubAiSafety = firestoreService.subscribeToRootCollection('ai_safety_logs', setAiSafetyLogs, aiFilters);
+
+      return () => {
+        if (unsubDocs) unsubDocs();
+        if (unsubAudits) unsubAudits();
+        if (unsubCapas) unsubCapas();
+        if (unsubIncidents) unsubIncidents();
+        if (unsubLicenses) unsubLicenses();
+        if (unsubTasks) unsubTasks();
+        if (unsubAuditLogs) unsubAuditLogs();
+        if (unsubStandards) unsubStandards();
+        if (unsubFlows) unsubFlows();
+        if (unsubCommittees) unsubCommittees();
+        if (unsubTrainings) unsubTrainings();
+        if (unsubRisks) unsubRisks();
+        if (unsubSprints) unsubSprints();
+        if (unsubReports) unsubReports();
+        if (unsubActivities) unsubActivities();
+        if (unsubAiSettings) unsubAiSettings();
+        if (unsubAiMemory) unsubAiMemory();
+        if (unsubAiOutputs) unsubAiOutputs();
+        if (unsubAiUsage) unsubAiUsage();
+        if (unsubAiSafety) unsubAiSafety();
+      };
+    }
+  }, [isConfigured, activeHospitalId]);
+
   // Sync AI states with local storage (namespaced)
   useEffect(() => {
     if (canSave) {
@@ -858,6 +941,12 @@ export const QualiNABHProvider = ({ children }) => {
 
   useEffect(() => {
     if (canSave) {
+      localStorage.setItem(`${activePrefix}qn_selected_program`, selectedProgram);
+    }
+  }, [selectedProgram, activePrefix, canSave]);
+
+  useEffect(() => {
+    if (canSave) {
       localStorage.setItem(`${activePrefix}qn_documents`, JSON.stringify(documents));
     }
   }, [documents, activePrefix, canSave]);
@@ -945,10 +1034,26 @@ export const QualiNABHProvider = ({ children }) => {
               localStorage.setItem(emailSentKey, "true");
             }
           }
+
+          // Auto-daemon: Generate high-priority renewal task if within 30 days and no task exists
+          const taskTitle = `Renew Statutory License: ${lic.name}`;
+          const alreadyHasTask = (tasks || []).some(t => t && t.title === taskTitle && !["Completed", "Done", "Closed"].includes(t.status));
+
+          if (diffDays <= 30 && !alreadyHasTask) {
+            console.log(`[Auto-Daemon] Expiry Alert: "${lic.name}" expires in ${diffDays} days. Auto-generating renewal task.`);
+            addHospitalTask({
+              title: taskTitle,
+              assignedTo: lic.responsible || 'Administration',
+              assignedToEmail: activeEmail,
+              department: 'Quality Control',
+              dueDate: lic.expiryDate,
+              priority: 'High'
+            });
+          }
         });
       }
     }
-  }, [licenses, activePrefix, canSave]);
+  }, [licenses, tasks, activePrefix, canSave]);
 
   useEffect(() => {
     if (canSave) {
@@ -1823,94 +1928,141 @@ export const QualiNABHProvider = ({ children }) => {
       mappedStandard: taskObj.mappedStandard || '',
       status: taskObj.status || 'To Do'
     };
-    setTasks(prev => [newTask, ...prev]);
+    if (isConfigured && activeHospitalId) {
+      firestoreService.createDocument(activeHospitalId, 'tasks', newTask);
+    } else {
+      setTasks(prev => [newTask, ...prev]);
+    }
     logActivity(`Assigned task: "${taskObj.title}" to ${taskObj.assignedTo}`);
     return newTask.id;
   };
 
   const updateHospitalTaskStatus = (taskId, status) => {
-    setTasks(prev => {
-      return prev.map(t => {
-        if (t.id === taskId) {
-          logActivity(`Updated task "${t.title}" status to ${status}`);
-          
-          if (status === "Completed" || status === "Done" || status === "Closed") {
-            // Relational update: close CAPA
-            if (t.capaId) {
-              setCapaItems(prevCapa => prevCapa.map(c => {
-                if (c.id === t.capaId && c.status !== "Closed") {
-                  logActivity(`Closed CAPA ${c.id} automatically via task completion`);
-                  return { ...c, status: "Closed", closureApprovedBy: "System Autoclose" };
-                }
-                return c;
-              }));
-              // Also update compliance flow
-              setComplianceFlows(prevFlows => prevFlows.map(flow => {
-                if (flow.linkedCapas && flow.linkedCapas.includes(t.capaId)) {
-                  return {
-                    ...flow,
-                    stages: {
-                      ...flow.stages,
-                      capa: "Completed",
-                      review: "Completed",
-                      improvement: "Completed",
-                      updates: "Pending"
-                    }
-                  };
-                }
-                return flow;
-              }));
+    if (isConfigured && activeHospitalId) {
+      const t = tasks.find(item => item.id === taskId);
+      if (t) {
+        firestoreService.updateDocument(activeHospitalId, 'tasks', taskId, { ...t, status });
+        if (status === "Completed" || status === "Done" || status === "Closed") {
+          if (t.capaId) {
+            const capa = capaItems.find(c => c.id === t.capaId);
+            if (capa) {
+              firestoreService.updateDocument(activeHospitalId, 'capas', t.capaId, { ...capa, status: "Closed", closureApprovedBy: "System Autoclose" });
             }
-            
-            // Relational update: close Incident
-            if (t.incidentId) {
-              setIncidents(prevInc => prevInc.map(inc => {
-                if (inc.id === t.incidentId && inc.status !== "Closed") {
-                  logActivity(`Closed Incident ${inc.id} automatically via task completion`);
-                  return { ...inc, status: "Closed" };
-                }
-                return inc;
-              }));
-            }
-
-            // Relational update: update committee meeting action item
-            if (t.meetingId && t.actionItemId) {
-              setCommittees(prevComm => prevComm.map(c => {
-                if (c.id === t.committeeId) {
-                  const updatedMeetings = (c.meetings || []).map(m => {
-                    if (m.id === t.meetingId) {
-                      const updatedActions = (m.actionItems || []).map(act => {
-                        if (act.id === t.actionItemId) {
-                          return { ...act, status: "Completed" };
-                        }
-                        return act;
-                      });
-                      return { ...m, actionItems: updatedActions };
-                    }
-                    return m;
-                  });
-                  return { ...c, meetings: updatedMeetings };
-                }
-                return c;
-              }));
+            const flow = complianceFlows.find(f => f.linkedCapas && f.linkedCapas.includes(t.capaId));
+            if (flow) {
+              const updatedStages = {
+                ...flow.stages,
+                capa: "Completed",
+                review: "Completed",
+                improvement: "Completed",
+                updates: "Pending"
+              };
+              firestoreService.updateDocument(activeHospitalId, 'compliance_flows', flow.id, { ...flow, stages: updatedStages });
             }
           }
-          
-          return { ...t, status };
+          if (t.incidentId) {
+            const inc = incidents.find(i => i.id === t.incidentId);
+            if (inc) {
+              firestoreService.updateDocument(activeHospitalId, 'incidents', t.incidentId, { ...inc, status: "Closed" });
+            }
+          }
+          if (t.meetingId && t.actionItemId) {
+            const comm = committees.find(c => c.id === t.committeeId);
+            if (comm) {
+              const updatedMeetings = (comm.meetings || []).map(m => {
+                if (m.id === t.meetingId) {
+                  const updatedActions = (m.actionItems || []).map(act => {
+                    if (act.id === t.actionItemId) return { ...act, status: "Completed" };
+                    return act;
+                  });
+                  return { ...m, actionItems: updatedActions };
+                }
+                return m;
+              });
+              firestoreService.updateDocument(activeHospitalId, 'committees', comm.id, { ...comm, meetings: updatedMeetings });
+            }
+          }
         }
-        return t;
+      }
+    } else {
+      setTasks(prev => {
+        return prev.map(t => {
+          if (t.id === taskId) {
+            logActivity(`Updated task "${t.title}" status to ${status}`);
+            
+            if (status === "Completed" || status === "Done" || status === "Closed") {
+              if (t.capaId) {
+                setCapaItems(prevCapa => prevCapa.map(c => {
+                  if (c.id === t.capaId && c.status !== "Closed") {
+                    logActivity(`Closed CAPA ${c.id} automatically via task completion`);
+                    return { ...c, status: "Closed", closureApprovedBy: "System Autoclose" };
+                  }
+                  return c;
+                }));
+                setComplianceFlows(prevFlows => prevFlows.map(flow => {
+                  if (flow.linkedCapas && flow.linkedCapas.includes(t.capaId)) {
+                    return {
+                      ...flow,
+                      stages: {
+                        ...flow.stages,
+                        capa: "Completed",
+                        review: "Completed",
+                        improvement: "Completed",
+                        updates: "Pending"
+                      }
+                    };
+                  }
+                  return flow;
+                }));
+              }
+              if (t.incidentId) {
+                setIncidents(prevInc => prevInc.map(inc => {
+                  if (inc.id === t.incidentId && inc.status !== "Closed") {
+                    logActivity(`Closed Incident ${inc.id} automatically via task completion`);
+                    return { ...inc, status: "Closed" };
+                  }
+                  return inc;
+                }));
+              }
+              if (t.meetingId && t.actionItemId) {
+                setCommittees(prevComm => prevComm.map(c => {
+                  if (c.id === t.committeeId) {
+                    const updatedMeetings = (c.meetings || []).map(m => {
+                      if (m.id === t.meetingId) {
+                        const updatedActions = (m.actionItems || []).map(act => {
+                          if (act.id === t.actionItemId) return { ...act, status: "Completed" };
+                          return act;
+                        });
+                        return { ...m, actionItems: updatedActions };
+                      }
+                      return m;
+                    });
+                    return { ...c, meetings: updatedMeetings };
+                  }
+                  return c;
+                }));
+              }
+            }
+            return { ...t, status };
+          }
+          return t;
+        });
       });
-    });
+    }
   };
 
   const deleteHospitalTask = (taskId) => {
-    setTasks(prev => {
-      const taskObj = prev.find(t => t.id === taskId);
-      if (taskObj) {
-        logActivity(`Deleted task: "${taskObj.title}"`);
-      }
-      return prev.filter(t => t.id !== taskId);
-    });
+    if (isConfigured && activeHospitalId) {
+      firestoreService.deleteDocument(activeHospitalId, 'tasks', taskId);
+    } else {
+      setTasks(prev => {
+        const taskObj = prev.find(t => t.id === taskId);
+        if (taskObj) {
+          logActivity(`Deleted task: "${taskObj.title}"`);
+        }
+        return prev.filter(t => t.id !== taskId);
+      });
+    }
   };
 
   const addTaskComment = (taskId, commentText, author) => {
@@ -2503,69 +2655,132 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
   // State Linked Operations
   const updateStandardScore = (standardId, score) => {
     const statuses = { 10: "Fully Met", 5: "Partially Met", 0: "Not Met" };
-    setStandards(prev => prev.map(s => {
-      if (s.id === standardId) {
-        logActivity(`Changed standard ${s.id} score to ${score} (${statuses[score]})`);
-        return { ...s, score, status: statuses[score] };
+    if (isConfigured && activeHospitalId) {
+      const s = standards.find(item => item.id === standardId);
+      if (s) {
+        firestoreService.updateDocument(activeHospitalId, 'standards', standardId, { ...s, score, status: statuses[score] });
       }
-      return s;
-    }));
+    } else {
+      setStandards(prev => prev.map(s => {
+        if (s.id === standardId) {
+          logActivity(`Changed standard ${s.id} score to ${score} (${statuses[score]})`);
+          return { ...s, score, status: statuses[score] };
+        }
+        return s;
+      }));
+    }
   };
 
   const addDocument = (newDoc) => {
     const docId = `doc-${Date.now()}`;
     const docWithId = { ...newDoc, id: docId, isEncrypted: true };
-    setDocuments(prev => [docWithId, ...prev]);
     
-    if (newDoc.mappedStandards && newDoc.mappedStandards.length > 0) {
-      newDoc.mappedStandards.forEach(stdId => {
-        // Run compliance check on the document details
-        const scan = analyzeEvidenceFile(newDoc.title, newDoc.content || "", stdId);
-        if (scan.success) {
-          setStandards(prev => prev.map(s => {
-            if (s.id === stdId) {
+    if (isConfigured && activeHospitalId) {
+      firestoreService.createDocument(activeHospitalId, 'documents', docWithId);
+      if (newDoc.mappedStandards && newDoc.mappedStandards.length > 0) {
+        newDoc.mappedStandards.forEach(stdId => {
+          const scan = analyzeEvidenceFile(newDoc.title, newDoc.content || "", stdId);
+          if (scan.success) {
+            const s = standards.find(item => item.id === stdId);
+            if (s) {
               const newScore = Math.max(s.score, scan.score);
               const statuses = { 10: "Fully Met", 5: "Partially Met", 0: "Not Met" };
-              return { ...s, score: newScore, status: statuses[newScore] };
+              firestoreService.updateDocument(activeHospitalId, 'standards', stdId, { ...s, score: newScore, status: statuses[newScore] });
             }
-            return s;
-          }));
-        }
-      });
-    }
-
-    // Connect to complianceFlows
-    if (newDoc.mappedPolicyId) {
-      setComplianceFlows(prev => prev.map(flow => {
-        if (flow.id === newDoc.mappedPolicyId) {
+          }
+        });
+      }
+      if (newDoc.mappedPolicyId) {
+        const flow = complianceFlows.find(f => f.id === newDoc.mappedPolicyId);
+        if (flow) {
           const updatedStages = { ...flow.stages };
           const type = newDoc.type.toLowerCase();
+          let updatedSops = [...(flow.linkedSops || [])];
+          let updatedForms = [...(flow.linkedForms || [])];
           
           if (type === "policy") {
             updatedStages.policy = "Completed";
           } else if (type === "sop") {
             updatedStages.sop = "Completed";
-            const updatedSops = [...(flow.linkedSops || [])];
             if (!updatedSops.includes(docId)) updatedSops.push(docId);
-            return { ...flow, stages: updatedStages, linkedSops: updatedSops };
           } else if (type === "form" || type === "checklist" || type === "register") {
             updatedStages.implementation = "Completed";
             updatedStages.documentation = "Completed";
-            const updatedForms = [...(flow.linkedForms || [])];
             if (!updatedForms.includes(docId)) updatedForms.push(docId);
-            return { ...flow, stages: updatedStages, linkedForms: updatedForms };
           } else if (type === "evidence") {
             updatedStages.documentation = "Completed";
           }
-          
-          return { ...flow, stages: updatedStages };
+          firestoreService.updateDocument(activeHospitalId, 'compliance_flows', flow.id, {
+            ...flow,
+            stages: updatedStages,
+            linkedSops: updatedSops,
+            linkedForms: updatedForms
+          });
         }
-        return flow;
-      }));
+      }
+    } else {
+      setDocuments(prev => [docWithId, ...prev]);
+      if (newDoc.mappedStandards && newDoc.mappedStandards.length > 0) {
+        newDoc.mappedStandards.forEach(stdId => {
+          const scan = analyzeEvidenceFile(newDoc.title, newDoc.content || "", stdId);
+          if (scan.success) {
+            setStandards(prev => prev.map(s => {
+              if (s.id === stdId) {
+                const newScore = Math.max(s.score, scan.score);
+                const statuses = { 10: "Fully Met", 5: "Partially Met", 0: "Not Met" };
+                return { ...s, score: newScore, status: statuses[newScore] };
+              }
+              return s;
+            }));
+          }
+        });
+      }
+      if (newDoc.mappedPolicyId) {
+        setComplianceFlows(prev => prev.map(flow => {
+          if (flow.id === newDoc.mappedPolicyId) {
+            const updatedStages = { ...flow.stages };
+            const type = newDoc.type.toLowerCase();
+            if (type === "policy") {
+              updatedStages.policy = "Completed";
+            } else if (type === "sop") {
+              updatedStages.sop = "Completed";
+              const updatedSops = [...(flow.linkedSops || [])];
+              if (!updatedSops.includes(docId)) updatedSops.push(docId);
+              return { ...flow, stages: updatedStages, linkedSops: updatedSops };
+            } else if (type === "form" || type === "checklist" || type === "register") {
+              updatedStages.implementation = "Completed";
+              updatedStages.documentation = "Completed";
+              const updatedForms = [...(flow.linkedForms || [])];
+              if (!updatedForms.includes(docId)) updatedForms.push(docId);
+              return { ...flow, stages: updatedStages, linkedForms: updatedForms };
+            } else if (type === "evidence") {
+              updatedStages.documentation = "Completed";
+            }
+            return { ...flow, stages: updatedStages };
+          }
+          return flow;
+        }));
+      }
     }
-
     logActivity(`Uploaded document: ${newDoc.title} (${newDoc.type})`);
     return docId;
+  };
+
+  const updateDocumentDetails = (docId, updatedFields) => {
+    if (isConfigured && activeHospitalId) {
+      const docObj = documents.find(d => d.id === docId);
+      if (docObj) {
+        firestoreService.updateDocument(activeHospitalId, 'documents', docId, { ...docObj, ...updatedFields });
+      }
+    } else {
+      setDocuments(prev => prev.map(d => {
+        if (d.id === docId) {
+          return { ...d, ...updatedFields };
+        }
+        return d;
+      }));
+    }
+    logActivity(`Updated document ${docId} attributes`);
   };
 
   const addAudit = (newAudit) => {
@@ -2580,7 +2795,11 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
       checklist: newAudit.checklist || [],
       findings: []
     };
-    setAudits(prev => [auditObj, ...prev]);
+    if (isConfigured && activeHospitalId) {
+      firestoreService.createDocument(activeHospitalId, 'audits', auditObj);
+    } else {
+      setAudits(prev => [auditObj, ...prev]);
+    }
     logActivity(`Created internal audit: ${newAudit.title} for ${newAudit.department}`);
   };
 
@@ -2600,18 +2819,10 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
       evidenceFile: null,
       closureApprovedBy: null
     };
-    setCapaItems(prev => [capaObj, ...prev]);
 
-    // Relational check: If CAPA was generated from an incident, link it back!
     let linkedIncidentId = null;
     if (newCapa.source && newCapa.source.startsWith("Incident: ")) {
       linkedIncidentId = newCapa.source.replace("Incident: ", "").trim();
-      setIncidents(prevInc => prevInc.map(inc => {
-        if (inc.id === linkedIncidentId) {
-          return { ...inc, capaId: capaId };
-        }
-        return inc;
-      }));
     }
 
     const taskId = `task-${Date.now()}`;
@@ -2625,19 +2836,48 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
       capaId: capaId,
       incidentId: linkedIncidentId
     };
-    setTasks(prev => [taskObj, ...prev]);
 
-    // Link to policy flow if mappedPolicyId is present
-    if (newCapa.mappedPolicyId) {
-      setComplianceFlows(prev => prev.map(flow => {
-        if (flow.id === newCapa.mappedPolicyId) {
+    if (isConfigured && activeHospitalId) {
+      firestoreService.createDocument(activeHospitalId, 'capas', capaObj);
+      firestoreService.createDocument(activeHospitalId, 'tasks', taskObj);
+
+      if (linkedIncidentId) {
+        const inc = incidents.find(item => item.id === linkedIncidentId);
+        if (inc) {
+          firestoreService.updateDocument(activeHospitalId, 'incidents', linkedIncidentId, { ...inc, capaId });
+        }
+      }
+
+      if (newCapa.mappedPolicyId) {
+        const flow = complianceFlows.find(f => f.id === newCapa.mappedPolicyId);
+        if (flow) {
           const updatedCapas = [...(flow.linkedCapas || [])];
           if (!updatedCapas.includes(capaId)) updatedCapas.push(capaId);
           const updatedStages = { ...flow.stages, capa: "Pending" };
-          return { ...flow, linkedCapas: updatedCapas, stages: updatedStages };
+          firestoreService.updateDocument(activeHospitalId, 'compliance_flows', flow.id, { ...flow, linkedCapas: updatedCapas, stages: updatedStages });
         }
-        return flow;
-      }));
+      }
+    } else {
+      setCapaItems(prev => [capaObj, ...prev]);
+      if (linkedIncidentId) {
+        setIncidents(prevInc => prevInc.map(inc => {
+          if (inc.id === linkedIncidentId) return { ...inc, capaId };
+          return inc;
+        }));
+      }
+      setTasks(prev => [taskObj, ...prev]);
+
+      if (newCapa.mappedPolicyId) {
+        setComplianceFlows(prev => prev.map(flow => {
+          if (flow.id === newCapa.mappedPolicyId) {
+            const updatedCapas = [...(flow.linkedCapas || [])];
+            if (!updatedCapas.includes(capaId)) updatedCapas.push(capaId);
+            const updatedStages = { ...flow.stages, capa: "Pending" };
+            return { ...flow, linkedCapas: updatedCapas, stages: updatedStages };
+          }
+          return flow;
+        }));
+      }
     }
 
     logActivity(`Created CAPA ${capaId} assigned to ${newCapa.responsible}`);
@@ -2657,68 +2897,135 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
       investigator: newInc.investigator || "Assigned Quality Officer",
       status: "Under Investigation",
       capaId: null,
-      shift: newInc.shift || "Morning"
+      shift: newInc.shift || "Morning",
+      rca: null
     };
-    setIncidents(prev => [incidentObj, ...prev]);
 
-    // Auto-link to Incident Reporting Policy (IRP)
-    setComplianceFlows(prev => prev.map(flow => {
-      if (flow.id === "IRP") {
+    if (isConfigured && activeHospitalId) {
+      firestoreService.createDocument(activeHospitalId, 'incidents', incidentObj);
+      
+      const flow = complianceFlows.find(f => f.id === "IRP");
+      if (flow) {
         const updatedIncidents = [...(flow.linkedIncidents || [])];
         if (!updatedIncidents.includes(incId)) updatedIncidents.push(incId);
         const updatedStages = { ...flow.stages, findings: "Completed" };
-        return { ...flow, linkedIncidents: updatedIncidents, stages: updatedStages };
+        firestoreService.updateDocument(activeHospitalId, 'compliance_flows', flow.id, { ...flow, linkedIncidents: updatedIncidents, stages: updatedStages });
       }
-      return flow;
-    }));
+    } else {
+      setIncidents(prev => [incidentObj, ...prev]);
+      setComplianceFlows(prev => prev.map(flow => {
+        if (flow.id === "IRP") {
+          const updatedIncidents = [...(flow.linkedIncidents || [])];
+          if (!updatedIncidents.includes(incId)) updatedIncidents.push(incId);
+          const updatedStages = { ...flow.stages, findings: "Completed" };
+          return { ...flow, linkedIncidents: updatedIncidents, stages: updatedStages };
+        }
+        return flow;
+      }));
+    }
 
     logActivity(`Reported incident ${incId} in ${newInc.department} (${newInc.type})`);
     return incId;
   };
 
-  const closeCapa = (capaId, approverName) => {
-    setCapaItems(prev => prev.map(c => {
-      if (c.id === capaId) {
-        logActivity(`Closed CAPA ${capaId} (Approved by ${approverName})`);
-        
-        // Auto-close associated tasks!
-        setTasks(prevTasks => prevTasks.map(t => {
-          if (t.capaId === capaId && t.status !== "Completed") {
-            return { ...t, status: "Completed" };
-          }
-          return t;
-        }));
+  const saveRCAData = (incidentId, rcaObj) => {
+    const inc = incidents.find(i => i.id === incidentId);
+    if (!inc) return;
 
-        // Auto-close associated incident!
+    const updatedInc = {
+      ...inc,
+      status: rcaObj.status || "Closed",
+      investigator: rcaObj.investigator || inc.investigator,
+      capaId: rcaObj.capaId !== undefined ? rcaObj.capaId : inc.capaId,
+      rootCause: rcaObj.rootCauseSummary || rcaObj.rootCauseNotes || '',
+      rca: {
+        type: rcaObj.type,
+        rootCauseNotes: rcaObj.rootCauseNotes || '',
+        fiveWhys: rcaObj.fiveWhys || null,
+        fishbone: rcaObj.fishbone || null,
+        updatedAt: new Date().toISOString()
+      }
+    };
+
+    if (isConfigured && activeHospitalId) {
+      firestoreService.updateDocument(activeHospitalId, 'incidents', incidentId, updatedInc);
+    } else {
+      setIncidents(prev => prev.map(item => item.id === incidentId ? updatedInc : item));
+    }
+
+    logActivity(`Saved RCA findings for incident ${incidentId} (${rcaObj.type})`);
+  };
+
+  const closeCapa = (capaId, approverName) => {
+    if (isConfigured && activeHospitalId) {
+      const c = capaItems.find(item => item.id === capaId);
+      if (c) {
+        firestoreService.updateDocument(activeHospitalId, 'capas', capaId, { ...c, status: "Closed", closureApprovedBy: approverName });
+        
+        tasks.forEach(t => {
+          if (t.capaId === capaId && t.status !== "Completed") {
+            firestoreService.updateDocument(activeHospitalId, 'tasks', t.id, { ...t, status: "Completed" });
+          }
+        });
+
         if (c.source && c.source.startsWith("Incident: ")) {
           const incidentId = c.source.replace("Incident: ", "").trim();
-          setIncidents(prevInc => prevInc.map(inc => {
-            if (inc.id === incidentId && inc.status !== "Closed") {
-              return { ...inc, status: "Closed" };
-            }
-            return inc;
-          }));
+          const inc = incidents.find(item => item.id === incidentId);
+          if (inc) {
+            firestoreService.updateDocument(activeHospitalId, 'incidents', incidentId, { ...inc, status: "Closed" });
+          }
         }
 
-        return { ...c, status: "Closed", closureApprovedBy: approverName };
+        const flow = complianceFlows.find(f => f.linkedCapas && f.linkedCapas.includes(capaId));
+        if (flow) {
+          const updatedStages = {
+            ...flow.stages,
+            capa: "Completed",
+            review: "Completed",
+            improvement: "Completed",
+            updates: "Pending"
+          };
+          firestoreService.updateDocument(activeHospitalId, 'compliance_flows', flow.id, { ...flow, stages: updatedStages });
+        }
       }
-      return c;
-    }));
+    } else {
+      setCapaItems(prev => prev.map(c => {
+        if (c.id === capaId) {
+          logActivity(`Closed CAPA ${capaId} (Approved by ${approverName})`);
+          
+          setTasks(prevTasks => prevTasks.map(t => {
+            if (t.capaId === capaId && t.status !== "Completed") return { ...t, status: "Completed" };
+            return t;
+          }));
 
-    // Auto-update compliance flow stage 'capa' to Completed, and move review/improvement to Completed or Pending
-    setComplianceFlows(prev => prev.map(flow => {
-      if (flow.linkedCapas && flow.linkedCapas.includes(capaId)) {
-        const updatedStages = {
-          ...flow.stages,
-          capa: "Completed",
-          review: "Completed",
-          improvement: "Completed",
-          updates: "Pending" // ready to trigger updates
-        };
-        return { ...flow, stages: updatedStages };
-      }
-      return flow;
-    }));
+          if (c.source && c.source.startsWith("Incident: ")) {
+            const incidentId = c.source.replace("Incident: ", "").trim();
+            setIncidents(prevInc => prevInc.map(inc => {
+              if (inc.id === incidentId && inc.status !== "Closed") return { ...inc, status: "Closed" };
+              return inc;
+            }));
+          }
+
+          return { ...c, status: "Closed", closureApprovedBy: approverName };
+        }
+        return c;
+      }));
+
+      setComplianceFlows(prev => prev.map(flow => {
+        if (flow.linkedCapas && flow.linkedCapas.includes(capaId)) {
+          const updatedStages = {
+            ...flow.stages,
+            capa: "Completed",
+            review: "Completed",
+            improvement: "Completed",
+            updates: "Pending"
+          };
+          return { ...flow, stages: updatedStages };
+        }
+        return flow;
+      }));
+    }
+    logActivity(`Closed CAPA ${capaId} (Approved by ${approverName})`);
   };
 
   const linkFindingToCapa = (auditId, findingId, capaId) => {
@@ -2906,6 +3213,30 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
     return docId;
   };
 
+  const changeStandardsProgram = (programName) => {
+    setSelectedProgram(programName);
+    let newTemplates = [];
+    if (programName === 'NABH Entry-Level') {
+      newTemplates = entryLevelStandards;
+    } else if (programName === 'Digital Health') {
+      newTemplates = digitalHealthStandards;
+    } else {
+      newTemplates = defaultStandards;
+    }
+    
+    const resetStandards = newTemplates.map(s => ({ ...s, score: 0, status: "Not Met" }));
+
+    if (isConfigured && activeHospitalId) {
+      resetStandards.forEach(std => {
+        firestoreService.updateDocument(activeHospitalId, 'standards', std.id, std);
+      });
+    } else {
+      setStandards(resetStandards);
+    }
+    
+    logActivity(`Switched standards program to: ${programName}`);
+  };
+
   // Live countdown ticker
   const [liveNow, setLiveNow] = useState(Date.now());
 
@@ -3028,10 +3359,11 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
       onboardingStep, setOnboardingStep,
       importNABHTemplates,
       standards, setStandards, updateStandardScore,
-      documents, setDocuments, addDocument,
+      selectedProgram, changeStandardsProgram,
+      documents, setDocuments, addDocument, updateDocumentDetails,
       audits, setAudits, addAudit, linkFindingToCapa,
       capaItems, setCapaItems, addCapa, closeCapa,
-      incidents, setIncidents, addIncident,
+      incidents, setIncidents, addIncident, saveRCAData,
       licenses, setLicenses,
       tasks, setTasks,
       auditLogs, setAuditLogs, logActivity,

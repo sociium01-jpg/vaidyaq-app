@@ -2,6 +2,8 @@ import React, { useContext, useState, useEffect } from 'react';
 import { QualiNABHContext } from '../context/QualiNABHContext';
 import { useToast } from '../components/ToastProvider';
 import { jsPDF } from 'jspdf';
+import { isConfigured } from '../firebase';
+import * as firestoreService from '../services/firestoreService';
 import {
   Shield,
   AlertOctagon,
@@ -98,6 +100,45 @@ export default function Dashboard({ orgMode, organizationId }) {
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
   const [importStatusText, setImportStatusText] = useState('');
+
+  // Organization View Stats Caching
+  const [orgBranchesMetrics, setOrgBranchesMetrics] = useState({});
+
+  useEffect(() => {
+    if (!orgMode) return;
+
+    const loadOrgMetrics = async () => {
+      const orgBranches = currentUser?.accessibleHospitals || ['demo-hosp', 'sarah-hosp'];
+      const metricsMap = {};
+
+      if (isConfigured) {
+        for (const hospId of orgBranches) {
+          try {
+            // Fetch standards to calculate readiness
+            const branchStandards = await firestoreService.fetchCollection(hospId, 'standards_libraries') || [];
+            const maxScore = branchStandards.length * 10;
+            const earned = branchStandards.reduce((sum, s) => sum + (s.score || 0), 0);
+            const score = maxScore > 0 ? Math.round((earned / maxScore) * 100) : 0;
+
+            // Fetch CAPAs
+            const branchCapas = await firestoreService.fetchCollection(hospId, 'capas') || [];
+            const openCapa = branchCapas.filter(c => c.status === "Open").length;
+
+            // Fetch Audits
+            const branchAudits = await firestoreService.fetchCollection(hospId, 'audits') || [];
+            const pendingAudit = branchAudits.filter(a => a.status === "Scheduled").length;
+
+            metricsMap[hospId] = { score, openCapa, pendingAudit };
+          } catch (err) {
+            console.error(`Error loading metrics for branch ${hospId}:`, err);
+          }
+        }
+        setOrgBranchesMetrics(metricsMap);
+      }
+    };
+
+    loadOrgMetrics();
+  }, [orgMode, currentUser?.accessibleHospitals]);
 
   // Local state for profile inputs
   const [editName, setEditName] = useState(hospitalName);
@@ -708,6 +749,10 @@ export default function Dashboard({ orgMode, organizationId }) {
   // 0. ORGANIZATION CONSOLIDATED GROUP DASHBOARD
   // ----------------------------------------------------
   const getBranchMetrics = (hospId) => {
+    if (orgBranchesMetrics && orgBranchesMetrics[hospId]) {
+      return orgBranchesMetrics[hospId];
+    }
+
     let branchStandards;
     const savedStandards = localStorage.getItem(`hosp_${hospId}_qn_standards`);
     if (savedStandards) {
@@ -810,6 +855,74 @@ export default function Dashboard({ orgMode, organizationId }) {
             <div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Group Readiness Index</div>
               <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--primary)' }}>{avgScore}% Ready</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Organization-wide Analytics Charts */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+          {/* Chart 1: Branch Readiness Comparison */}
+          <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+            <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)', fontWeight: 800 }}>
+              <TrendingUp size={18} style={{ color: 'var(--primary)' }} />
+              Branch Accreditation Readiness Index
+            </h3>
+            <div style={{ height: '180px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+              {(() => {
+                const maxVal = 100;
+                return (
+                  <div style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'flex-end', justifyContent: 'space-around', padding: '0 0.5rem' }}>
+                    {branchData.map(branch => {
+                      const barHeight = (branch.score / maxVal) * 120;
+                      const barColor = branch.score >= 70 ? 'var(--color-success)' : branch.score >= 45 ? 'var(--color-warning)' : 'var(--color-danger)';
+                      return (
+                        <div key={branch.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                          <span style={{ fontSize: '0.7rem', fontWeight: 700, color: barColor }}>{branch.score}%</span>
+                          <div style={{
+                            width: '32px',
+                            height: `${Math.max(barHeight, 4)}px`,
+                            background: `linear-gradient(to top, ${barColor}, rgba(13, 148, 136, 0.2))`,
+                            borderRadius: '6px 6px 0 0',
+                            marginTop: '0.25rem',
+                            transition: 'all 0.3s ease'
+                          }} />
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.5rem', fontWeight: 600, textAlign: 'center', maxWidth: '80px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={branch.name}>
+                            {branch.name.split(' ')[0]}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+
+          {/* Chart 2: CAPAs & Task Load by Branch */}
+          <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+            <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)', fontWeight: 800 }}>
+              <Activity size={18} style={{ color: 'var(--color-danger)' }} />
+              Open CAPAs & Scheduled Audits
+            </h3>
+            <div style={{ height: '180px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '0.75rem' }}>
+              {branchData.map(branch => {
+                const totalIssues = branch.openCapa + branch.pendingAudit;
+                const maxIssues = Math.max(...branchData.map(b => b.openCapa + b.pendingAudit), 2);
+                const barWidth = (totalIssues / maxIssues) * 100;
+                return (
+                  <div key={branch.id} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 600 }}>
+                      <span style={{ color: 'var(--text-primary)' }}>{branch.name}</span>
+                      <span style={{ color: 'var(--text-secondary)' }}>
+                        <strong style={{ color: 'var(--color-danger)' }}>{branch.openCapa} CAPA</strong> | <span>{branch.pendingAudit} Audits</span>
+                      </span>
+                    </div>
+                    <div style={{ height: '10px', width: '100%', backgroundColor: 'var(--bg-tertiary)', borderRadius: '5px', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${barWidth}%`, background: 'linear-gradient(to right, #ef4444, var(--primary))', borderRadius: '5px', transition: 'width 0.5s ease' }} />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
