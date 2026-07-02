@@ -1547,32 +1547,43 @@ export const QualiNABHProvider = ({ children }) => {
     );
   };
 
-  // Purchase/Renew subscription (cycle can be 'quarterly' or 'annually')
-  const purchaseSubscription = (cycle = 'annually') => {
+  // Helper to dynamically load Razorpay script
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if (window.Razorpay) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  // Helper to complete the subscription logic upon successful payment verification
+  const finalizeSubscription = (cycle, amount, transactionId) => {
     setIsSubscribed(true);
     setForcePaymentScreen(false);
-    
-    const beds = Number(hospitalBeds);
-    const baseFee = beds <= 20 ? 55999 : beds <= 150 ? 129999 : 249999;
-    
-    // Quarterly is 30% of annual price
-    const priceAmount = cycle === 'quarterly' ? Math.round(baseFee * 0.3) : baseFee;
-    const gstVal = Math.round(priceAmount * 0.18);
-    const totalAmount = priceAmount + gstVal;
-    
+    setTrialStartDate(null); // Clear trial start to denote active paid subscription
+
     const termDays = cycle === 'quarterly' ? 90 : 365;
     const newExpiry = new Date(Date.now() + termDays * 24 * 60 * 60 * 1000).toISOString();
-    
+    const gstVal = Math.round(amount * 0.18 / 1.18); // Amount includes GST from serverless backend
+    const basePrice = amount - gstVal;
+
     const newTrans = {
-      id: `trans-${Date.now()}`,
-      clientId: currentUser.email,
+      id: transactionId,
+      clientId: currentUser?.email || "unknown",
       hospitalName: hospitalName,
-      amount: priceAmount,
+      amount: basePrice,
       gst: gstVal,
       date: new Date().toISOString().slice(0, 10),
       status: "Successful",
       billingCycle: cycle === 'quarterly' ? "Quarterly Plan" : "Annual Plan"
     };
+
     setTransactions(prev => [newTrans, ...prev]);
 
     setClientsList(prev => (prev || []).map(c => {
@@ -1588,20 +1599,143 @@ export const QualiNABHProvider = ({ children }) => {
       return c;
     }));
 
-    // Save active state to context
-    setIsSubscribed(true);
-    setTrialStartDate(null); // Clear trial start to denote active paid subscription
-
-    logActivity(`Subscription payment of ₹${priceAmount.toLocaleString()} processed successfully for ${cycle} cycle.`);
+    logActivity(`Subscription payment of ₹${amount.toLocaleString()} processed successfully via Razorpay (Txn ID: ${transactionId})`);
 
     // Send payment confirmation email
     sendSimulatedEmail(
-      currentUser.email,
+      currentUser?.email || "unknown",
       "VaidyaQ Subscription Active - Payment Received",
-      `Hello, we have successfully received your payment of ₹${priceAmount.toLocaleString()} + ₹${gstVal.toLocaleString()} GST (Total: ₹${totalAmount.toLocaleString()}). Your ${cycle} subscription is active until ${new Date(newExpiry).toLocaleDateString('en-IN')}.`,
+      `Hello, we have successfully received your payment of ₹${amount.toLocaleString()} (including GST). Your ${cycle} subscription is active until ${new Date(newExpiry).toLocaleDateString('en-IN')}.`,
       "Payment"
     );
   };
+
+  // Purchase/Renew subscription (cycle can be 'quarterly' or 'annually')
+  const purchaseSubscription = async (cycle = 'annually') => {
+    try {
+      logActivity(`Initiating subscription purchase flow for ${cycle} cycle...`);
+      
+      // 1. Create order on backend serverless function
+      const response = await fetch("/.netlify/functions/create-razorpay-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          beds: hospitalBeds,
+          cycle: cycle,
+          email: currentUser?.email || "anonymous",
+          name: currentUser?.name || "Hospital Admin"
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create order: ${response.statusText}`);
+      }
+
+      const orderData = await response.json();
+      const { orderId, amount, currency, isSandbox, keyId } = orderData;
+
+      // 2. Handle Sandbox Checkout Fallback (if keys are not configured on backend)
+      if (isSandbox) {
+        const proceedSandbox = window.confirm(
+          `[VaidyaQ Developer Sandbox]\n\nRazorpay keys are not configured on the server. Would you like to simulate a successful mock payment of ₹${amount.toLocaleString()} for the ${cycle} plan?`
+        );
+        if (!proceedSandbox) {
+          logActivity(`Sandbox payment flow cancelled by user.`);
+          return;
+        }
+
+        // Call verification endpoint for sandbox order
+        const verifyRes = await fetch("/.netlify/functions/verify-razorpay-payment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            isSandbox: true,
+            razorpay_order_id: orderId
+          })
+        });
+
+        if (!verifyRes.ok) {
+          throw new Error("Sandbox payment verification failed.");
+        }
+
+        const verifyData = await verifyRes.json();
+        if (verifyData.verified) {
+          finalizeSubscription(cycle, amount, orderId);
+        } else {
+          throw new Error("Sandbox payment signature was not verified.");
+        }
+        return;
+      }
+
+      // 3. Load Razorpay script dynamically
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded) {
+        alert("Razorpay checkout failed to load. Please check your internet connection.");
+        return;
+      }
+
+      // 4. Open Razorpay Checkout Modal
+      const options = {
+        key: keyId,
+        amount: amount * 100, // Amount expected in paise
+        currency: currency,
+        name: "VaidyaQ AI",
+        description: `${cycle === 'quarterly' ? 'Quarterly' : 'Annual'} Subscription renewal`,
+        image: "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>",
+        order_id: orderId,
+        handler: async function (response) {
+          try {
+            logActivity(`Razorpay payment successful. Verifying signature...`);
+            
+            // Call verification endpoint
+            const verifyRes = await fetch("/.netlify/functions/verify-razorpay-payment", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature
+              })
+            });
+
+            if (!verifyRes.ok) {
+              throw new Error("Payment signature verification failed.");
+            }
+
+            const verifyData = await verifyRes.json();
+            if (verifyData.verified) {
+              finalizeSubscription(cycle, amount, response.razorpay_payment_id);
+            } else {
+              alert("Payment verification failed. Please contact support.");
+            }
+          } catch (err) {
+            console.error(err);
+            alert(`Payment verification error: ${err.message}`);
+          }
+        },
+        prefill: {
+          name: currentUser?.name || "",
+          email: currentUser?.email || ""
+        },
+        theme: {
+          color: "#0d9488"
+        }
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function (response) {
+        alert(`Payment failed: ${response.error.description}`);
+        logActivity(`Razorpay payment failed: ${response.error.description}`);
+      });
+      rzp.open();
+
+    } catch (error) {
+      console.error("[purchaseSubscription] Error:", error);
+      alert(`Checkout failed: ${error.message}`);
+      logActivity(`Subscription checkout failed: ${error.message}`);
+    }
+  };
+
 
   const updateHospitalProfile = (logo, name, beds, address, regId) => {
     setHospitalLogo(logo);
