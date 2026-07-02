@@ -623,6 +623,42 @@ export default function Dashboard({ orgMode, organizationId }) {
             </div>
           </div>
 
+          {/* Step 3.5: Configure Departments */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', fontSize: '0.85rem' }}>
+            <div style={{ color: onboardingSteps?.departments ? 'var(--color-success)' : 'var(--text-tertiary)', marginTop: '2px' }}>
+              <CheckCircle2 size={16} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <strong style={{ color: 'var(--text-primary)' }}>Configure Active Clinical Departments ({(activeDepts || []).length} selected)</strong>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Select which wards and departments are active in your hospital to enable department-level reporting.</div>
+              {!onboardingSteps?.departments && (
+                <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.4rem', alignItems: 'center' }}>
+                  {['OPD', 'IPD', 'ICU', 'OT', 'Emergency', 'Pharmacy', 'Lab', 'Radiology', 'CSSD', 'Dietary'].map(dept => (
+                    <button
+                      key={dept}
+                      type="button"
+                      onClick={() => setTempDepts(prev => prev.includes(dept) ? prev.filter(d => d !== dept) : [...prev, dept])}
+                      style={{
+                        padding: '0.2rem 0.55rem', fontSize: '0.65rem', borderRadius: '20px', cursor: 'pointer', border: '1px solid var(--border-color)', fontWeight: 600,
+                        backgroundColor: tempDepts.includes(dept) ? 'var(--primary-light)' : 'var(--bg-tertiary)',
+                        color: tempDepts.includes(dept) ? 'var(--primary)' : 'var(--text-secondary)'
+                      }}
+                    >
+                      {dept}
+                    </button>
+                  ))}
+                  <button
+                    onClick={handleSaveDepartments}
+                    className="btn btn-primary"
+                    style={{ padding: '0.3rem 0.75rem', fontSize: '0.7rem', fontWeight: 'bold', cursor: 'pointer', marginLeft: '0.25rem' }}
+                  >
+                    Save Departments
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Step 4: First SOP Outline */}
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', fontSize: '0.85rem' }}>
             <div style={{ color: (documents || []).length > 0 ? 'var(--color-success)' : 'var(--text-tertiary)', marginTop: '2px' }}>
@@ -1901,7 +1937,7 @@ export default function Dashboard({ orgMode, organizationId }) {
         path: '/app/quality',
         metrics: {
           done: `${closedCapa} CAPAs Closed`,
-          pending: `${openCapa} CAPAs Open`
+          pending: `${openCapa} Open | ${highRiskDeptsCount} High-Risk Dept${highRiskDeptsCount !== 1 ? 's' : ''}`
         },
         color: '#3b82f6'
       },
@@ -2039,6 +2075,8 @@ export default function Dashboard({ orgMode, organizationId }) {
         }
 
         switch (currentUser?.role) {
+          case 'Platform Admin':
+            return renderSuperAdminDashboard();
           case 'Super Admin':
             return renderHospitalAdminDashboard();
           case 'Hospital Admin':

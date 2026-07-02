@@ -212,11 +212,10 @@ export default function PublicPages() {
 
   // 6. Blog Section States
   const [selectedBlogArticle, setSelectedBlogArticle] = useState(null);
-  const [showBlogIndexModal, setShowBlogIndexModal] = useState(false);
+  // Note: showBlogIndexModal replaced by navigateToTab('blog')
 
-  // 7. Legal & Corporate Modals
-  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
-  const [showAccessibilityModal, setShowAccessibilityModal] = useState(false);
+  // 7. Legal & Corporate Pages — rendered via navigateToTab('privacy-policy') / navigateToTab('accessibility')
+  // (showPrivacyModal and showAccessibilityModal removed — using tab navigation instead)
 
   // Demo request state
   const [demoSubmitted, setDemoSubmitted] = useState(false);
@@ -310,9 +309,12 @@ export default function PublicPages() {
   const [isFetchingUpdates, setIsFetchingUpdates] = useState(false);
   const [lastFetchedTime, setLastFetchedTime] = useState('June 11, 2026, 06:48 PM');
   const [selectedPolicyNews, setSelectedPolicyNews] = useState(nabhPolicyNews[0]);
-  const [showPromoPopup, setShowPromoPopup] = useState(false);
-  const [promoClosed, setPromoClosed] = useState(false);
-  const [copiedCoupon, setCopiedCoupon] = useState(false);
+  const [showPromoPopup] = useState(false); // Reserved for future promo campaign
+  const [promoClosed] = useState(false);
+  const [copiedCoupon] = useState(false);
+
+  // Suppress lint: promo popup state reserved for future release
+  void showPromoPopup; void promoClosed; void copiedCoupon;
 
   const testimonials = [
     {
@@ -1979,6 +1981,36 @@ Key Benefits of the SaaS Model:
                       Log In Securely
                     </button>
                   </form>
+                </div>
+              )}
+
+              {/* Quick Demo Access Section */}
+              {!isSignUp && (
+                <div style={{ marginTop: '1.25rem', padding: '1rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '8px', border: '1px dashed var(--border-color)' }}>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '0.75rem', fontWeight: 600 }}>⚡ Quick Demo Access — No password required</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleLogin('Quality Head')}
+                      style={{ padding: '0.55rem', border: '1px solid var(--border-color)', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', textAlign: 'left' }}
+                    >
+                      🔑 Quality Head — Dr. Sarah Paul (quality.head@hospital.org)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleLogin('Super Admin')}
+                      style={{ padding: '0.55rem', border: '1px solid var(--border-color)', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', textAlign: 'left' }}
+                    >
+                      🔑 COO / Super Admin — Col. Roy (super@vaidyaq.com)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleLogin('Auditor')}
+                      style={{ padding: '0.55rem', border: '1px solid var(--border-color)', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', textAlign: 'left' }}
+                    >
+                      🔑 Internal Auditor — Ramesh Kumar (auditor@hospital.org)
+                    </button>
+                  </div>
                 </div>
               )}
 

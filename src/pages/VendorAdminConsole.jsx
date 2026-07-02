@@ -2138,11 +2138,19 @@ Please enter a valid **Google Gemini API Key** in the chat header to enable live
                   <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', marginTop: '0.25rem' }}>Renewals: 365d term cycles</div>
                 </div>
 
+                <div className="card" style={{ padding: '1rem 1.25rem', backgroundColor: 'var(--bg-secondary)', border: `1px solid ${restrictedClientsCount > 0 ? 'var(--color-danger)' : 'var(--border-color)'}`, borderRadius: '10px' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Restricted / Expired</div>
+                  <div style={{ fontSize: '1.8rem', fontWeight: 800, marginTop: '0.25rem', color: restrictedClientsCount > 0 ? 'var(--color-danger)' : 'var(--text-tertiary)' }}>{restrictedClientsCount}</div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', marginTop: '0.25rem' }}>Accounts with no active plan</div>
+                </div>
+
+
                 <div className="card" style={{ padding: '1rem 1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>CRM Bounce Rate</div>
                   <div style={{ fontSize: '1.8rem', fontWeight: 800, marginTop: '0.25rem', color: 'var(--color-danger)' }}>{bounceRatePercent}%</div>
                   <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', marginTop: '0.25rem' }}>Bounced client hospitals count: {bouncedClientsCount}</div>
                 </div>
+
 
                 <div className="card" style={{ padding: '1rem 1.25rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Database Storage Meter</div>

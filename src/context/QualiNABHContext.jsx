@@ -240,7 +240,7 @@ export const QualiNABHProvider = ({ children }) => {
         const parsed = JSON.parse(savedUser);
         activeEmail = parsed.parentEmail || parsed.email;
         hospId = parsed.activeHospitalId || parsed.hospitalId || 'demo-hosp';
-      } catch (e) {}
+      } catch (e) { console.warn('[QualiNABH] Failed to parse saved user session:', e); }
     }
     
     // Try hospital-based namespace first
@@ -268,7 +268,7 @@ export const QualiNABHProvider = ({ children }) => {
         if (globalSaved) {
           try {
             result = JSON.parse(globalSaved);
-          } catch (e) {}
+          } catch (e) { console.warn(`[QualiNABH] Failed to parse global state for key "${key}":`, e); }
         }
         if (result === undefined) {
           result = defaultValue;
@@ -946,7 +946,7 @@ export const QualiNABHProvider = ({ children }) => {
         });
       }
     }
-  }, [licenses, activePrefix, canSave]);
+  }, [licenses, activePrefix, canSave, currentUser, sendSimulatedEmail]);
 
   useEffect(() => {
     if (canSave) {
@@ -1141,7 +1141,7 @@ export const QualiNABHProvider = ({ children }) => {
             if (isDemo) {
               const globalSaved = localStorage.getItem(key);
               if (globalSaved) {
-                try { result = JSON.parse(globalSaved); } catch(e) {}
+                try { result = JSON.parse(globalSaved); } catch(e) { console.warn(`[QualiNABH] Failed to parse global state for key "${key}":`, e); }
               }
               if (result === undefined) {
                 result = defaultVal;

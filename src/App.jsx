@@ -80,7 +80,7 @@ function AppContent() {
     if (isSecuredRoute && !currentUser) {
       setCurrentRoute('/');
     }
-  }, [isSecuredRoute, currentUser]);
+  }, [isSecuredRoute, currentUser, setCurrentRoute]);
 
   // Handle redirects for legacy and special routes
   useEffect(() => {
@@ -112,7 +112,7 @@ function AppContent() {
         }
       }
     }
-  }, [currentRoute, currentUser]);
+  }, [currentRoute, currentUser, isAppRoute, isOrgRoute, parts, setCurrentRoute]);
 
   // Platform Console Route
   if (isPlatformRoute) {
