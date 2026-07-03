@@ -38,6 +38,117 @@ import {
   EyeOff
 } from 'lucide-react';
 
+// Signature Element: Concentric Audit-Readiness Activity Ring
+function AuditReadinessRing({ completion, docked }) {
+  const outerCircum = 2 * Math.PI * 80; // ~502.6
+  const middleCircum = 2 * Math.PI * 60; // ~377.0
+  const innerCircum = 2 * Math.PI * 40; // ~251.3
+
+  const outerOffset = outerCircum - (completion.outer / 100) * outerCircum;
+  const middleOffset = middleCircum - (completion.middle / 100) * middleCircum;
+  const innerOffset = innerCircum - (completion.inner / 100) * innerCircum;
+
+  // Calculate overall average for center text
+  const overallAverage = Math.round((completion.outer + completion.middle + completion.inner) / 3);
+
+  return (
+    <div className={`readiness-ring-wrapper ${docked ? 'docked' : ''}`}>
+      {/* Orbiting compliance chips */}
+      <div className="orbit-container">
+        <div className="orbiting-chip" style={{ top: '2%', left: '50%', transform: 'translateX(-50%)' }}>DOC-CTRL</div>
+        <div className="orbiting-chip" style={{ top: '50%', right: '2%', transform: 'translateY(-50%)' }}>CAPA-07</div>
+        <div className="orbiting-chip" style={{ bottom: '2%', left: '50%', transform: 'translateX(-50%)' }}>NABH 5th Ed.</div>
+        <div className="orbiting-chip" style={{ top: '50%', left: '2%', transform: 'translateY(-50%)' }}>IR-2231</div>
+        <div className="orbiting-chip" style={{ top: '15%', left: '15%' }}>QI: HAI Rate</div>
+      </div>
+
+      <svg width="100%" height="100%" viewBox="0 0 200 200" style={{ transform: 'rotate(-90deg)', overflow: 'visible' }}>
+        {/* Background Track Rings */}
+        <circle cx="100" cy="100" r="80" fill="transparent" stroke="rgba(14, 95, 216, 0.05)" strokeWidth="12" />
+        <circle cx="100" cy="100" r="60" fill="transparent" stroke="rgba(15, 181, 166, 0.05)" strokeWidth="12" />
+        <circle cx="100" cy="100" r="40" fill="transparent" stroke="rgba(245, 165, 36, 0.05)" strokeWidth="12" />
+
+        {/* Outer Ring: Document Control & SOPs */}
+        <circle
+          cx="100"
+          cy="100"
+          r="80"
+          fill="transparent"
+          stroke="var(--primary)"
+          strokeWidth="12"
+          strokeDasharray={outerCircum}
+          strokeDashoffset={outerOffset}
+          strokeLinecap="round"
+          style={{ transition: 'stroke-dashoffset 0.8s cubic-bezier(0.16, 1, 0.3, 1)' }}
+        />
+
+        {/* Middle Ring: Internal Audits & CAPAs */}
+        <circle
+          cx="100"
+          cy="100"
+          r="60"
+          fill="transparent"
+          stroke="var(--signal-teal)"
+          strokeWidth="12"
+          strokeDasharray={middleCircum}
+          strokeDashoffset={middleOffset}
+          strokeLinecap="round"
+          style={{ transition: 'stroke-dashoffset 0.8s cubic-bezier(0.16, 1, 0.3, 1)' }}
+        />
+
+        {/* Inner Ring: Incident reporting & alerts */}
+        <circle
+          cx="100"
+          cy="100"
+          r="40"
+          fill="transparent"
+          stroke={completion.inner >= 90 ? 'var(--signal-teal)' : 'var(--amber)'}
+          strokeWidth="12"
+          strokeDasharray={innerCircum}
+          strokeDashoffset={innerOffset}
+          strokeLinecap="round"
+          style={{ transition: 'stroke-dashoffset 0.8s cubic-bezier(0.16, 1, 0.3, 1), stroke 0.5s ease' }}
+        />
+      </svg>
+
+      {/* Center Label */}
+      <div style={{
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 2
+      }}>
+        <span style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: docked ? '0.9rem' : '2rem',
+          fontWeight: 700,
+          color: 'var(--ink)',
+          lineHeight: 1
+        }}>
+          {overallAverage}%
+        </span>
+        <span style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: docked ? '0.45rem' : '0.65rem',
+          fontWeight: 500,
+          color: 'rgba(11, 18, 32, 0.5)',
+          textTransform: 'uppercase',
+          marginTop: '2px',
+          letterSpacing: '0.05em'
+        }}>
+          {docked ? 'Ready' : 'Readiness'}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function PublicPages() {
   const { 
     setCurrentRoute, 
@@ -164,33 +275,7 @@ export default function PublicPages() {
   };
 
   // 1. Landing Page Mockup Simulated States
-  const [mockupActiveQuery, setMockupActiveQuery] = useState(null);
-  const [mockupChatText, setMockupChatText] = useState("Click one of the blue prompt buttons below to ask me a compliance question about our mock hospital.");
   const [typing, setTyping] = useState(false);
-
-  const triggerMockupChat = (type) => {
-    if (typing) return;
-    setMockupActiveQuery(type);
-    setTyping(true);
-    setMockupChatText("Thinking...");
-    
-    let responseText = "";
-    if (type === 'narcotics') {
-      responseText = "VaidyaQ Audit Scan detected: 1 Narcotic Expiry incident in the Pharmacy. Risk: HIGH. Recommended Action: Isolate expired batches in locked red bin and log immediate disposal manifest under dual sign-off.";
-    } else if (type === 'syringes') {
-      responseText = "VaidyaQ Audit Scan detected: Out-of-stock emergency syringes in the ICU crash cart. Recommended Action: Raise automated urgent restocking request in central store and update crash cart verification checklist.";
-    } else if (type === 'overall') {
-      responseText = "Overall Hospital Accreditation readiness is at 84% based on 6th Edition guidelines. Key gaps: 1 expired license (Pharmacy), 3 overdue tasks, and 5 missing evidence documents (mainly in Fire Safety).";
-    } else {
-      responseText = "Click one of the blue prompt buttons below to ask me a compliance question about our mock hospital.";
-    }
-
-    setTimeout(() => {
-      setMockupChatText(responseText);
-      setTyping(false);
-    }, 800);
-  };
-
 
   // 2. Interactive Audit Readiness Checker Widget States
   const [quizStep, setQuizStep] = useState(1);
@@ -200,12 +285,8 @@ export default function PublicPages() {
   const [videoIsPlaying, setVideoIsPlaying] = useState(false);
   const [videoActiveFrame, setVideoActiveFrame] = useState(0);
   const [videoVolumeMuted, setVideoVolumeMuted] = useState(false);
-
-  // 4. Hero Section AI 5s Video Loop States
-  const [heroVideoPlaying, setHeroVideoPlaying] = useState(true);
-  const [heroVideoProgress, setHeroVideoProgress] = useState(0);
-  const [heroVideoTime, setHeroVideoTime] = useState(0);
-  const [activeHeroTab, setActiveHeroTab] = useState('video'); // 'video' or 'dashboard'
+ 
+  // 4. Hero Section States
   const heroVideoRef = useRef(null);
 
   // 5. Testimonial Slider States
@@ -224,6 +305,48 @@ export default function PublicPages() {
 
   // Mobile Header Toggle State
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Immersive Landing Page States & Scroll Handlers
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [activeSection, setActiveSection] = useState('hero');
+  const [ringCompletion, setRingCompletion] = useState({ outer: 20, middle: 10, inner: 30, docked: false });
+  const [activePlatformTab, setActivePlatformTab] = useState('dashboard');
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const sy = window.scrollY;
+      setIsScrolled(sy > 40);
+      
+      if (sy < 450) {
+        setActiveSection('hero');
+        setRingCompletion({ outer: 20, middle: 10, inner: 30, docked: false });
+      } else if (sy >= 450 && sy < 1100) {
+        setActiveSection('problem');
+        setRingCompletion({ outer: 35, middle: 20, inner: 40, docked: true });
+      } else if (sy >= 1100 && sy < 2000) {
+        setActiveSection('platform');
+        setRingCompletion({ outer: 55, middle: 35, inner: 50, docked: true });
+      } else if (sy >= 2000 && sy < 2900) {
+        setActiveSection('modules');
+        setRingCompletion({ outer: 70, middle: 60, inner: 65, docked: true });
+      } else if (sy >= 2900 && sy < 3700) {
+        setActiveSection('ai');
+        setRingCompletion({ outer: 85, middle: 80, inner: 78, docked: true });
+      } else if (sy >= 3700 && sy < 4300) {
+        setActiveSection('accreditation');
+        setRingCompletion({ outer: 95, middle: 90, inner: 88, docked: true });
+      } else if (sy >= 4300 && sy < 4900) {
+        setActiveSection('outcomes');
+        setRingCompletion({ outer: 100, middle: 95, inner: 94, docked: true });
+      } else {
+        setActiveSection('cta');
+        setRingCompletion({ outer: 100, middle: 100, inner: 100, docked: true });
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Contact Us state
   const [contactSubmitted, setContactSubmitted] = useState(false);
@@ -502,16 +625,6 @@ Key Benefits of the SaaS Model:
     }
   ];
 
-  // Hero Video - Synchronize play/pause with real video reference
-  useEffect(() => {
-    if (heroVideoRef.current) {
-      if (heroVideoPlaying && activeHeroTab === 'video') {
-        heroVideoRef.current.play().catch(e => console.log("Video autoplay prevented", e));
-      } else {
-        heroVideoRef.current.pause();
-      }
-    }
-  }, [heroVideoPlaying, activeHeroTab]);
 
   // Video Walkthrough player loop (Lower section)
   useEffect(() => {
@@ -620,7 +733,289 @@ Key Benefits of the SaaS Model:
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)' }}>
       {/* Inline styles for 3D Map and animations */}
+      {/* Scoped CSS Style Definitions for Immersive Landing Page */}
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap');
+
+        /* Scoped Landing Page Design System */
+        .vaidyaq-landing-body {
+          --surface: #FAFBFD;
+          --ink: #0B1220;
+          --primary: #0E5FD8;
+          --primary-deep: #06318A;
+          --signal-teal: #0FB5A6;
+          --amber: #F5A524;
+          --font-display: 'Instrument Sans', sans-serif;
+          --font-body: 'Inter', sans-serif;
+          --font-mono: 'JetBrains Mono', monospace;
+          background-color: var(--surface);
+          color: var(--ink);
+          font-family: var(--font-body);
+          overflow-x: hidden;
+          position: relative;
+        }
+
+        /* Glass Pill Navigation */
+        .vaidyaq-pill-nav {
+          position: fixed;
+          top: 1.5rem;
+          left: 50%;
+          transform: translateX(-50%);
+          width: calc(100% - 3rem);
+          max-width: 1100px;
+          height: 64px;
+          border-radius: 9999px;
+          background: rgba(250, 251, 253, 0.7);
+          backdrop-filter: blur(24px) saturate(180%);
+          -webkit-backdrop-filter: blur(24px) saturate(180%);
+          border: 1px solid rgba(11, 18, 32, 0.06);
+          box-shadow: 0 10px 30px -10px rgba(11, 18, 32, 0.04);
+          z-index: 1000;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 1.75rem;
+          transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .vaidyaq-pill-nav.scrolled {
+          top: 1rem;
+          max-width: 840px;
+          height: 54px;
+          background: rgba(250, 251, 253, 0.85);
+          border: 1px solid rgba(11, 18, 32, 0.1);
+          box-shadow: 0 20px 40px -15px rgba(11, 18, 32, 0.08);
+          padding: 0 1.25rem;
+        }
+
+        .vaidyaq-nav-links {
+          display: flex;
+          align-items: center;
+          gap: 1.75rem;
+          list-style: none;
+          margin: 0;
+          padding: 0;
+        }
+        @media (max-width: 768px) {
+          .vaidyaq-nav-links { display: none; }
+        }
+
+        .vaidyaq-nav-link {
+          font-size: 0.85rem;
+          font-weight: 500;
+          color: rgba(11, 18, 32, 0.65);
+          cursor: pointer;
+          transition: color 0.2s ease;
+        }
+        .vaidyaq-nav-link:hover, .vaidyaq-nav-link.active {
+          color: var(--primary);
+        }
+
+        /* Responsive Ring Container */
+        .readiness-ring-wrapper {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 320px;
+          height: 320px;
+          transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .readiness-ring-wrapper.docked {
+          position: fixed;
+          bottom: 2rem;
+          right: 2rem;
+          width: 140px;
+          height: 140px;
+          transform: scale(0.7);
+          transform-origin: bottom right;
+          z-index: 9999;
+          background: rgba(250, 251, 253, 0.85);
+          border: 1px solid rgba(11, 18, 32, 0.1);
+          border-radius: 24px;
+          box-shadow: 0 20px 45px rgba(11, 18, 32, 0.12);
+          backdrop-filter: blur(16px);
+          padding: 8px;
+        }
+
+        /* Ambient Glow Mesh */
+        .ambient-mesh {
+          position: absolute;
+          width: 100%;
+          height: 100%;
+          top: 0;
+          left: 0;
+          pointer-events: none;
+          z-index: 0;
+          opacity: 0.08;
+          background: radial-gradient(circle at 10% 20%, var(--primary) 0%, transparent 40%),
+                      radial-gradient(circle at 90% 80%, var(--signal-teal) 0%, transparent 40%),
+                      radial-gradient(circle at 50% 50%, #7c8cf8 0%, transparent 50%);
+          filter: blur(80px);
+          animation: pulseGlow 15s infinite alternate ease-in-out;
+        }
+        @keyframes pulseGlow {
+          0% { transform: scale(1); opacity: 0.06; }
+          100% { transform: scale(1.1); opacity: 0.1; }
+        }
+
+        /* Orbiting micro-chips */
+        .orbit-container {
+          position: absolute;
+          width: 100%;
+          height: 100%;
+          animation: orbitRotate 45s linear infinite;
+        }
+        .readiness-ring-wrapper.docked .orbit-container {
+          display: none;
+        }
+        @keyframes orbitRotate {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .orbiting-chip {
+          position: absolute;
+          font-family: var(--font-mono);
+          font-size: 0.6rem;
+          font-weight: 700;
+          color: var(--primary);
+          background: rgba(250, 251, 253, 0.95);
+          border: 1px solid rgba(11, 18, 32, 0.1);
+          border-radius: 999px;
+          padding: 0.2rem 0.5rem;
+          box-shadow: 0 4px 10px rgba(11, 18, 32, 0.03);
+          animation: counterRotate 45s linear infinite;
+        }
+        @keyframes counterRotate {
+          from { transform: rotate(360deg); }
+          to { transform: rotate(0deg); }
+        }
+
+        /* Keynote styling */
+        .landing-eyebrow {
+          font-family: var(--font-mono);
+          font-size: 0.72rem;
+          font-weight: 700;
+          letter-spacing: 0.15em;
+          color: var(--primary);
+          text-transform: uppercase;
+          margin-bottom: 1.25rem;
+        }
+        .landing-title {
+          font-family: var(--font-display);
+          font-weight: 700;
+          letter-spacing: -0.04em;
+          color: var(--ink);
+          line-height: 1.05;
+        }
+        .landing-subtitle {
+          font-family: var(--font-body);
+          font-size: 1.15rem;
+          line-height: 1.6;
+          color: rgba(11, 18, 32, 0.7);
+        }
+
+        /* Tonal elevation Cards */
+        .tonal-card {
+          background-color: #ffffff;
+          border: 1px solid rgba(11, 18, 32, 0.05);
+          border-radius: 24px;
+          padding: 2.25rem;
+          transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .tonal-card:hover {
+          transform: translateY(-4px);
+          border-color: rgba(14, 95, 216, 0.15);
+          box-shadow: 0 20px 40px -15px rgba(11, 18, 32, 0.05);
+        }
+
+        /* Problem Section Strikethrough */
+        .problem-row {
+          opacity: 0.3;
+          transform: translateY(12px);
+          transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .problem-row.active {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        .strikethrough-line {
+          position: relative;
+          display: inline-block;
+        }
+        .strikethrough-line::after {
+          content: "";
+          position: absolute;
+          left: 0;
+          top: 50%;
+          width: 0;
+          height: 2px;
+          background: #ef4444;
+          transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .problem-row.active .strikethrough-line::after {
+          width: 100%;
+        }
+
+        /* Browser Mock UI */
+        .browser-mock {
+          border-radius: 16px;
+          border: 1px solid rgba(11, 18, 32, 0.1);
+          overflow: hidden;
+          background: #ffffff;
+          box-shadow: 0 30px 60px -20px rgba(11, 18, 32, 0.1);
+          transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Micro-illustrations */
+        .micro-ill-pageflip {
+          width: 28px;
+          height: 36px;
+          border: 2px solid var(--primary);
+          border-radius: 4px;
+          position: relative;
+          overflow: hidden;
+        }
+        .micro-ill-pageflip::after {
+          content: "";
+          position: absolute;
+          top: 0;
+          right: 0;
+          width: 10px;
+          height: 10px;
+          background: var(--surface);
+          border-left: 2px solid var(--primary);
+          border-bottom: 2px solid var(--primary);
+          transition: transform 0.3s ease;
+        }
+        .tonal-card:hover .micro-ill-pageflip::after {
+          transform: translate(-2px, 2px) scale(0.8);
+        }
+
+        .micro-ill-loop {
+          width: 32px;
+          height: 32px;
+          border: 2.5px solid var(--signal-teal);
+          border-radius: 50%;
+          position: relative;
+        }
+        .micro-ill-loop::after {
+          content: "✓";
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          font-size: 14px;
+          font-weight: bold;
+          color: var(--signal-teal);
+          opacity: 0.3;
+          transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .tonal-card:hover .micro-ill-loop::after {
+          opacity: 1;
+          transform: translate(-50%, -50%) scale(1.1);
+        }
+
+        /* Animations */
         .hero-video-fade-in {
           animation: fadeIn 0.4s ease-in-out;
         }
@@ -635,328 +1030,679 @@ Key Benefits of the SaaS Model:
       `}</style>
 
       {/* Navigation Header */}
-      <header className="public-header">
-        <div className="container public-nav flex align-center justify-between" style={{ position: 'relative' }}>
-          <div className="logo cursor-pointer" onClick={() => navigateToTab('home')}>
-            <VaidyaQLogo size={28} showText={true} showSlogan={false} />
-          </div>
+      <header className={`vaidyaq-pill-nav ${isScrolled ? 'scrolled' : ''}`}>
+        <div className="logo cursor-pointer" onClick={() => navigateToTab('home')} style={{ display: 'flex', alignItems: 'center' }}>
+          <VaidyaQLogo size={24} showText={true} showSlogan={false} />
+        </div>
 
-          <ul className="nav-links">
-            <li><button onClick={() => navigateToTab('home')} className={`nav-link ${activeTab === 'home' ? 'active' : ''}`}>Home</button></li>
-            <li><button onClick={() => navigateToTab('solutions')} className={`nav-link ${activeTab === 'solutions' ? 'active' : ''}`}>Solutions</button></li>
-            <li><button onClick={() => navigateToTab('pricing')} className={`nav-link ${activeTab === 'pricing' ? 'active' : ''}`}>Pricing Plans</button></li>
-            <li><button onClick={() => navigateToTab('book-demo')} className={`nav-link ${activeTab === 'book-demo' ? 'active' : ''}`}>Book Demo</button></li>
-            <li><button onClick={() => navigateToTab('contact')} className={`nav-link ${activeTab === 'contact' ? 'active' : ''}`}>Contact Us</button></li>
-          </ul>
-
-          {/* Desktop Navigation buttons */}
-          <div className="desktop-header-buttons flex align-center gap-2">
-            <button
-              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-              style={{ padding: '0.4rem', border: '1px solid var(--border-color)', borderRadius: '50%', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        <ul className="vaidyaq-nav-links">
+          <li>
+            <button 
+              onClick={() => navigateToTab('home')} 
+              className={`vaidyaq-nav-link ${activeTab === 'home' ? 'active' : ''}`}
             >
-              {theme === 'light' ? '🌙' : '☀️'}
+              Home
             </button>
-            <button onClick={() => navigateToTab('login')} className="btn btn-secondary" style={{ padding: '0.5rem 1rem' }}>
-              Sign In
+          </li>
+          <li>
+            <button 
+              onClick={() => navigateToTab('solutions')} 
+              className={`vaidyaq-nav-link ${activeTab === 'solutions' ? 'active' : ''}`}
+            >
+              Modules
             </button>
-            <button onClick={() => navigateToTab('book-demo')} className="btn btn-primary" style={{ padding: '0.5rem 1rem' }}>
+          </li>
+          <li>
+            <button 
+              onClick={() => navigateToTab('pricing')} 
+              className={`vaidyaq-nav-link ${activeTab === 'pricing' ? 'active' : ''}`}
+            >
+              Pricing
+            </button>
+          </li>
+          <li>
+            <button 
+              onClick={() => navigateToTab('book-demo')} 
+              className={`vaidyaq-nav-link ${activeTab === 'book-demo' ? 'active' : ''}`}
+            >
               Book Demo
             </button>
-          </div>
-
-          {/* Mobile Navigation controls */}
-          <div className="mobile-header-toggle flex align-center gap-2" style={{ display: 'none' }}>
-            <button
-              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-              style={{ padding: '0.4rem', border: '1px solid var(--border-color)', borderRadius: '50%', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          </li>
+          <li>
+            <button 
+              onClick={() => navigateToTab('contact')} 
+              className={`vaidyaq-nav-link ${activeTab === 'contact' ? 'active' : ''}`}
             >
-              {theme === 'light' ? '🌙' : '☀️'}
+              Contact
             </button>
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--text-primary)',
-                cursor: 'pointer',
-                padding: '0.4rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
-            </button>
-          </div>
+          </li>
+        </ul>
 
-          {/* Mobile Dropdown Drawer Menu */}
-          {mobileMenuOpen && (
-            <div className="mobile-nav-menu glassmorphic-menu">
-              <ul className="mobile-nav-links">
-                <li><button onClick={() => { navigateToTab('home'); setMobileMenuOpen(false); }} className={`nav-link ${activeTab === 'home' ? 'active' : ''}`}>Home</button></li>
-                <li><button onClick={() => { navigateToTab('solutions'); setMobileMenuOpen(false); }} className={`nav-link ${activeTab === 'solutions' ? 'active' : ''}`}>Solutions</button></li>
-                <li><button onClick={() => { navigateToTab('pricing'); setMobileMenuOpen(false); }} className={`nav-link ${activeTab === 'pricing' ? 'active' : ''}`}>Pricing Plans</button></li>
-                <li><button onClick={() => { navigateToTab('book-demo'); setMobileMenuOpen(false); }} className={`nav-link ${activeTab === 'book-demo' ? 'active' : ''}`}>Book Demo</button></li>
-                <li><button onClick={() => { navigateToTab('contact'); setMobileMenuOpen(false); }} className={`nav-link ${activeTab === 'contact' ? 'active' : ''}`}>Contact Us</button></li>
-              </ul>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
-                <button onClick={() => { navigateToTab('login'); setMobileMenuOpen(false); }} className="btn btn-secondary" style={{ padding: '0.75rem', width: '100%' }}>
-                  Sign In
-                </button>
-                <button onClick={() => { navigateToTab('book-demo'); setMobileMenuOpen(false); }} className="btn btn-primary" style={{ padding: '0.75rem', width: '100%' }}>
-                  Book Demo
-                </button>
-              </div>
-            </div>
-          )}
+        {/* Right Actions */}
+        <div className="flex align-center gap-2">
+          <button
+            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+            style={{ 
+              padding: '0.35rem', 
+              border: '1px solid rgba(11, 18, 32, 0.08)', 
+              borderRadius: '50%', 
+              color: 'var(--primary)', 
+              cursor: 'pointer', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              backgroundColor: 'rgba(250, 251, 253, 0.5)'
+            }}
+            aria-label="Toggle theme"
+          >
+            {theme === 'light' ? '🌙' : '☀️'}
+          </button>
+          <button 
+            onClick={() => navigateToTab('login')} 
+            className="vaidyaq-nav-link" 
+            style={{ 
+              fontSize: '0.85rem', 
+              fontWeight: 500, 
+              padding: '0.4rem 0.8rem',
+              display: 'inline-block'
+            }}
+          >
+            Sign In
+          </button>
+          <button 
+            onClick={() => navigateToTab('book-demo')} 
+            className="btn btn-primary" 
+            style={{ 
+              padding: isScrolled ? '0.4rem 1rem' : '0.5rem 1.25rem', 
+              fontSize: '0.8rem', 
+              fontWeight: 700, 
+              borderRadius: '9999px',
+              backgroundColor: 'var(--primary)',
+              color: '#ffffff',
+              transition: 'all 0.3s ease'
+            }}
+          >
+            Book Demo
+          </button>
+
+          {/* Mobile hamburger menu toggle */}
+          <button
+            className="mobile-toggle"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-primary)',
+              cursor: 'pointer',
+              padding: '0.4rem',
+              display: 'none', // Managed in responsive media queries
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
         </div>
+
+        {/* Mobile Dropdown Drawer Menu */}
+        {mobileMenuOpen && (
+          <div className="mobile-nav-menu glassmorphic-menu" style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            marginTop: '0.75rem',
+            background: 'rgba(250, 251, 253, 0.95)',
+            backdropFilter: 'blur(24px)',
+            border: '1px solid rgba(11, 18, 32, 0.1)',
+            borderRadius: '20px',
+            padding: '1.5rem',
+            boxShadow: '0 20px 40px rgba(11,18,32,0.1)',
+            zIndex: 9999
+          }}>
+            <ul className="mobile-nav-links" style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <li><button onClick={() => { navigateToTab('home'); setMobileMenuOpen(false); }} className="vaidyaq-nav-link" style={{ fontSize: '1rem', width: '100%', textAlign: 'left' }}>Home</button></li>
+              <li><button onClick={() => { navigateToTab('solutions'); setMobileMenuOpen(false); }} className="vaidyaq-nav-link" style={{ fontSize: '1rem', width: '100%', textAlign: 'left' }}>Modules</button></li>
+              <li><button onClick={() => { navigateToTab('pricing'); setMobileMenuOpen(false); }} className="vaidyaq-nav-link" style={{ fontSize: '1rem', width: '100%', textAlign: 'left' }}>Pricing Plans</button></li>
+              <li><button onClick={() => { navigateToTab('book-demo'); setMobileMenuOpen(false); }} className="vaidyaq-nav-link" style={{ fontSize: '1rem', width: '100%', textAlign: 'left' }}>Book Demo</button></li>
+              <li><button onClick={() => { navigateToTab('contact'); setMobileMenuOpen(false); }} className="vaidyaq-nav-link" style={{ fontSize: '1rem', width: '100%', textAlign: 'left' }}>Contact Us</button></li>
+            </ul>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.25rem', borderTop: '1px solid rgba(11,18,32,0.08)', paddingTop: '1.25rem' }}>
+              <button onClick={() => { navigateToTab('login'); setMobileMenuOpen(false); }} className="btn btn-secondary" style={{ padding: '0.75rem', width: '100%', borderRadius: '12px' }}>
+                Sign In
+              </button>
+              <button onClick={() => { navigateToTab('book-demo'); setMobileMenuOpen(false); }} className="btn btn-primary" style={{ padding: '0.75rem', width: '100%', borderRadius: '12px', backgroundColor: 'var(--primary)', color: '#ffffff' }}>
+                Book Demo
+              </button>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* Page View Controller */}
       <main className="flex-1">
-        
-        {/* HOME VIEW */}
         {activeTab === 'home' && (
-          <div>
-            {/* Hero Section */}
-            <section className="hero-section" style={{ padding: '4rem 0 5rem 0', position: 'relative', overflow: 'hidden' }}>
-              {/* 2026 Mesh Glow blobs */}
-              <div className="hero-glow-bg">
-                <div className="gradient-blob blob-indigo" />
-                <div className="gradient-blob blob-teal" />
-              </div>
+          <div className="vaidyaq-landing-body">
+            {/* Ambient background mesh */}
+            <div className="ambient-mesh" />
 
-              <div className="container hero-grid" style={{ gap: '2rem', position: 'relative', zIndex: 1 }}>
-                
-                {/* Left Column: CTA Details */}
-                <div style={{ textAlign: 'left' }}>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem', padding: '0.5rem 1rem', backgroundColor: 'var(--primary-light)', borderRadius: '30px', border: '1px solid var(--primary)', boxShadow: '0 0 15px rgba(13, 148, 136, 0.2)', animation: 'pulse 2s infinite' }}>
-                    <Sparkles size={14} color="var(--primary)" />
-                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--primary-hover)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                      🚀 JAN 2026 RELEASE • NABH 6TH EDITION COMPLIANCE OS
-                    </span>
-                  </div>
-                  <h1 className="hero-title" style={{ fontSize: '3.5rem', lineHeight: '1.1', fontWeight: 800 }}>
-                    Stay Audit-Ready <br />
-                    <span className="text-gradient-2026" style={{ display: 'inline-block', padding: '0.2rem 0' }}>Every Single Day.</span>
+            {/* Floating corner readiness ring */}
+            <AuditReadinessRing completion={ringCompletion} docked={ringCompletion.docked} />
+
+            {/* 1. HERO SECTION */}
+            <section style={{ padding: '8rem 0 6rem 0', position: 'relative', overflow: 'hidden', minHeight: '90vh', display: 'flex', alignItems: 'center' }}>
+              <div className="container" style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '4rem', alignItems: 'center' }}>
+                <div style={{ zIndex: 10 }}>
+                  <div className="landing-eyebrow">Hospital Quality OS • NABH 5th & 6th Ed • JCI</div>
+                  <h1 className="landing-title" style={{ fontSize: 'clamp(2.8rem, 5.5vw, 5.2rem)', marginBottom: '1.5rem', fontWeight: 800 }}>
+                    Audit-ready.<br />Every single day.
                   </h1>
-                  <p className="hero-subtitle" style={{ fontSize: '1.1rem', color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: '2rem' }}>
-                    VaidyaQ AI is a clinical accreditation operating system. It links hospital documents, internal checklists, CAPAs, incidents, and licenses into a unified, live compliance grade.
+                  <p className="landing-subtitle" style={{ fontSize: '1.25rem', marginBottom: '2.5rem', maxWidth: '580px', color: 'rgba(11,18,32,0.65)' }}>
+                    VaidyaQ runs your entire quality program — documents, audits, CAPAs, incidents, and indicators — so accreditation day is just another Tuesday.
                   </p>
-                  
-                  <div className="flex align-center gap-3" style={{ flexWrap: 'wrap' }}>
-                    <button onClick={() => navigateToTab('book-demo')} className="btn btn-primary glow-premium glow-premium-btn" style={{ padding: '0.9rem 2rem', fontSize: '1rem', fontWeight: 700, borderRadius: 'var(--radius-lg)' }}>
-                      Request Live Demo <ChevronRight size={18} />
+                  <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
+                    <button 
+                      onClick={() => navigateToTab('book-demo')} 
+                      className="btn btn-primary" 
+                      style={{ 
+                        padding: '0.95rem 2.25rem', 
+                        fontSize: '0.95rem', 
+                        fontWeight: 700, 
+                        borderRadius: '9999px',
+                        backgroundColor: 'var(--primary)',
+                        color: '#ffffff',
+                        boxShadow: '0 10px 25px rgba(14, 95, 216, 0.22)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Book a Demo
                     </button>
-                    <button onClick={() => navigateToTab('solutions')} className="btn btn-secondary" style={{ padding: '0.9rem 2rem', fontSize: '1rem', fontWeight: 700, borderRadius: 'var(--radius-lg)' }}>
-                      Explore Modules
+                    <button 
+                      onClick={() => navigateToTab('solutions')} 
+                      className="btn btn-secondary" 
+                      style={{ 
+                        padding: '0.95rem 2.25rem', 
+                        fontSize: '0.95rem', 
+                        fontWeight: 700, 
+                        borderRadius: '9999px',
+                        border: '1px solid rgba(11, 18, 32, 0.15)',
+                        backgroundColor: 'transparent',
+                        color: 'var(--ink)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Watch 2-min tour
                     </button>
-                  </div>
-
-                  <div className="flex align-center gap-3" style={{ marginTop: '2.5rem', color: 'var(--text-tertiary)', fontSize: '0.8rem', fontWeight: 700, flexWrap: 'wrap' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>🛡️ AES-256 local encryption</span>
-                    <span className="navbar-search">•</span>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>🔒 ABDM sandbox validated</span>
-                    <span className="navbar-search">•</span>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>⚡ 60s incident reporting</span>
                   </div>
                 </div>
 
-                {/* Right Column: AI Video Loop / Dashboard Mockup Split Pane */}
-                <div className="glow-card float-element-slow" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0, border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.15)', minHeight: '380px' }}>
-                  {/* Pane Toggle Tab Headers */}
-                  <div style={{ display: 'flex', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)' }}>
-                    <button
-                      onClick={() => setActiveHeroTab('video')}
-                      style={{
-                        flex: 1,
-                        padding: '0.75rem',
-                        fontSize: '0.8rem',
-                        fontWeight: 700,
-                        backgroundColor: activeHeroTab === 'video' ? 'var(--bg-primary)' : 'transparent',
-                        color: activeHeroTab === 'video' ? 'var(--primary)' : 'var(--text-secondary)',
-                        borderRight: '1px solid var(--border-color)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '0.4rem'
-                      }}
-                    >
-                      <Tv size={14} /> AI Video Walkthrough
-                    </button>
-                    <button
-                      onClick={() => setActiveHeroTab('dashboard')}
-                      style={{
-                        flex: 1,
-                        padding: '0.75rem',
-                        fontSize: '0.8rem',
-                        fontWeight: 700,
-                        backgroundColor: activeHeroTab === 'dashboard' ? 'var(--bg-primary)' : 'transparent',
-                        color: activeHeroTab === 'dashboard' ? 'var(--primary)' : 'var(--text-secondary)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '0.4rem'
-                      }}
-                    >
-                      <Building size={14} /> Live Dashboard Preview
-                    </button>
-                  </div>
-
-                  {/* ACTIVE HERO TAB: REAL VIDEO LOOP */}
-                  {activeHeroTab === 'video' ? (
-                    <div style={{ flex: 1, position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#000', color: '#fff' }}>
-                      {/* Video Screen Viewport */}
-                      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '280px' }}>
-                        <video
-                          ref={heroVideoRef}
-                          src="https://assets.mixkit.co/videos/preview/mixkit-surgeons-performing-a-surgery-in-a-sterile-room-41834-large.mp4"
-                          autoPlay={heroVideoPlaying}
-                          loop
-                          muted
-                          playsInline
-                          onTimeUpdate={() => {
-                            if (heroVideoRef.current) {
-                              const duration = heroVideoRef.current.duration || 5;
-                              const currentTime = heroVideoRef.current.currentTime;
-                              setHeroVideoProgress((currentTime / duration) * 100);
-                              setHeroVideoTime(currentTime);
-                            }
-                          }}
-                          style={{
-                            position: 'absolute',
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover'
-                          }}
-                        />
-
-                        {/* Pulsing Live Badge Overlay */}
-                        <div style={{ position: 'absolute', top: '12px', left: '12px', display: 'flex', alignItems: 'center', gap: '0.4rem', backgroundColor: 'rgba(0,0,0,0.6)', padding: '0.25rem 0.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.2)', zIndex: 2 }}>
-                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#ef4444', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
-                          <span style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>● LIVE WALKTHROUGH</span>
-                        </div>
-
-                        {/* Overlay Subtitle Captions based on time */}
-                        <div style={{ position: 'absolute', bottom: '16px', left: '12px', right: '12px', backgroundColor: 'rgba(15,23,42,0.85)', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', textAlign: 'center', zIndex: 2 }}>
-                          <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--primary)' }}>
-                            {heroVideoProgress < 50 ? "Scene 1: Clinical Team Audit Briefing" : "Scene 2: SOP Customization & AI Mapping"}
-                          </div>
-                          <div style={{ fontSize: '0.65rem', color: '#cbd5e1', marginTop: '0.2rem' }}>
-                            {heroVideoProgress < 50 
-                              ? "Quality Officers briefing nursing staff on drug expiry checks in central wards."
-                              : "Quality Head using VaidyaQ AI Co-Pilot to map digital guidelines."}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Video Player Scrubber & Controls */}
-                      <div style={{ padding: '0.75rem 1rem', backgroundColor: '#0f172a', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: '0.75rem', zIndex: 2 }}>
-                        {/* Play/Pause Button */}
-                        <button
-                          onClick={() => setHeroVideoPlaying(!heroVideoPlaying)}
-                          style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex' }}
-                        >
-                          {heroVideoPlaying ? <Pause size={16} /> : <Play size={16} />}
-                        </button>
-
-                        {/* Progress Bar (Scrubber) */}
-                        <div
-                          style={{ flex: 1, height: '4px', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: '2px', position: 'relative', cursor: 'pointer' }}
-                          onClick={(e) => {
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            const clickX = e.clientX - rect.left;
-                            const progressVal = Math.round((clickX / rect.width) * 100);
-                            setHeroVideoProgress(progressVal);
-                            if (heroVideoRef.current) {
-                              const duration = heroVideoRef.current.duration || 5;
-                              heroVideoRef.current.currentTime = (progressVal / 100) * duration;
-                            }
-                          }}
-                        >
-                          <div style={{ height: '100%', width: `${heroVideoProgress}%`, backgroundColor: 'var(--primary)', borderRadius: '2px' }} />
-                        </div>
-
-                        {/* Scrubber Time stamps */}
-                        <span style={{ fontSize: '0.7rem', fontFamily: 'monospace', color: '#94a3b8' }}>
-                          0:{Math.floor(heroVideoTime) < 10 ? `0${Math.floor(heroVideoTime)}` : Math.floor(heroVideoTime)} / 0:05
-                        </span>
-
-                        <span style={{ fontSize: '0.65rem', padding: '0.1rem 0.25rem', backgroundColor: 'rgba(255,255,255,0.1)', color: '#fff', borderRadius: '4px', fontWeight: 'bold' }}>AI GEN</span>
-                      </div>
-                    </div>
-                  ) : (
-                    /* HERO TAB: STATIC/INTERACTIVE DASHBOARD MOCKUP */
-                    <div className="mockup-dashboard" style={{ margin: 0, borderRadius: 0, flex: 1, border: 'none' }}>
-                      <div className="mockup-header flex justify-between align-center">
-                        <div className="flex align-center gap-2">
-                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--color-success)' }} />
-                          <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>City Central Hospital - AI Preview</span>
-                        </div>
-                        <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>82.5% Ready</span>
-                      </div>
-
-                      {/* Top Widgets row */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                        <div style={{ padding: '0.5rem', backgroundColor: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                          <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Open CAPA Items</div>
-                          <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--color-danger)' }}>1 Pending</div>
-                        </div>
-                        <div style={{ padding: '0.5rem', backgroundColor: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                          <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Licensing Gaps</div>
-                          <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--color-warning)' }}>1 Expired</div>
-                        </div>
-                      </div>
-
-                      {/* Department Risk Row */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem', backgroundColor: 'rgba(220, 38, 38, 0.05)', borderRadius: '8px', border: '1.5px solid var(--color-danger)', fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-danger)', marginBottom: '0.75rem' }}>
-                        <span>Pharmacy Risk: HIGH (Narcotics Expiry)</span>
-                        <span className="badge badge-danger" style={{ fontSize: '0.55rem', padding: '0.1rem 0.3rem' }}>ALERT</span>
-                      </div>
-
-                      {/* AI Chat box */}
-                      <div className="mockup-chat" style={{ minHeight: '90px' }}>
-                        <div className="flex align-center gap-1" style={{ color: 'var(--primary)', fontWeight: 700, fontSize: '0.75rem', marginBottom: '0.25rem' }}>
-                          <Brain size={12} />
-                          <span>VaidyaQ Co-Pilot Assistant</span>
-                        </div>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-primary)', minHeight: '40px', lineHeight: 1.4, margin: 0 }}>
-                          {mockupChatText}
-                        </p>
-                      </div>
-
-                      {/* Quick Click Prompts */}
-                      <div style={{ marginTop: '0.5rem' }} className="flex flex-col gap-1">
-                        <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-tertiary)' }}>TRIGGER AI QUERIES:</span>
-                        <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
-                          <button
-                            onClick={() => triggerMockupChat('narcotics')}
-                            className="btn btn-secondary"
-                            style={{ padding: '0.2rem 0.4rem', fontSize: '0.65rem', borderRadius: '12px', borderColor: mockupActiveQuery === 'narcotics' ? 'var(--primary)' : 'var(--border-color)' }}
-                          >
-                            ⚡ Pharmacy license gap?
-                          </button>
-                          <button
-                            onClick={() => triggerMockupChat('syringes')}
-                            className="btn btn-secondary"
-                            style={{ padding: '0.2rem 0.4rem', fontSize: '0.65rem', borderRadius: '12px', borderColor: mockupActiveQuery === 'syringes' ? 'var(--primary)' : 'var(--border-color)' }}
-                          >
-                            ⚡ ICU Cart finding?
-                          </button>
-                          <button
-                            onClick={() => triggerMockupChat('overall')}
-                            className="btn btn-secondary"
-                            style={{ padding: '0.2rem 0.4rem', fontSize: '0.65rem', borderRadius: '12px', borderColor: mockupActiveQuery === 'overall' ? 'var(--primary)' : 'var(--border-color)' }}
-                          >
-                            ⚡ Calculate standard gaps?
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                {/* Right: Hero Activity Ring */}
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '320px' }}>
+                  {!ringCompletion.docked && (
+                    <AuditReadinessRing completion={ringCompletion} docked={false} />
                   )}
                 </div>
+              </div>
+            </section>
 
+            {/* Trust Marquee */}
+            <div style={{ borderTop: '1px solid rgba(11,18,32,0.06)', borderBottom: '1px solid rgba(11,18,32,0.06)', padding: '1.25rem 0', background: 'rgba(250,251,253,0.5)' }}>
+              <div className="container flex justify-between align-center" style={{ flexWrap: 'wrap', gap: '1.5rem', fontFamily: 'var(--font-mono)', fontSize: '0.72rem', fontWeight: 600, color: 'rgba(11,18,32,0.45)', letterSpacing: '0.05em' }}>
+                <span>✓ NABH 6TH EDITION COMPLIANCE MAPPED</span>
+                <span>✓ DPDP ACT COMPLIANT SANDBOX</span>
+                <span>✓ ENGINEERED FOR INDIAN ACCREDITATION</span>
+              </div>
+            </div>
+
+            {/* 2. THE PROBLEM — Cinematic Contrast (Dark Section) */}
+            <section style={{ background: 'var(--ink)', color: '#ffffff', padding: '7rem 0', position: 'relative' }}>
+              <div className="container" style={{ maxWidth: '960px' }}>
+                <div className="landing-eyebrow" style={{ color: 'var(--signal-teal)' }}>The Accreditation Crisis</div>
+                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(2rem, 4vw, 3.2rem)', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.1, marginBottom: '4.5rem', color: '#ffffff' }}>
+                  Accreditation prep shouldn't be a 6-month fire drill.
+                </h2>
+
+                <div className="flex flex-col gap-3">
+                  <div className={`problem-row flex justify-between align-center ${activeSection !== 'hero' ? 'active' : ''}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '2rem' }}>
+                    <span className="strikethrough-line" style={{ fontSize: '1.15rem', color: 'rgba(255,255,255,0.45)' }}>Chasing signatures via WhatsApp and paper binders</span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: 'var(--signal-teal)', fontWeight: 700 }}>[VAIDYAQ] Local document encryption & revisions</span>
+                  </div>
+                  <div className={`problem-row flex justify-between align-center ${activeSection !== 'hero' && activeSection !== 'problem' ? 'active' : ''}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '2rem', paddingTop: '1rem' }}>
+                    <span className="strikethrough-line" style={{ fontSize: '1.15rem', color: 'rgba(255,255,255,0.45)' }}>Last-minute CAPAs formulated after audit failures</span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: 'var(--signal-teal)', fontWeight: 700 }}>[VAIDYAQ] Automated CAPA triggers & assignments</span>
+                  </div>
+                  <div className={`problem-row flex justify-between align-center ${activeSection !== 'hero' && activeSection !== 'problem' && activeSection !== 'platform' ? 'active' : ''}`} style={{ paddingTop: '1rem' }}>
+                    <span className="strikethrough-line" style={{ fontSize: '1.15rem', color: 'rgba(255,255,255,0.45)' }}>Scattered quality indicator spreadsheets that crash</span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: 'var(--signal-teal)', fontWeight: 700 }}>[VAIDYAQ] Real-time clinical outcome telemetry</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* 3. PLATFORM OVERVIEW — Interactive Keynote Screenshot Mock */}
+            <section style={{ padding: '7rem 0', background: 'rgba(250,251,253,0.5)', borderBottom: '1px solid rgba(11,18,32,0.05)' }}>
+              <div className="container">
+                <div style={{ textAlign: 'center', marginBottom: '4.5rem' }}>
+                  <div className="landing-eyebrow">Real-Time Quality Console</div>
+                  <h2 className="landing-title" style={{ fontSize: 'clamp(2rem, 3.5vw, 2.8rem)' }}>Accreditation telemetry at a glance</h2>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '0.35fr 0.65fr', gap: '3.5rem', alignItems: 'center' }}>
+                  {/* Left Sidebar Selectors */}
+                  <div className="flex flex-col gap-2">
+                    <button 
+                      onClick={() => setActivePlatformTab('dashboard')} 
+                      className="tonal-card" 
+                      style={{ 
+                        textAlign: 'left', 
+                        padding: '1.25rem', 
+                        cursor: 'pointer',
+                        borderRadius: '16px',
+                        border: '1px solid',
+                        borderColor: activePlatformTab === 'dashboard' ? 'rgba(14, 95, 216, 0.2)' : 'rgba(11,18,32,0.04)',
+                        backgroundColor: activePlatformTab === 'dashboard' ? '#ffffff' : 'transparent',
+                        boxShadow: activePlatformTab === 'dashboard' ? '0 10px 25px rgba(11,18,32,0.03)' : 'none'
+                      }}
+                    >
+                      <h4 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1rem', margin: 0, color: activePlatformTab === 'dashboard' ? 'var(--primary)' : 'var(--ink)' }}>Executive Dashboard</h4>
+                      <p style={{ fontSize: '0.78rem', color: 'rgba(11,18,32,0.55)', margin: '4px 0 0 0' }}>Overall hospital compliance grades & outstanding action tasks.</p>
+                    </button>
+                    <button 
+                      onClick={() => setActivePlatformTab('doc-ctrl')} 
+                      className="tonal-card" 
+                      style={{ 
+                        textAlign: 'left', 
+                        padding: '1.25rem', 
+                        cursor: 'pointer',
+                        borderRadius: '16px',
+                        border: '1px solid',
+                        borderColor: activePlatformTab === 'doc-ctrl' ? 'rgba(14, 95, 216, 0.2)' : 'rgba(11,18,32,0.04)',
+                        backgroundColor: activePlatformTab === 'doc-ctrl' ? '#ffffff' : 'transparent',
+                        boxShadow: activePlatformTab === 'doc-ctrl' ? '0 10px 25px rgba(11,18,32,0.03)' : 'none'
+                      }}
+                    >
+                      <h4 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1rem', margin: 0, color: activePlatformTab === 'doc-ctrl' ? 'var(--primary)' : 'var(--ink)' }}>Document Control</h4>
+                      <p style={{ fontSize: '0.78rem', color: 'rgba(11,18,32,0.55)', margin: '4px 0 0 0' }}>SOP management, digital signatures, and revision history logs.</p>
+                    </button>
+                    <button 
+                      onClick={() => setActivePlatformTab('capa')} 
+                      className="tonal-card" 
+                      style={{ 
+                        textAlign: 'left', 
+                        padding: '1.25rem', 
+                        cursor: 'pointer',
+                        borderRadius: '16px',
+                        border: '1px solid',
+                        borderColor: activePlatformTab === 'capa' ? 'rgba(14, 95, 216, 0.2)' : 'rgba(11,18,32,0.04)',
+                        backgroundColor: activePlatformTab === 'capa' ? '#ffffff' : 'transparent',
+                        boxShadow: activePlatformTab === 'capa' ? '0 10px 25px rgba(11,18,32,0.03)' : 'none'
+                      }}
+                    >
+                      <h4 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1rem', margin: 0, color: activePlatformTab === 'capa' ? 'var(--primary)' : 'var(--ink)' }}>CAPA Engine</h4>
+                      <p style={{ fontSize: '0.78rem', color: 'rgba(11,18,32,0.55)', margin: '4px 0 0 0' }}>Root cause analysis logs and corrective actions tracking board.</p>
+                    </button>
+                    <button 
+                      onClick={() => setActivePlatformTab('indicators')} 
+                      className="tonal-card" 
+                      style={{ 
+                        textAlign: 'left', 
+                        padding: '1.25rem', 
+                        cursor: 'pointer',
+                        borderRadius: '16px',
+                        border: '1px solid',
+                        borderColor: activePlatformTab === 'indicators' ? 'rgba(14, 95, 216, 0.2)' : 'rgba(11,18,32,0.04)',
+                        backgroundColor: activePlatformTab === 'indicators' ? '#ffffff' : 'transparent',
+                        boxShadow: activePlatformTab === 'indicators' ? '0 10px 25px rgba(11,18,32,0.03)' : 'none'
+                      }}
+                    >
+                      <h4 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1rem', margin: 0, color: activePlatformTab === 'indicators' ? 'var(--primary)' : 'var(--ink)' }}>Quality Indicators</h4>
+                      <p style={{ fontSize: '0.78rem', color: 'rgba(11,18,32,0.55)', margin: '4px 0 0 0' }}>Automatic charts for clinical outcomes, HAI rates, and mortality tracking.</p>
+                    </button>
+                  </div>
+
+                  {/* Right Viewport Mockups */}
+                  <div className="browser-mock">
+                    <div style={{ display: 'flex', gap: '6px', background: 'rgba(11,18,32,0.03)', padding: '10px 16px', borderBottom: '1px solid rgba(11,18,32,0.08)', alignItems: 'center' }}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ff5f56' }} />
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ffbd2e' }} />
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#27c93f' }} />
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'rgba(11,18,32,0.4)', marginLeft: '12px', letterSpacing: '0.05em' }}>
+                        HTTPS://CONSOLE.VAIDYAQ.AI/FACILITY/SARAH-HOSPITAL
+                      </span>
+                    </div>
+
+                    <div style={{ padding: '1.75rem', minHeight: '340px', background: '#ffffff', color: 'var(--ink)' }}>
+                      {activePlatformTab === 'dashboard' && (
+                        <div>
+                          <div className="flex justify-between align-center" style={{ marginBottom: '1.5rem', borderBottom: '1px solid rgba(11,18,32,0.06)', paddingBottom: '1rem' }}>
+                            <div>
+                              <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0 }}>Fortis Hospital Delhi</h3>
+                              <p style={{ fontSize: '0.72rem', color: 'rgba(11,18,32,0.45)', margin: 0, fontFamily: 'var(--font-mono)' }}>IPID: DEL-FHD-2026</p>
+                            </div>
+                            <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>✓ Compliant</span>
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+                            <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(11,18,32,0.05)' }}>
+                              <span style={{ fontSize: '0.7rem', color: 'rgba(11,18,32,0.5)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>Readiness Grade</span>
+                              <h4 style={{ fontSize: '1.5rem', margin: '4px 0 0 0', color: 'var(--primary)' }}>94.2%</h4>
+                            </div>
+                            <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(11,18,32,0.05)' }}>
+                              <span style={{ fontSize: '0.7rem', color: 'rgba(11,18,32,0.5)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>Open CAPAs</span>
+                              <h4 style={{ fontSize: '1.5rem', margin: '4px 0 0 0', color: 'var(--amber)' }}>3</h4>
+                            </div>
+                            <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(11,18,32,0.05)' }}>
+                              <span style={{ fontSize: '0.7rem', color: 'rgba(11,18,32,0.5)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>Pending SOPs</span>
+                              <h4 style={{ fontSize: '1.5rem', margin: '4px 0 0 0', color: 'var(--ink)' }}>2</h4>
+                            </div>
+                          </div>
+
+                          <div style={{ background: 'rgba(14,95,216,0.04)', border: '1px solid rgba(14,95,216,0.1)', padding: '0.85rem 1rem', borderRadius: '12px', fontSize: '0.75rem', color: 'var(--primary)', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <span>🛡️</span>
+                            <span><strong>Audit Notification:</strong> Continuous validation cycle active. Last system scan completed successfully at 18:30 IST.</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {activePlatformTab === 'doc-ctrl' && (
+                        <div>
+                          <div className="flex justify-between align-center" style={{ marginBottom: '1.25rem' }}>
+                            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0 }}>Approved Document Register</h3>
+                            <button className="badge badge-neutral" style={{ border: '1px solid rgba(11,18,32,0.08)' }}>+ Add SOP</button>
+                          </div>
+                          
+                          <div className="flex flex-col gap-2">
+                            <div className="flex justify-between align-center" style={{ background: '#f8fafc', padding: '0.85rem 1rem', borderRadius: '10px', border: '1px solid rgba(11,18,32,0.03)' }}>
+                              <div>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'var(--primary)' }}>SOP-ICU-04</span>
+                                <h4 style={{ fontSize: '0.85rem', margin: '2px 0 0 0', fontWeight: 600 }}>Emergency Code Blue Protocol</h4>
+                              </div>
+                              <span className="badge badge-success" style={{ fontSize: '0.6rem' }}>v2.4 Active</span>
+                            </div>
+                            <div className="flex justify-between align-center" style={{ background: '#f8fafc', padding: '0.85rem 1rem', borderRadius: '10px', border: '1px solid rgba(11,18,32,0.03)' }}>
+                              <div>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'var(--primary)' }}>SOP-PHAR-12</span>
+                                <h4 style={{ fontSize: '0.85rem', margin: '2px 0 0 0', fontWeight: 600 }}>High-Alert Medications Storage & Dispensing</h4>
+                              </div>
+                              <span className="badge badge-success" style={{ fontSize: '0.6rem' }}>v1.9 Active</span>
+                            </div>
+                            <div className="flex justify-between align-center" style={{ background: '#f8fafc', padding: '0.85rem 1rem', borderRadius: '10px', border: '1px solid rgba(11,18,32,0.03)' }}>
+                              <div>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'var(--primary)' }}>SOP-IPD-08</span>
+                                <h4 style={{ fontSize: '0.85rem', margin: '2px 0 0 0', fontWeight: 600 }}>Patient Triage & Admission Records</h4>
+                              </div>
+                              <span className="badge badge-warning" style={{ fontSize: '0.6rem' }}>In Revision</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {activePlatformTab === 'capa' && (
+                        <div>
+                          <div className="flex justify-between align-center" style={{ marginBottom: '1.25rem' }}>
+                            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0 }}>Corrective & Preventive Actions (CAPA)</h3>
+                            <span style={{ fontSize: '0.72rem', color: 'rgba(11,18,32,0.45)', fontFamily: 'var(--font-mono)' }}>NABH Chapter 5</span>
+                          </div>
+
+                          <div className="flex flex-col gap-2">
+                            <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(11,18,32,0.04)' }}>
+                              <div className="flex justify-between align-center" style={{ marginBottom: '4px' }}>
+                                <span className="badge badge-danger" style={{ fontSize: '0.55rem' }}>High Risk</span>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'rgba(11,18,32,0.4)' }}>Due in 2 days</span>
+                              </div>
+                              <h4 style={{ fontSize: '0.85rem', margin: 0, fontWeight: 600 }}>Procure safety needle canisters for ICU Wing B</h4>
+                              <p style={{ fontSize: '0.72rem', color: 'rgba(11,18,32,0.5)', margin: '4px 0 0 0' }}>Assigned: Facilities Manager | Ref: Incident #IR-2231</p>
+                            </div>
+                            <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(11,18,32,0.04)' }}>
+                              <div className="flex justify-between align-center" style={{ marginBottom: '4px' }}>
+                                <span className="badge badge-warning" style={{ fontSize: '0.55rem' }}>Medium Risk</span>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'rgba(11,18,32,0.4)' }}>Due in 5 days</span>
+                              </div>
+                              <h4 style={{ fontSize: '0.85rem', margin: 0, fontWeight: 600 }}>Conduct BLS training drills for night-shift nurses</h4>
+                              <p style={{ fontSize: '0.72rem', color: 'rgba(11,18,32,0.5)', margin: '4px 0 0 0' }}>Assigned: Sister Gracy | Ref: Audit Gap #AUD-91</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {activePlatformTab === 'indicators' && (
+                        <div>
+                          <div className="flex justify-between align-center" style={{ marginBottom: '1.25rem' }}>
+                            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0 }}>Quality Telemetry Dashboard</h3>
+                            <span style={{ fontSize: '0.72rem', color: 'rgba(11,18,32,0.45)', fontFamily: 'var(--font-mono)' }}>Monthly Metrics</span>
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '1.25rem' }}>
+                            {/* Bar Graphic representation */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              <div style={{ fontSize: '0.75rem', color: 'rgba(11,18,32,0.7)' }}>
+                                <div className="flex justify-between" style={{ marginBottom: '4px' }}>
+                                  <span>Patient Fall Rate (per 1k days)</span>
+                                  <strong>0.15</strong>
+                                </div>
+                                <div style={{ height: '8px', background: '#e2e8f0', borderRadius: '999px', overflow: 'hidden' }}>
+                                  <div style={{ width: '15%', height: '100%', background: 'var(--signal-teal)' }} />
+                                </div>
+                              </div>
+                              <div style={{ fontSize: '0.75rem', color: 'rgba(11,18,32,0.7)' }}>
+                                <div className="flex justify-between" style={{ marginBottom: '4px' }}>
+                                  <span>Medication Errors</span>
+                                  <strong>0.02</strong>
+                                </div>
+                                <div style={{ height: '8px', background: '#e2e8f0', borderRadius: '999px', overflow: 'hidden' }}>
+                                  <div style={{ width: '5%', height: '100%', background: 'var(--signal-teal)' }} />
+                                </div>
+                              </div>
+                              <div style={{ fontSize: '0.75rem', color: 'rgba(11,18,32,0.7)' }}>
+                                <div className="flex justify-between" style={{ marginBottom: '4px' }}>
+                                  <span>Surgical Site Infection Rate</span>
+                                  <strong>0.08%</strong>
+                                </div>
+                                <div style={{ height: '8px', background: '#e2e8f0', borderRadius: '999px', overflow: 'hidden' }}>
+                                  <div style={{ width: '8%', height: '100%', background: 'var(--signal-teal)' }} />
+                                </div>
+                              </div>
+                            </div>
+
+                            <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(11,18,32,0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                              <span style={{ fontSize: '0.65rem', color: 'rgba(11,18,32,0.5)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>HAI Grade</span>
+                              <h4 style={{ fontSize: '1.75rem', margin: '2px 0', color: 'var(--signal-teal)' }}>A+</h4>
+                              <p style={{ fontSize: '0.65rem', color: 'rgba(11,18,32,0.4)', margin: 0 }}>Complies with JCI chapter 7 guidelines.</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* 4. MODULES GRID — Six Cards */}
+            <section style={{ padding: '7rem 0', background: '#ffffff' }}>
+              <div className="container">
+                <div style={{ textAlign: 'center', marginBottom: '4.5rem' }}>
+                  <div className="landing-eyebrow">Enterprise Suite</div>
+                  <h2 className="landing-title" style={{ fontSize: 'clamp(2rem, 3.5vw, 2.8rem)' }}>Six modules, one source of truth</h2>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                  <div className="tonal-card flex flex-col gap-3">
+                    <div className="flex justify-between align-center">
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'rgba(11,18,32,0.4)', fontWeight: 700 }}>DOC-CTRL</span>
+                      <div className="micro-ill-pageflip" />
+                    </div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: '8px 0 0 0' }}>Document Control</h3>
+                    <p style={{ fontSize: '0.85rem', color: 'rgba(11,18,32,0.6)', lineHeight: '1.5' }}>
+                      Collaborate on SOP drafts, request electronic signatures, and enforce automatic version numbering without paperwork overheads.
+                    </p>
+                  </div>
+
+                  <div className="tonal-card flex flex-col gap-3">
+                    <div className="flex justify-between align-center">
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'rgba(11,18,32,0.4)', fontWeight: 700 }}>AUD-INT</span>
+                      <div style={{ display: 'flex', gap: '3px' }}>
+                        <span style={{ width: '6px', height: '18px', background: 'var(--primary)', borderRadius: '2px' }} />
+                        <span style={{ width: '6px', height: '24px', background: 'var(--primary)', borderRadius: '2px' }} />
+                        <span style={{ width: '6px', height: '14px', background: 'var(--primary)', borderRadius: '2px' }} />
+                      </div>
+                    </div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: '8px 0 0 0' }}>Internal Audits</h3>
+                    <p style={{ fontSize: '0.85rem', color: 'rgba(11,18,32,0.6)', lineHeight: '1.5' }}>
+                      Enforce schedule compliance, auto-generate auditor checklists mapped to NABH criteria, and assign audit non-conformances on-site.
+                    </p>
+                  </div>
+
+                  <div className="tonal-card flex flex-col gap-3">
+                    <div className="flex justify-between align-center">
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'rgba(11,18,32,0.4)', fontWeight: 700 }}>CAPA-ENG</span>
+                      <div className="micro-ill-loop" />
+                    </div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: '8px 0 0 0' }}>CAPA Engine</h3>
+                    <p style={{ fontSize: '0.85rem', color: 'rgba(11,18,32,0.6)', lineHeight: '1.5' }}>
+                      Run structured root cause analyses (5-Whys, Fishbone diagrams), set preventive workflows, and verify action plans.
+                    </p>
+                  </div>
+
+                  <div className="tonal-card flex flex-col gap-3">
+                    <div className="flex justify-between align-center">
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'rgba(11,18,32,0.4)', fontWeight: 700 }}>INC-REP</span>
+                      <div style={{ width: '28px', height: '28px', borderRadius: '6px', border: '2px solid var(--amber)', position: 'relative' }}>
+                        <span style={{ position: 'absolute', top: '40%', left: '50%', transform: 'translate(-50%, -50%)', fontWeight: 'bold', color: 'var(--amber)', fontSize: '12px' }}>!</span>
+                      </div>
+                    </div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: '8px 0 0 0' }}>Incident Reporting</h3>
+                    <p style={{ fontSize: '0.85rem', color: 'rgba(11,18,32,0.6)', lineHeight: '1.5' }}>
+                      Empower field nurses to log needle-sticks, medication errors, and near-misses under 60 seconds with automated escalation paths.
+                    </p>
+                  </div>
+
+                  <div className="tonal-card flex flex-col gap-3">
+                    <div className="flex justify-between align-center">
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'rgba(11,18,32,0.4)', fontWeight: 700 }}>QI-TELE</span>
+                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '3px', height: '24px' }}>
+                        <div style={{ width: '6px', height: '10px', background: 'var(--signal-teal)', borderRadius: '2px' }} />
+                        <div style={{ width: '6px', height: '18px', background: 'var(--signal-teal)', borderRadius: '2px' }} />
+                        <div style={{ width: '6px', height: '24px', background: 'var(--signal-teal)', borderRadius: '2px' }} />
+                      </div>
+                    </div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: '8px 0 0 0' }}>Quality Indicators</h3>
+                    <p style={{ fontSize: '0.85rem', color: 'rgba(11,18,32,0.6)', lineHeight: '1.5' }}>
+                      Gather clinical indicators, track mortality rates, inpatient days, and generate analytics charts for regulatory audit exports.
+                    </p>
+                  </div>
+
+                  <div className="tonal-card flex flex-col gap-3">
+                    <div className="flex justify-between align-center">
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'rgba(11,18,32,0.4)', fontWeight: 700 }}>EVI-VAU</span>
+                      <div style={{ width: '28px', height: '24px', border: '2px solid var(--primary)', borderRadius: '4px', position: 'relative' }}>
+                        <span style={{ position: 'absolute', top: '-6px', left: '6px', width: '12px', height: '8px', border: '2px solid var(--primary)', borderBottom: 'none', borderTopLeftRadius: '4px', borderTopRightRadius: '4px' }} />
+                      </div>
+                    </div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: '8px 0 0 0' }}>Evidence Vault</h3>
+                    <p style={{ fontSize: '0.85rem', color: 'rgba(11,18,32,0.6)', lineHeight: '1.5' }}>
+                      Upload fire certificates, elevator licenses, pollution checks, and set automated SMS/Email alerts for expiry schedules.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* 5. AI LAYER — "Your Quality Co-pilot" */}
+            <section style={{ padding: '7rem 0', background: 'rgba(250,251,253,0.5)', borderTop: '1px solid rgba(11,18,32,0.05)', borderBottom: '1px solid rgba(11,18,32,0.05)' }}>
+              <div className="container" style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '4rem', alignItems: 'center' }}>
+                {/* Left: Chat Terminal Simulator */}
+                <div style={{ background: 'var(--ink)', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+                  <div style={{ background: 'rgba(255,255,255,0.03)', padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyBetween: 'align-center', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '5px' }}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)' }} />
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)' }} />
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)' }} />
+                    </div>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.62rem', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.05em' }}>CO-PILOT TERM</span>
+                  </div>
+
+                  <div style={{ padding: '1.75rem', fontFamily: 'var(--font-mono)', fontSize: '0.78rem', minHeight: '280px', display: 'flex', flexDirection: 'column', gap: '1.25rem', color: '#cbd5e1' }}>
+                    <div>
+                      <span style={{ color: 'var(--signal-teal)' }}>user@fortis_quality:~$</span>
+                      <span style={{ color: '#ffffff', marginLeft: '6px' }}>Show me all open CAPAs overdue for NABH Chapter 3</span>
+                    </div>
+
+                    {typing ? (
+                      <div style={{ color: 'rgba(255,255,255,0.4)' }}>Thinking...</div>
+                    ) : (
+                      <div className="hero-video-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        <div>
+                          <span style={{ color: 'var(--primary)' }}>[vaidyaq-copilot]:</span>
+                          <span style={{ marginLeft: '6px' }}>Searching active compliance database. Found 1 overdue action plan matching Chapter 3 (Care of Patients):</span>
+                        </div>
+
+                        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '0.85rem' }}>
+                          <div className="flex justify-between" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '4px', marginBottom: '4px', fontWeight: 'bold', color: '#ffffff' }}>
+                            <span>Action Plan</span>
+                            <span>Assigned</span>
+                          </div>
+                          <div className="flex justify-between" style={{ color: '#ef4444' }}>
+                            <span>Procure emergency syringes (ICU B)</span>
+                            <span>Facilities Mgr</span>
+                          </div>
+                        </div>
+
+                        <button 
+                          onClick={() => {
+                            setTyping(true);
+                            setTimeout(() => setTyping(false), 900);
+                          }} 
+                          style={{
+                            alignSelf: 'flex-start',
+                            background: 'rgba(14,95,216,0.15)',
+                            border: '1px solid var(--primary)',
+                            color: '#ffffff',
+                            borderRadius: '6px',
+                            padding: '0.4rem 0.8rem',
+                            fontSize: '0.7rem',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ↻ Run Live System Diagnostics
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right: AI capability features */}
+                <div>
+                  <div className="landing-eyebrow">Accreditation Intelligence</div>
+                  <h2 className="landing-title" style={{ fontSize: 'clamp(2rem, 3.5vw, 2.8rem)', marginBottom: '1.5rem' }}>Your compliance co-pilot</h2>
+                  <p className="landing-subtitle" style={{ fontSize: '1.05rem', color: 'rgba(11,18,32,0.6)', lineHeight: '1.6', marginBottom: '2.5rem' }}>
+                    Avoid last-minute panic. VaidyaQ AI monitors data entry streams to predict audit bottlenecks, tag evidence automatically, and alert indicators out of threshold.
+                  </p>
+
+                  <div className="flex flex-col gap-3">
+                    <div className="flex align-center gap-3">
+                      <span style={{ background: 'rgba(14,95,216,0.06)', color: 'var(--primary)', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>1</span>
+                      <div>
+                        <h4 style={{ margin: 0, fontWeight: 700, fontSize: '0.95rem' }}>Automated Evidence Auto-Tagging</h4>
+                        <p style={{ margin: 0, fontSize: '0.78rem', color: 'rgba(11,18,32,0.55)' }}>Upload certificates; AI links them directly to corresponding NABH chapters.</p>
+                      </div>
+                    </div>
+                    <div className="flex align-center gap-3" style={{ borderTop: '1px solid rgba(11,18,32,0.04)', paddingTop: '1rem' }}>
+                      <span style={{ background: 'rgba(15,181,166,0.06)', color: 'var(--signal-teal)', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>2</span>
+                      <div>
+                        <h4 style={{ margin: 0, fontWeight: 700, fontSize: '0.95rem' }}>Compliance Gap Prediction</h4>
+                        <p style={{ margin: 0, fontSize: '0.78rem', color: 'rgba(11,18,32,0.55)' }}>Flag missing evidence documents weeks before standard audit dates.</p>
+                      </div>
+                    </div>
+                    <div className="flex align-center gap-3" style={{ borderTop: '1px solid rgba(11,18,32,0.04)', paddingTop: '1rem' }}>
+                      <span style={{ background: 'rgba(245,165,36,0.06)', color: 'var(--amber)', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>3</span>
+                      <div>
+                        <h4 style={{ margin: 0, fontWeight: 700, fontSize: '0.95rem' }}>Indicator Threshold Alerts</h4>
+                        <p style={{ margin: 0, fontSize: '0.78rem', color: 'rgba(11,18,32,0.55)' }}>Instantly triggers alerts when incident numbers cross thresholds.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </section>
 
