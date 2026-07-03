@@ -43,7 +43,7 @@ export default function AdminModule() {
   const [activeSubTab, setActiveSubTab] = useState('logs'); // 'logs', 'users', 'settings', 'ai-config'
 
   // Form states for AI Key Verification
-  const [selectedProvider, setSelectedProvider] = useState(aiSettings?.provider || 'mock');
+  const [selectedProvider, setSelectedProvider] = useState(aiSettings?.provider || 'google');
   const [tempApiKey, setTempApiKey] = useState('');
   const [showSecretKey, setShowSecretKey] = useState(false);
   const [tempCustomUrl, setTempCustomUrl] = useState(aiSettings?.customUrl || '');
@@ -70,7 +70,7 @@ export default function AdminModule() {
   useEffect(() => {
     if (aiSettings) {
       setTimeout(() => {
-        setSelectedProvider(aiSettings.provider || 'mock');
+        setSelectedProvider(aiSettings.provider || 'google');
         setTempCustomUrl(aiSettings.customUrl || '');
         setTempModel(aiSettings.model || '');
         setTempSystemPrompt(aiSettings.systemPrompt || '');
@@ -99,7 +99,7 @@ export default function AdminModule() {
   // Run validation and lock credentials in local KMS simulator
   const handleVerifyAndSaveKey = async (e) => {
     e.preventDefault();
-    if (!tempApiKey && selectedProvider !== 'mock') {
+    if (!tempApiKey) {
       setValidationResult({ success: false, message: "Please enter a valid API key to test." });
       return;
     }
@@ -124,7 +124,7 @@ export default function AdminModule() {
   // Remove API key from storage
   const handleDisconnectKey = () => {
     deleteAiKey(selectedProvider);
-    setValidationResult({ success: true, message: `Credentials cleared. Fallback to mock interface.` });
+    setValidationResult({ success: true, message: `Credentials cleared successfully.` });
     setTimeout(() => setValidationResult(null), 3000);
   };
 
@@ -148,7 +148,7 @@ export default function AdminModule() {
       case 'anthropic': return 'claude-3-5-haiku-20241022';
       case 'openrouter': return 'google/gemini-2.5-flash';
       case 'custom': return 'custom-llm';
-      default: return 'mock-agent-v1';
+      default: return 'gemini-1.5-flash';
     }
   };
 
@@ -371,7 +371,6 @@ export default function AdminModule() {
                       }
                     }}
                   >
-                    <option value="mock">Offline Simulated Mode (No Key Required)</option>
                     <option value="google">Google Gemini API</option>
                     <option value="openai">OpenAI ChatGPT API</option>
                     <option value="anthropic">Anthropic Claude API</option>
@@ -394,7 +393,6 @@ export default function AdminModule() {
                   </div>
                 )}
 
-                {selectedProvider !== 'mock' && (
                   <div className="form-group">
                     <label className="form-label">Secure API Secret Key (Write-Only Input)</label>
                     <div style={{ display: 'flex', gap: '8px' }}>
@@ -438,7 +436,6 @@ export default function AdminModule() {
                       Keys are encrypted locally inside your tenant context browser sandbox and never relayed back to external logs.
                     </span>
                   </div>
-                )}
 
                 <div className="flex gap-2 align-center justify-between" style={{ marginTop: '0.5rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -450,11 +447,9 @@ export default function AdminModule() {
                       Status: {selectedProvider === aiSettings?.provider ? (aiSettings?.providerStatus || 'Disabled') : 'Unsaved Changes'}
                     </span>
                   </div>
-                  {selectedProvider !== 'mock' && (
-                    <button type="submit" className="btn btn-primary" disabled={isValidating}>
-                      {isValidating ? 'Validating Connection...' : 'Save & Verify Settings'}
-                    </button>
-                  )}
+                  <button type="submit" className="btn btn-primary" disabled={isValidating}>
+                    {isValidating ? 'Validating Connection...' : 'Save & Verify Settings'}
+                  </button>
                 </div>
               </form>
             </div>

@@ -178,6 +178,8 @@ export default function AIInsightsModule() {
   const [reportScope, setReportScope] = useState('Weekly');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+  const [ceoCommentary, setCeoCommentary] = useState('');
+  const [isCeoCommentaryLoading, setIsCeoCommentaryLoading] = useState(false);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -371,7 +373,7 @@ Mapped Standard: ${sopStandard}`;
   };
 
   // Re-engineered Gap Checker scanner
-  const handleRunSystemGapCheck = () => {
+  const handleRunSystemGapCheck = async () => {
     if (isEmptyWorkspace) {
       showToast({
         title: "Analysis Unavailable",
@@ -382,34 +384,72 @@ Mapped Standard: ${sopStandard}`;
     }
     setUploadChecking(true);
     setGapCheckResult(null);
-    setTimeout(() => {
-      const scanDate = new Date().toLocaleDateString();
-      
-      const analysisText = `VAIDYAQ COMPLIANCE GAP AUDITOR REPORT
-Generated on: ${scanDate} for ${hospitalName}
+    try {
+      const prompt = `Conduct a comprehensive compliance gap analysis report for ${hospitalName}.
+Our current readiness score is ${readinessScore}%. 
+We have ${missingEvidenceCount} standards that do not have mapped SOP documents in the local database.
+We have ${expiredLicenses.length} statutory licenses that are expired or missing files.
+We have ${openCapasCount} open CAPA items from internal audits requiring closure.
 
-SUMMARY OF COMPLIANCE FINDINGS:
-1. Standards Evidence Coverage: Currently at ${readinessScore}% compliance score. We found ${missingEvidenceCount} standards that do not have mapped SOP documents in the local database.
-2. Statutory Licenses: There are ${expiredLicenses.length} certificates that are expired or missing files. Lockout warnings have been simulated.
-3. Corrective Actions (CAPA): There are ${openCapasCount} open findings from internal audits requiring closure.
+Detail:
+- Mapped standards: ${standards.filter(s => s.score === 10).map(s => s.id).join(', ') || 'None'}
+- Unmapped standards (Gaps): ${standards.filter(s => s.score < 10).map(s => s.id).join(', ') || 'None'}
+- Active CAPAs: ${activeCapas.map(c => `${c.department} (${c.priority}): ${c.source}`).join('; ') || 'None'}
+- Expired licenses: ${expiredLicenses.map(l => l.name).join(', ') || 'None'}
 
-RECOMMENDED CORRECTIVE WORKFLOW ACTION PLAN:
-- Pharmacy Department: Draft and execute standard MOM.3.a (Expired Drug Disposal SOP). Set lockbox double signatures on narcotics.
-- HR Department: Upload missing physician council credentials for HRM.1.a (Credentials Audit).
-- Security & Evacuation: Complete simulated fire drills and upload attendance lists.
-- Quality Team: Re-verify ICU Protocol finding CAPA-1 and sign off closure.`;
-      
-      setGapCheckResult({
-        analysis: analysisText
+Please structure your output into two clear sections:
+1. SUMMARY OF COMPLIANCE FINDINGS (Describe the gaps in standards, licenses, and CAPAs)
+2. RECOMMENDED CORRECTIVE WORKFLOW ACTION PLAN (Provide specific, actionable steps to resolve these gaps)`;
+
+      const result = await runAIOrchestration({
+        module: 'Gap Checker',
+        agentType: 'Compliance Gap Auditor',
+        prompt,
+        chatHistory: [],
+        contextData: {
+          readinessScore,
+          openCapasCount,
+          missingEvidenceCount,
+          expiredLicensesCount: expiredLicenses.length,
+          hospitalName
+        },
+        aiSettings,
+        currentUser,
+        hospitalName,
+        aiMemory,
+        getDecryptedKey,
+        createAiOutput,
+        logAiUsage,
+        logAiSafety
       });
-      setUploadChecking(false);
-      logActivity("Conducted automated compliance gap scan across database.");
+
+      if (result.success) {
+        setGapCheckResult({
+          analysis: result.text
+        });
+        logActivity("Conducted automated compliance gap scan across database.");
+        showToast({
+          title: "Gap Scan Complete",
+          message: "Scanned all standards, CAPAs, and licenses successfully.",
+          type: "success"
+        });
+      } else {
+        showToast({
+          title: "Scan Failed",
+          message: result.error || "Failed to scan.",
+          type: "error"
+        });
+      }
+    } catch (err) {
+      console.error(err);
       showToast({
-        title: "Gap Scan Complete",
-        message: "Scanned all standards, CAPAs, and licenses successfully.",
-        type: "success"
+        title: "Scan Error",
+        message: err.message,
+        type: "error"
       });
-    }, 1200);
+    } finally {
+      setUploadChecking(false);
+    }
   };
 
   const handleCreateGapTask = (liab) => {
@@ -428,6 +468,70 @@ RECOMMENDED CORRECTIVE WORKFLOW ACTION PLAN:
       message: `Assigned task to resolve gap: "${liab.title}"`,
       type: "success"
     });
+  };
+
+  const handleGenerateExecutiveCommentary = async () => {
+    setIsCeoCommentaryLoading(true);
+    setCeoCommentary('');
+    try {
+      const prompt = `Write a professional, concise executive quality briefing commentary for the hospital Chief Executive Officer and Board of Directors.
+Facility: ${hospitalName}
+NABH Readiness Score: ${readinessScore}%
+Open CAPAs: ${openCapasCount}
+Expired/Warning statutory credentials count: ${expiredLicenses.length}
+
+Detail:
+- Expired licenses: ${expiredLicenses.map(l => l.name).join(', ') || 'None'}
+- Unresolved CAPAs: ${activeCapas.map(c => `${c.department} - ${c.source}`).join(', ') || 'None'}
+
+Please outline progress, critical liabilities, and immediate strategic recommendations. Keep it to 3 short paragraphs max.`;
+
+      const result = await runAIOrchestration({
+        module: 'CEO Briefing',
+        agentType: 'Executive Commentator',
+        prompt,
+        chatHistory: [],
+        contextData: {
+          readinessScore,
+          openCapasCount,
+          expiredLicensesCount: expiredLicenses.length,
+          hospitalName
+        },
+        aiSettings,
+        currentUser,
+        hospitalName,
+        aiMemory,
+        getDecryptedKey,
+        createAiOutput,
+        logAiUsage,
+        logAiSafety
+      });
+
+      if (result.success) {
+        setCeoCommentary(result.text);
+        logActivity("Generated AI executive board commentary.");
+        showToast({
+          title: "Commentary Generated",
+          message: "AI Executive Commentary updated successfully.",
+          type: "success"
+        });
+      } else {
+        showToast({
+          title: "Generation Failed",
+          message: result.error || "Failed to generate commentary.",
+          type: "error"
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      showToast({
+        title: "Error",
+        message: err.message,
+        type: "error"
+      });
+    } finally {
+      setIsCeoCommentaryLoading(false);
+    }
   };
 
   const handleExportPDF = () => {
@@ -482,6 +586,19 @@ RECOMMENDED CORRECTIVE WORKFLOW ACTION PLAN:
       const discText = "CONFIDENTIALITY & COMPLIANCE GUARDRAIL: This PDF quality briefing contains auto-aggregated metrics meant for internal human evaluation and human-reviewed administrative actions. This does not substitute clinical diagnosis or official assessor approvals. Encrypted at rest under ABDM privacy disclaimers.";
       const splitDisc = doc.splitTextToSize(discText, 170);
       doc.text(splitDisc, 20, 260);
+
+      if (ceoCommentary) {
+        doc.setFont("Helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(15, 23, 42);
+        doc.text("AI Executive Board Commentary:", 20, 142);
+        
+        doc.setFont("Helvetica", "normal");
+        doc.setFontSize(9.5);
+        doc.setTextColor(51, 65, 85);
+        const splitComm = doc.splitTextToSize(ceoCommentary, 170);
+        doc.text(splitComm, 20, 148);
+      }
 
       // Page 2: Detailed Gaps
       doc.addPage();
@@ -1397,6 +1514,30 @@ RECOMMENDED CORRECTIVE WORKFLOW ACTION PLAN:
                 <p style={{ color: 'var(--text-secondary)', lineHeight: '1.5', margin: 0 }}>
                   {hospitalName} is currently at <strong>{readinessScore}%</strong> compliance for the NABH 6th Edition accreditation standard. We have mapped <strong>{documents.filter(d=>d.status==='Approved').length} approved SOPs</strong>. A compliance score of 85% is required to trigger final document submission.
                 </p>
+              </div>
+
+              <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: 'var(--bg-tertiary)', border: '1px dashed var(--border-color)', borderRadius: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <h4 style={{ fontWeight: 850, color: 'var(--text-primary)', margin: 0, fontSize: '0.95rem' }}>AI Executive Board Commentary</h4>
+                  <button
+                    onClick={handleGenerateExecutiveCommentary}
+                    disabled={isCeoCommentaryLoading}
+                    className="btn btn-primary"
+                    style={{ padding: '0.3rem 0.65rem', fontSize: '0.7rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    {isCeoCommentaryLoading ? <RefreshCw size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                    Generate Commentary
+                  </button>
+                </div>
+                {ceoCommentary ? (
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: '1.5', whiteSpace: 'pre-wrap', backgroundColor: 'var(--bg-primary)', padding: '0.75rem', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                    {ceoCommentary}
+                  </div>
+                ) : (
+                  <p style={{ color: 'var(--text-tertiary)', fontSize: '0.75rem', fontStyle: 'italic', margin: 0 }}>
+                    No executive commentary generated yet. Click "Generate Commentary" to synthesize qualitative notes with AI.
+                  </p>
+                )}
               </div>
 
               <div style={{ marginTop: '1rem' }}>

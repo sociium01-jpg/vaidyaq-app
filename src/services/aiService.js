@@ -365,7 +365,7 @@ export async function mockAdapter({ type, prompt, contextData }) {
  * Main AI Gateway function
  */
 export async function callAIService({
-  provider = 'mock',
+  provider = 'google',
   model = '',
   apiKey = '',
   systemPrompt = 'You are a hospital quality inspector.',
@@ -377,12 +377,10 @@ export async function callAIService({
   customUrl = '',
   returnFullResponse = false
 }) {
-  const normalizedProvider = (provider || 'mock').toLowerCase();
+  const normalizedProvider = (provider || 'google').toLowerCase();
 
-  if (!apiKey && normalizedProvider !== 'mock') {
-    console.warn(`No API key provided for provider '${provider}'. Falling back to local mock adapter.`);
-    const mockRes = await mockAdapter({ type, prompt, contextData });
-    return returnFullResponse ? mockRes : mockRes.text;
+  if (!apiKey) {
+    throw new Error(`API key for provider '${provider}' is not configured. Please enter a valid API key in Admin Settings.`);
   }
 
   try {
@@ -404,23 +402,18 @@ export async function callAIService({
       case 'custom':
         result = await customAdapter({ model, apiKey, systemPrompt, prompt, chatHistory, contextData, options, customUrl });
         break;
-      case 'mock':
       default:
-        result = await mockAdapter({ type, prompt, contextData });
-        break;
+        throw new Error(`Unsupported or disabled AI provider: ${provider}`);
     }
     return returnFullResponse ? result : result.text;
   } catch (error) {
     console.error(`AI API Gateway Exception (${provider}):`, error);
-    // Safe fallback to mock response with error prefixed
-    const fallbackText = `⚠️ Connection error with ${provider} (${error.message}). Displaying local simulation:\n\n`;
-    const mockRes = await mockAdapter({ type, prompt, contextData });
-    const fallbackResult = {
-      text: fallbackText + mockRes.text,
-      usage: mockRes.usage,
-      model: `${mockRes.model}-fallback`,
+    const errorResult = {
+      text: `⚠️ Connection Error with AI provider ${provider}: ${error.message}`,
+      usage: { promptTokens: 0, completionTokens: 0 },
+      model: model || 'error',
       error: error.message
     };
-    return returnFullResponse ? fallbackResult : fallbackResult.text;
+    return returnFullResponse ? errorResult : errorResult.text;
   }
 }

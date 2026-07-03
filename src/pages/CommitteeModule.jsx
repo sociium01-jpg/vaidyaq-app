@@ -1,5 +1,6 @@
 import React, { useState, useContext } from 'react';
 import { jsPDF } from 'jspdf';
+import { runAIOrchestration } from '../services/aiOrchestrator';
 import { QualiNABHContext } from '../context/QualiNABHContext';
 import {
   Calendar,
@@ -26,7 +27,15 @@ export default function CommitteeModule() {
     addCommitteeMeeting,
     currentUser,
     tasks,
-    logActivity
+    logActivity,
+    aiSettings,
+    hospitalName,
+    getDecryptedKey,
+    createAiOutput,
+    logAiUsage,
+    logAiSafety,
+    aiMemory,
+    sha256Sync
   } = useContext(QualiNABHContext);
 
   const [activeSubTab, setActiveSubTab] = useState('meetings'); // 'meetings', 'registrar', 'ai-minutes', 'vault'
@@ -115,39 +124,83 @@ export default function CommitteeModule() {
   };
 
   // AI Meeting Minutes drafter
-  const handleGenerateAIDraft = () => {
+  const handleGenerateAIDraft = async () => {
     if (!rawTranscript.trim()) return;
     setGenerating(true);
 
-    setTimeout(() => {
-      // Simulate draft minutes creation
-      const mockDraft = {
-        committeeId: selectedCommitteeId,
-        committeeName: committees.find(c => c.id === selectedCommitteeId)?.name || 'General Committee',
-        date: meetingDate,
-        attendees: ["Dr. Sarah Paul", "Col. Roy", "Sister Gracy", "Dr. Sen"],
-        agenda: "Emergency Incident Review, ICU standard audit checklist review, and CAPA formulation.",
-        minutes: `1. Incident Review: Reviewed the recent ICU needle-stick incident. Identified missing safety needle disposal canisters in Wing B.
-2. Standard Audit: Hand Hygiene scores at 85% - training gap identified.
-3. Decision: Double safety canisters will be placed in all ICUs. Mandatory BLS refreshers scheduled.`,
-        actionItems: [
-          { task: "Procure and mount 4 safety canisters in ICU Wing B", assignedTo: "Facilities Manager", dueDate: new Date(Date.now() + 5*24*60*60*1000).toISOString().slice(0, 10), status: "Pending" },
-          { task: "Schedule refresher hand-hygiene module for nurses", assignedTo: "Sister Gracy", dueDate: new Date(Date.now() + 10*24*60*60*1000).toISOString().slice(0, 10), status: "Pending" }
-        ],
-        status: "Draft"
-      };
+    try {
+      const prompt = `Act as an expert hospital quality coordinator. Analyze the following raw committee meeting transcript and extract structured minutes of the meeting.
+Transcript: ${rawTranscript}
 
-      setAiDraftMOM(mockDraft);
+Please structure your output EXACTLY as a JSON object matching this schema, with no other text or markdown wrapping:
+{
+  "agenda": "Summary of main agenda items discussed",
+  "minutes": "Detailed list of minutes (e.g. 1. Checked pharmacy logs... 2. Standardized checksheets...)",
+  "actionItems": [
+    {"task": "Action description", "assignedTo": "Role/Name", "dueDate": "YYYY-MM-DD"}
+  ]
+}`;
+
+      const result = await runAIOrchestration({
+        module: 'committees',
+        agentType: 'MOM Minutes Drafter',
+        prompt,
+        chatHistory: [],
+        contextData: {
+          committeeName: committees.find(c => c.id === selectedCommitteeId)?.name || 'General Committee',
+          meetingDate,
+          hospitalName
+        },
+        aiSettings,
+        currentUser,
+        hospitalName,
+        aiMemory,
+        getDecryptedKey,
+        createAiOutput,
+        logAiUsage,
+        logAiSafety
+      });
+
+      if (result.success) {
+        const text = result.text.trim();
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        const jsonText = jsonMatch ? jsonMatch[0] : text;
+        const parsed = JSON.parse(jsonText);
+        
+        setAiDraftMOM({
+          committeeId: selectedCommitteeId,
+          committeeName: committees.find(c => c.id === selectedCommitteeId)?.name || 'General Committee',
+          date: meetingDate,
+          attendees: ["Dr. Sarah Paul", "Col. Roy", "Sister Gracy", "Dr. Sen"],
+          agenda: parsed.agenda || "Emergency Incident Review",
+          minutes: parsed.minutes || "Discussed quality objectives.",
+          actionItems: (parsed.actionItems || []).map(item => ({
+            task: item.task,
+            assignedTo: item.assignedTo || "Quality Control Manager",
+            dueDate: item.dueDate || new Date(Date.now() + 7*24*60*60*1000).toISOString().slice(0, 10),
+            status: "Pending"
+          })),
+          status: "Draft"
+        });
+        setDraftApproved(false);
+        setPinInput('');
+        setPinError('');
+      } else {
+        alert(`Failed to draft MOM: ${result.error}`);
+      }
+    } catch (e) {
+      console.error(e);
+      alert(`Error generating draft: ${e.message}`);
+    } finally {
       setGenerating(false);
-      setDraftApproved(false);
-      setPinInput('');
-      setPinError('');
-    }, 1200);
+    }
   };
 
   const handleApproveAIDraft = () => {
-    if (pinInput !== '1234') {
-      setPinError("Invalid Verification PIN! AI Drafts require authorized human signature (PIN: 1234).");
+    const inputHash = sha256Sync ? sha256Sync(pinInput) : pinInput;
+    const targetHash = currentUser?.signOffPinHash || (sha256Sync ? sha256Sync('1234') : '1234');
+    if (inputHash !== targetHash) {
+      setPinError("Invalid Verification PIN! AI Drafts require authorized human signature (PIN).");
       return;
     }
 
