@@ -217,6 +217,90 @@ const assertNoMockDataForProductionTenant = (email, key, data) => {
   return data;
 };
 
+const sha256Sync = (ascii) => {
+  function rightRotate(value, amount) {
+    return (value >>> amount) | (value << (32 - amount));
+  }
+  
+  var mathPow = Math.pow;
+  var maxWord = mathPow(2, 32);
+  var lengthProperty = 'length';
+  var i, j;
+  var result = '';
+
+  var words = [];
+  var asciiLength = ascii[lengthProperty] * 8;
+  
+  var hash = [];
+  var k = [];
+  var primeCounter = 0;
+
+  var isComposite = {};
+  for (var candidate = 2; primeCounter < 64; candidate++) {
+    if (!isComposite[candidate]) {
+      for (i = 0; i < 313; i += candidate) {
+        isComposite[i] = 1;
+      }
+      hash[primeCounter] = (mathPow(candidate, .5) * maxWord) | 0;
+      k[primeCounter++] = (mathPow(candidate, 1 / 3) * maxWord) | 0;
+    }
+  }
+  
+  ascii += '\x80';
+  while (ascii[lengthProperty] % 64 - 56) ascii += '\x00';
+  for (i = 0; i < ascii[lengthProperty]; i++) {
+    var charCode = ascii.charCodeAt(i);
+    if (charCode >> 8) return '';
+    words[i >> 2] |= charCode << (24 - 8 * (i % 4));
+  }
+  words[words[lengthProperty]] = ((asciiLength / maxWord) | 0);
+  words[words[lengthProperty]] = (asciiLength);
+  
+  for (j = 0; j < words[lengthProperty]; ) {
+    var w = words.slice(j, j += 16);
+    var oldHash = hash.slice(0);
+    for (i = 0; i < 64; i++) {
+      var wItem = w[i];
+      if (i >= 16) {
+        var w15 = w[i - 15], w2 = w[i - 2];
+        var s0 = rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3);
+        var s1 = rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10);
+        wItem = w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0;
+      }
+      var s0_h = rightRotate(hash[0], 2) ^ rightRotate(hash[0], 13) ^ rightRotate(hash[0], 22);
+      var maj = (hash[0] & hash[1]) ^ (hash[1] & hash[2]) ^ (hash[2] & hash[0]);
+      var temp2 = s0_h + maj;
+      var s1_h = rightRotate(hash[4], 6) ^ rightRotate(hash[4], 11) ^ rightRotate(hash[4], 25);
+      var ch = (hash[4] & hash[5]) ^ (~hash[4] & hash[6]);
+      var temp1 = hash[7] + s1_h + ch + k[i] + wItem;
+      hash = [(temp1 + temp2) | 0].concat(hash);
+      hash[4] = (hash[4] + temp1) | 0;
+      hash[8] = 0;
+      hash.pop();
+    }
+    for (i = 0; i < 8; i++) {
+      hash[i] = (hash[i] + oldHash[i]) | 0;
+    }
+  }
+  
+  for (i = 0; i < 8; i++) {
+    for (j = 3; j + 1; j--) {
+      var b = (hash[i] >> (j * 8)) & 255;
+      result += (b < 16 ? '0' : '') + b.toString(16);
+    }
+  }
+  return result;
+};
+
+const verifyPassword = (inputPassword, storedPassword) => {
+  if (!storedPassword) return false;
+  const isHashed = /^[0-9a-f]{64}$/i.test(storedPassword);
+  if (isHashed) {
+    return sha256Sync(inputPassword) === storedPassword;
+  }
+  return inputPassword === storedPassword;
+};
+
 const safeJsonParse = (key, defaultValue) => {
   try {
     const saved = localStorage.getItem(key);
@@ -238,8 +322,10 @@ export const QualiNABHProvider = ({ children }) => {
     if (savedUser) {
       try {
         const parsed = JSON.parse(savedUser);
-        activeEmail = parsed.parentEmail || parsed.email;
-        hospId = parsed.activeHospitalId || parsed.hospitalId || 'demo-hosp';
+        if (parsed && typeof parsed === 'object') {
+          activeEmail = parsed.parentEmail || parsed.email;
+          hospId = parsed.activeHospitalId || parsed.hospitalId || 'demo-hosp';
+        }
       } catch (e) { console.warn('[QualiNABH] Failed to parse saved user session:', e); }
     }
     
@@ -1338,7 +1424,7 @@ export const QualiNABHProvider = ({ children }) => {
       govIdStatus: "Pending",
       storageUsed: 1048576,
       bounced: false,
-      password: password,
+      password: sha256Sync(password),
       firstLoginDate: signup // Signup automatically logs them in!
     };
 
@@ -1490,7 +1576,8 @@ export const QualiNABHProvider = ({ children }) => {
   };
 
   const inviteTeamMember = (email, name, role, department, password = "password123") => {
-    const newMember = { email, name, role, department, password };
+    const hashedPassword = sha256Sync(password);
+    const newMember = { email, name, role, department, password: hashedPassword };
     setTeamMembers(prev => [...prev, newMember]);
     
     // Save to global sub-users registry
@@ -1502,7 +1589,7 @@ export const QualiNABHProvider = ({ children }) => {
       name,
       role,
       department,
-      password,
+      password: hashedPassword,
       parentEmail: currentUser.parentEmail || currentUser.email
     };
     localStorage.setItem('qn_global_sub_users', JSON.stringify([...filtered, subUserObj]));
@@ -1513,11 +1600,20 @@ export const QualiNABHProvider = ({ children }) => {
   const changeUserPassword = (oldPassword, newPassword) => {
     if (!currentUser) return { success: false, message: "No active session." };
 
+    const hashedNewPassword = sha256Sync(newPassword);
+
     // 1. Owner change
     if (currentUser.role === 'Super Admin' && !currentUser.parentEmail) {
+      const clientIndex = (clientsList || []).findIndex(c => c && c.email && c.email.toLowerCase() === currentUser?.email?.toLowerCase());
+      if (clientIndex !== -1) {
+        const storedPassword = clientsList[clientIndex].password || "demo123";
+        if (!verifyPassword(oldPassword, storedPassword)) {
+          return { success: false, message: "Incorrect current password." };
+        }
+      }
       setClientsList(prev => (prev || []).map(c => {
         if (c && c.email && c.email.toLowerCase() === currentUser?.email?.toLowerCase()) {
-          return { ...c, password: newPassword };
+          return { ...c, password: hashedNewPassword };
         }
         return c;
       }));
@@ -1529,10 +1625,10 @@ export const QualiNABHProvider = ({ children }) => {
     const globalSubUsers = safeJsonParse('qn_global_sub_users', []);
     const userIndex = globalSubUsers.findIndex(u => u.email.toLowerCase() === currentUser.email.toLowerCase());
     if (userIndex !== -1) {
-      if (globalSubUsers[userIndex].password !== oldPassword) {
+      if (!verifyPassword(oldPassword, globalSubUsers[userIndex].password)) {
         return { success: false, message: "Incorrect current password." };
       }
-      globalSubUsers[userIndex].password = newPassword;
+      globalSubUsers[userIndex].password = hashedNewPassword;
       localStorage.setItem('qn_global_sub_users', JSON.stringify(globalSubUsers));
       logActivity(`Updated sub-user password for ${currentUser.name}`);
       return { success: true };
@@ -1609,7 +1705,7 @@ export const QualiNABHProvider = ({ children }) => {
     };
 
     const encryptedVal = encryptSim(apiKey);
-    const activeEmail = currentUser.parentEmail || currentUser.email;
+    const activeEmail = currentUser ? (currentUser.parentEmail || currentUser.email) : null;
     const prefix = activeEmail ? `${activeEmail}_` : '';
     
     localStorage.setItem(`${prefix}qn_encrypted_key_${provider}`, encryptedVal);
@@ -3088,7 +3184,9 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
       reportsList, setReportsList,
       taskActivities, setTaskActivities,
       addTaskComment,
-      addTaskActivity
+      addTaskActivity,
+      sha256Sync,
+      verifyPassword
     }}>
       {children}
     </QualiNABHContext.Provider>

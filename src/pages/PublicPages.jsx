@@ -54,7 +54,8 @@ export default function PublicPages() {
     setIsSubscribed,
     setHospitalLogo,
     setTeamMembers,
-    setClientsList
+    setClientsList,
+    verifyPassword
   } = useContext(QualiNABHContext);
 
   useEffect(() => {
@@ -82,7 +83,7 @@ export default function PublicPages() {
     const existingClient = (clientsList || []).find(c => c && c.email && c.email.toLowerCase() === signInEmail.toLowerCase());
     if (existingClient) {
       const storedPassword = existingClient.password || "demo123";
-      if (signInPassword !== storedPassword) {
+      if (!verifyPassword(signInPassword, storedPassword)) {
         setSignInError("Incorrect password. Please verify your credentials and try again.");
         return;
       }
@@ -129,7 +130,7 @@ export default function PublicPages() {
       }
       const subUser = (globalSubUsers || []).find(u => u && u.email && u.email.toLowerCase() === signInEmail.toLowerCase());
       if (subUser) {
-        if (signInPassword !== subUser.password) {
+        if (!verifyPassword(signInPassword, subUser.password)) {
           setSignInError("Incorrect password. Please verify your credentials and try again.");
           return;
         }

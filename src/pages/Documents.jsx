@@ -118,7 +118,8 @@ export default function Documents() {
     sendSimulatedEmail,
     addIncident,
     setLicenses,
-    setCurrentRoute
+    setCurrentRoute,
+    sha256Sync
   } = useContext(QualiNABHContext);
 
 
@@ -236,8 +237,9 @@ export default function Documents() {
 
   const handleAuthenticateSubmit = (e) => {
     e.preventDefault();
-    if (authPin !== '1234') {
-      setAuthError('Invalid Verification PIN. Use mock pin 1234 to sign off.');
+    const storedPinHash = currentUser?.signOffPinHash || '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4'; // SHA-256 hash of '1234'
+    if (sha256Sync(authPin) !== storedPinHash) {
+      setAuthError('Invalid Verification PIN. Enter your secure sign-off PIN.');
       return;
     }
 

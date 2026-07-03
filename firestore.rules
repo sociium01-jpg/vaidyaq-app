@@ -73,5 +73,17 @@ service cloud.firestore {
       allow read, write: if isAuthenticated() && isMemberOf(resource.data.hospitalId) && 
                          (resource.data.userId == request.auth.uid || isAdmin(resource.data.hospitalId));
     }
+
+    // Hospital Collection & Subcollections (patients, tasks, compliance_flows, audit_logs, quality_indicators, etc.)
+    // Tenant Isolation: users can only read/write documents belonging to their own hospitalId
+    match /hospitals/{hospitalId} {
+      allow read: if isAuthenticated() && isMemberOf(hospitalId);
+      allow write: if isAuthenticated() && isMemberOf(hospitalId);
+      
+      match /{allSubcollections=**} {
+        allow read: if isAuthenticated() && isMemberOf(hospitalId);
+        allow write: if isAuthenticated() && isMemberOf(hospitalId);
+      }
+    }
   }
 }

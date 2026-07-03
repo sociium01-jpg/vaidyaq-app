@@ -415,7 +415,7 @@ class ErrorBoundary extends React.Component {
               {this.state.error?.message || 'Unknown error'}
             </p>
             <button
-              onClick={() => { localStorage.clear(); window.location.href = '/'; }}
+              onClick={() => { localStorage.removeItem('qn_user'); window.location.href = '/'; }}
               style={{ padding: '0.7rem 1.5rem', backgroundColor: '#6366f1', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', marginRight: '0.5rem' }}
             >
               Reset & Reload

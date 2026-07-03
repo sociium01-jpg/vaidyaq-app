@@ -23,7 +23,8 @@ export default function ProfileSettings() {
     documents,
     changeUserPassword,
     changeUserProfile,
-    logActivity
+    logActivity,
+    verifyPassword
   } = useContext(QualiNABHContext);
 
   // Default tab is 'account' so all roles can access it
@@ -142,14 +143,14 @@ export default function ProfileSettings() {
       const savedUserObj = JSON.parse(localStorage.getItem('qn_user'));
       const globalClients = JSON.parse(localStorage.getItem('qn_clients_list') || '[]');
       const client = globalClients.find(c => c.email.toLowerCase() === savedUserObj.email.toLowerCase());
-      if (client && (client.password === deactivatePassword || deactivatePassword === "demo123")) {
+      if (client && verifyPassword(deactivatePassword, client.password)) {
         isValid = true;
       }
     } else {
       // Check in global sub-users
       const globalSubUsers = JSON.parse(localStorage.getItem('qn_global_sub_users') || '[]');
       const subUser = globalSubUsers.find(u => u.email.toLowerCase() === currentUser.email.toLowerCase());
-      if (subUser && subUser.password === deactivatePassword) {
+      if (subUser && verifyPassword(deactivatePassword, subUser.password)) {
         isValid = true;
       }
     }
