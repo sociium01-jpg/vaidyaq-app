@@ -37,7 +37,10 @@ export default function AdminModule() {
     deleteAiMemory,
     aiUsageLogs,
     aiSafetyLogs,
-    hospitalName
+    hospitalName,
+    backupHistory,
+    restoreBackupPayload,
+    triggerManualBackup
   } = useContext(QualiNABHContext);
 
   const [activeSubTab, setActiveSubTab] = useState('logs'); // 'logs', 'users', 'settings', 'ai-config'
@@ -197,6 +200,10 @@ export default function AdminModule() {
         <button onClick={() => setActiveSubTab('ai-config')} className={`tab-btn ${activeSubTab === 'ai-config' ? 'active' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <Brain size={14} />
           <span>AI Console & Guardrails</span>
+        </button>
+        <button onClick={() => setActiveSubTab('backup')} className={`tab-btn ${activeSubTab === 'backup' ? 'active' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <History size={14} />
+          <span>Backup & Restore Vault</span>
         </button>
       </div>
 
@@ -721,6 +728,120 @@ export default function AdminModule() {
 
           </div>
 
+        </div>
+      )}
+
+      {/* 5. BACKUP & RESTORE VAULT VIEW */}
+      {activeSubTab === 'backup' && (
+        <div className="flex flex-col gap-3">
+          <div className="card flex align-center gap-3" style={{ borderLeft: '5px solid var(--primary)' }}>
+            <History size={24} color="var(--primary)" />
+            <div>
+              <h3 style={{ fontSize: '1rem' }}>VaidyaQ Shield Vault: Backup & Restore System</h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                This system automatically backups your complete compliance database every 24 hours to secure browser storage and the cloud vault. In case of data loss, you can download backups or restore older versions here.
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+            {/* Create Manual Backup */}
+            <div className="card flex flex-col gap-2">
+              <h4 style={{ margin: 0, fontSize: '0.95rem' }}>Create Manual Backup Snapshot</h4>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                Compile your entire hospital quality profile (SOPs, audits, CAPA items, tasks, and indicators) into a secure, portable JSON backup file.
+              </p>
+              <button 
+                onClick={triggerManualBackup}
+                className="btn btn-primary"
+                style={{ alignSelf: 'flex-start', marginTop: 'auto', fontSize: '0.8rem', padding: '0.6rem 1rem' }}
+              >
+                📥 Export & Download Backup File
+              </button>
+            </div>
+
+            {/* Restore from File */}
+            <div className="card flex flex-col gap-2">
+              <h4 style={{ margin: 0, fontSize: '0.95rem' }}>Restore Database from File</h4>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                Select a previously exported VaidyaQ JSON backup file to overwrite your current browser data workspace.
+              </p>
+              <input 
+                type="file" 
+                accept=".json"
+                onChange={(e) => {
+                  const file = e.target.files[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = (event) => {
+                    try {
+                      const parsed = JSON.parse(event.target.result);
+                      if (confirm("WARNING: Restoring from this file will overwrite all your current local data. Are you sure you want to proceed?")) {
+                        restoreBackupPayload(parsed);
+                        alert("Database restored successfully!");
+                      }
+                    } catch (err) {
+                      alert("Failed to parse backup file. Please ensure it is a valid VaidyaQ JSON backup.");
+                    }
+                  };
+                  reader.readAsText(file);
+                }}
+                style={{ fontSize: '0.75rem', marginTop: 'auto' }}
+              />
+            </div>
+          </div>
+
+          {/* Backup History Table */}
+          <div className="card">
+            <h4 style={{ margin: '0 0 10px 0', fontSize: '0.95rem' }}>Local Snapshot History (24-Hour Auto-Syncs & Manuals)</h4>
+            <div className="table-container">
+              <table className="table" style={{ fontSize: '0.8rem' }}>
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Snapshot Type</th>
+                    <th>Compliance Version</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {backupHistory.length === 0 ? (
+                    <tr>
+                      <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-tertiary)' }}>
+                        No automatic or manual backup snapshots saved yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    backupHistory.map((item, idx) => (
+                      <tr key={idx}>
+                        <td style={{ fontFamily: 'var(--font-mono)' }}>{new Date(item.timestamp).toLocaleString()}</td>
+                        <td>
+                          <span className={`badge ${item.type === 'Auto 24h Sync' ? 'badge-primary' : 'badge-success'}`}>
+                            {item.type}
+                          </span>
+                        </td>
+                        <td>{item.data?.version || "1.0.0"}</td>
+                        <td>
+                          <button 
+                            onClick={() => {
+                              if (confirm("Are you sure you want to restore this snapshot? All current changes will be overwritten.")) {
+                                restoreBackupPayload(item.data);
+                                alert("Database rolled back successfully!");
+                              }
+                            }}
+                            className="btn btn-secondary" 
+                            style={{ padding: '2px 8px', fontSize: '0.7rem' }}
+                          >
+                            Restore Version
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
     </div>

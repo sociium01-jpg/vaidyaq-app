@@ -54,6 +54,106 @@ function AppContent() {
   const [selectedCycle, setSelectedCycle] = useState('annually'); // 'quarterly' or 'annually'
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+
+  const handlePayment = async (priceVal) => {
+    setPaymentLoading(true);
+    const bedsCount = Number(hospitalBeds) || 0;
+    try {
+      // 1. Create order on the backend
+      const response = await fetch('/api/create-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ amount: priceVal })
+      });
+      
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Failed to create payment order');
+      }
+      
+      const orderData = await response.json();
+      
+      // 2. Configure Razorpay Standard Checkout options
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TDmVwbjw7fY0Bv',
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: 'VaidyaQ AI',
+        description: `Hospital Accreditation - ${bedsCount} Beds (${selectedCycle === 'quarterly' ? 'Quarterly' : 'Annual'} Plan)`,
+        order_id: orderData.order_id,
+        handler: async function (paymentResponse) {
+          setPaymentLoading(true);
+          try {
+            // 3. Send payment details to verify endpoint
+            const verifyRes = await fetch('/api/verify-payment', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                razorpay_order_id: paymentResponse.razorpay_order_id,
+                razorpay_payment_id: paymentResponse.razorpay_payment_id,
+                razorpay_signature: paymentResponse.razorpay_signature
+              })
+            });
+            
+            if (!verifyRes.ok) {
+              const verifyErr = await verifyRes.json();
+              throw new Error(verifyErr.error || 'Payment signature verification failed');
+            }
+            
+            const verifyData = await verifyRes.json();
+            if (verifyData.success) {
+              purchaseSubscription(selectedCycle);
+              alert('Payment completed and verified successfully! Welcome to VaidyaQ.');
+            } else {
+              throw new Error('Payment verification was not successful.');
+            }
+          } catch (err) {
+            console.error('[verify-payment] Error:', err);
+            alert(`Verification Error: ${err.message}`);
+          } finally {
+            setPaymentLoading(false);
+          }
+        },
+        prefill: {
+          name: currentUser?.name || 'Hospital Admin',
+          email: currentUser?.email || 'quality.head@hospital.org'
+        },
+        notes: {
+          hospital_name: hospitalName,
+          beds: bedsCount,
+          cycle: selectedCycle
+        },
+        theme: {
+          color: '#0e5fd8'
+        },
+        modal: {
+          ondismiss: function () {
+            console.log('Payment modal closed by user');
+            setPaymentLoading(false);
+          }
+        }
+      };
+      
+      const rzp = new window.Razorpay(options);
+      
+      rzp.on('payment.failed', function (failResponse) {
+        console.error('Payment failed:', failResponse.error);
+        alert(`Payment Failed: ${failResponse.error.description}`);
+        setPaymentLoading(false);
+      });
+      
+      rzp.open();
+    } catch (error) {
+      console.error('[handlePayment] Error:', error);
+      alert(`Payment initialization failed: ${error.message}`);
+      setPaymentLoading(false);
+    }
+  };
 
   // Global shortcut Ctrl+K / Cmd+K to open Search Modal
   useEffect(() => {
@@ -239,11 +339,12 @@ function AppContent() {
           {/* Action buttons */}
           <div className="flex flex-col gap-2" style={{ marginTop: '0.5rem' }}>
             <button 
-              onClick={() => purchaseSubscription(selectedCycle)} 
+              onClick={() => handlePayment(activePrice)} 
+              disabled={paymentLoading}
               className="btn btn-primary glow-premium" 
-              style={{ width: '100%', padding: '0.8rem', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer', borderRadius: '8px' }}
+              style={{ width: '100%', padding: '0.8rem', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer', borderRadius: '8px', opacity: paymentLoading ? 0.7 : 1 }}
             >
-              💳 Pay & Unlock Instantly (Simulate Razorpay)
+              {paymentLoading ? '⏳ Initializing Payment...' : '💳 Pay Securely via Razorpay'}
             </button>
             
             {forcePaymentScreen && (

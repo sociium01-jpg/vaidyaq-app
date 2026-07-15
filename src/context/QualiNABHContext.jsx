@@ -1,5 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useState, useEffect, useCallback } from 'react';
+import { createDocument } from '../services/firestoreService';
+import { isConfigured } from '../firebase';
 
 export const QualiNABHContext = createContext();
 
@@ -3081,6 +3083,190 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
   const maxPossibleScore = totalStandardsCount * 10;
   const currentEarnedScore = activeStandards.reduce((sum, s) => sum + s.score, 0);
   
+  // ── BACKUP & RESTORE SECURITY LAYER ──
+  const [backupHistory, setBackupHistory] = useState([]);
+
+  // Load backup history from localStorage
+  useEffect(() => {
+    if (activePrefix) {
+      const historyKey = `${activePrefix}qn_backup_history`;
+      try {
+        const historyData = JSON.parse(localStorage.getItem(historyKey) || '[]');
+        setBackupHistory(historyData);
+      } catch (e) {
+        setBackupHistory([]);
+      }
+    }
+  }, [activePrefix]);
+
+  const compileBackupPayload = useCallback(() => {
+    return {
+      version: "1.0.0",
+      timestamp: new Date().toISOString(),
+      hospitalName,
+      hospitalBeds,
+      hospitalTier,
+      activeDepts,
+      onboardingSteps,
+      onboardingStep,
+      standards,
+      documents,
+      audits,
+      capaItems,
+      incidents,
+      licenses,
+      tasks,
+      auditLogs,
+      qualityIndicators,
+      teamMembers,
+      aiSettings,
+      aiMemory,
+      complianceFlows,
+      committees,
+      trainings,
+      risks
+    };
+  }, [
+    hospitalName, hospitalBeds, hospitalTier, activeDepts,
+    onboardingSteps, onboardingStep, standards, documents,
+    audits, capaItems, incidents, licenses, tasks,
+    auditLogs, qualityIndicators, teamMembers, aiSettings,
+    aiMemory, complianceFlows, committees, trainings, risks
+  ]);
+
+  const restoreBackupPayload = useCallback((payload) => {
+    if (!payload || typeof payload !== 'object') {
+      throw new Error("Invalid backup payload format.");
+    }
+    
+    if (payload.standards) setStandards(payload.standards);
+    if (payload.documents) setDocuments(payload.documents);
+    if (payload.audits) setAudits(payload.audits);
+    if (payload.capaItems) setCapaItems(payload.capaItems);
+    if (payload.incidents) setIncidents(payload.incidents);
+    if (payload.licenses) setLicenses(payload.licenses);
+    if (payload.tasks) setTasks(payload.tasks);
+    if (payload.auditLogs) setAuditLogs(payload.auditLogs);
+    if (payload.qualityIndicators) setQualityIndicators(payload.qualityIndicators);
+    if (payload.teamMembers) setTeamMembers(payload.teamMembers);
+    if (payload.complianceFlows) setComplianceFlows(payload.complianceFlows);
+    if (payload.committees) setCommittees(payload.committees);
+    if (payload.trainings) setTrainings(payload.trainings);
+    if (payload.risks) setRisks(payload.risks);
+    
+    if (payload.hospitalName) setHospitalName(payload.hospitalName);
+    if (payload.hospitalBeds) setHospitalBeds(String(payload.hospitalBeds));
+    if (payload.hospitalTier) setHospitalTier(payload.hospitalTier);
+    if (payload.activeDepts) setActiveDepts(payload.activeDepts);
+    if (payload.onboardingSteps) setOnboardingSteps(payload.onboardingSteps);
+    if (payload.onboardingStep) setOnboardingStep(Number(payload.onboardingStep || 1));
+    
+    logActivity("Restored database from manual backup file.");
+  }, [logActivity]);
+
+  const downloadBackupFile = useCallback(() => {
+    const payload = compileBackupPayload();
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(payload, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    const cleanHospName = hospitalName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const dateStr = new Date().toISOString().slice(0, 10);
+    downloadAnchor.setAttribute("download", `vaidyaq_backup_${cleanHospName}_${dateStr}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    logActivity("Downloaded manual compliance data backup.");
+  }, [compileBackupPayload, hospitalName, logActivity]);
+
+  const triggerManualBackup = useCallback(async () => {
+    try {
+      const payload = compileBackupPayload();
+      const timestamp = new Date().toISOString();
+      
+      // Save locally
+      const historyKey = `${activePrefix}qn_backup_history`;
+      const historyItem = {
+        timestamp,
+        type: "Manual Export",
+        data: payload
+      };
+      
+      const newHistory = [historyItem, ...backupHistory].slice(0, 5);
+      localStorage.setItem(historyKey, JSON.stringify(newHistory));
+      setBackupHistory(newHistory);
+
+      // Trigger file download
+      downloadBackupFile();
+
+      // Cloud upload attempt if Firestore is configured
+      if (currentUser && isConfigured) {
+        const activeEmail = currentUser.parentEmail || currentUser.email;
+        const hospitalId = activeHospitalId || `hosp-${activeEmail.replace(/[^a-zA-Z0-9]/g, '-')}`;
+        await createDocument(hospitalId, 'backups', {
+          timestamp,
+          type: 'Manual Export',
+          payloadJson: JSON.stringify(payload)
+        });
+        logActivity("Synced manual backup to cloud vault.");
+      }
+      
+      alert("Backup completed successfully! Download initiated.");
+    } catch (e) {
+      console.error("Manual backup failed:", e);
+      alert(`Backup failed: ${e.message}`);
+    }
+  }, [compileBackupPayload, backupHistory, downloadBackupFile, currentUser, activeHospitalId, logActivity, activePrefix]);
+
+  // ── AUTO BACKUP 24H SYNC EFFECT ──
+  useEffect(() => {
+    if (currentUser && activePrefix) {
+      const lastBackupKey = `${activePrefix}qn_last_backup_timestamp`;
+      const lastBackup = localStorage.getItem(lastBackupKey);
+      const now = Date.now();
+      const oneDayInMs = 24 * 60 * 60 * 1000;
+      
+      if (!lastBackup || (now - Number(lastBackup) > oneDayInMs)) {
+        // Run auto backup after 3 seconds startup buffer
+        const timer = setTimeout(async () => {
+          try {
+            const payload = compileBackupPayload();
+            const timestamp = payload.timestamp;
+
+            // 1. Local history save
+            const historyKey = `${activePrefix}qn_backup_history`;
+            const currentLocalHistory = JSON.parse(localStorage.getItem(historyKey) || '[]');
+            const historyItem = {
+              timestamp,
+              type: "Auto 24h Sync",
+              data: payload
+            };
+            const updatedHistory = [historyItem, ...currentLocalHistory].slice(0, 5);
+            localStorage.setItem(historyKey, JSON.stringify(updatedHistory));
+            setBackupHistory(updatedHistory);
+
+            // 2. Cloud sync if online
+            if (isConfigured) {
+              const activeEmail = currentUser.parentEmail || currentUser.email;
+              const hospitalId = activeHospitalId || `hosp-${activeEmail.replace(/[^a-zA-Z0-9]/g, '-')}`;
+              await createDocument(hospitalId, 'backups', {
+                timestamp,
+                type: 'Auto 24h Sync',
+                payloadJson: JSON.stringify(payload)
+              });
+              logActivity("Completed automatic 24-hour backup sync to cloud vault.");
+            }
+            
+            localStorage.setItem(lastBackupKey, String(now));
+            logActivity("Created automatic 24-hour backup snapshot in browser memory.");
+          } catch (e) {
+            console.error("Auto backup failed:", e);
+          }
+        }, 3000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [currentUser, activePrefix, compileBackupPayload, activeHospitalId, logActivity]);
+
   const rawScore = totalStandardsCount > 0 ? (currentEarnedScore / maxPossibleScore) * 100 : 0;
   const readinessScore = Math.round(rawScore * 10) / 10;
 
@@ -3206,7 +3392,12 @@ C. Verification: Disposals require dual signatures (Pharmacist + Quality Head) b
       addTaskComment,
       addTaskActivity,
       sha256Sync,
-      verifyPassword
+      verifyPassword,
+      // Backup system exports
+      backupHistory,
+      downloadBackupFile,
+      restoreBackupPayload,
+      triggerManualBackup
     }}>
       {children}
     </QualiNABHContext.Provider>
