@@ -19,17 +19,31 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/hospitals/$(hospitalId)/users/$(request.auth.uid)).data.role;
     }
 
-    // Helper: checks if user is an authorized admin
-    function isAdmin(hospitalId) {
-      return isAuthenticated() && 
-        isMemberOf(hospitalId) && 
-        (getUserRole(hospitalId) == 'Super Admin' || getUserRole(hospitalId) == 'Quality Head' || getUserRole(hospitalId) == 'Hospital Admin');
+    // Helper: checks if user is an authorized admin or manager
+    function isSuperAdmin(hospitalId) {
+      return isAuthenticated() && isMemberOf(hospitalId) && 
+        (getUserRole(hospitalId) == 'Super Admin' || getUserRole(hospitalId) == 'super_admin');
+    }
+
+    function isHospitalAdmin(hospitalId) {
+      return isAuthenticated() && isMemberOf(hospitalId) && 
+        (isSuperAdmin(hospitalId) || getUserRole(hospitalId) == 'Hospital Admin' || getUserRole(hospitalId) == 'hospital_admin' || getUserRole(hospitalId) == 'Quality Head');
+    }
+
+    function isQualityManager(hospitalId) {
+      return isAuthenticated() && isMemberOf(hospitalId) && 
+        (isHospitalAdmin(hospitalId) || getUserRole(hospitalId) == 'Quality Manager' || getUserRole(hospitalId) == 'quality_manager' || getUserRole(hospitalId) == 'Department Head');
+    }
+
+    function isAuditor(hospitalId) {
+      return isAuthenticated() && isMemberOf(hospitalId) && 
+        (getUserRole(hospitalId) == 'Auditor' || getUserRole(hospitalId) == 'auditor' || getUserRole(hospitalId) == 'Quality Officer');
     }
 
     // AI Settings Collection: isolated by hospitalId, writeable only by admins
     match /ai_settings/{settingId} {
       allow read: if isAuthenticated() && isMemberOf(resource.data.hospitalId);
-      allow create, update: if isAuthenticated() && isAdmin(request.resource.data.hospitalId);
+      allow create, update: if isAuthenticated() && isHospitalAdmin(request.resource.data.hospitalId);
       allow delete: if false; // Settings should never be deleted
     }
 
@@ -41,10 +55,10 @@ service cloud.firestore {
     // AI Outputs (Drafts): readable and writeable by members of the tenant hospital
     match /ai_outputs/{outputId} {
       allow read: if isAuthenticated() && isMemberOf(resource.data.hospitalId);
-      allow create: if isAuthenticated() && isMemberOf(request.resource.data.hospitalId);
+      allow create: if isAuthenticated() && (isQualityManager(request.resource.data.hospitalId) || isAuditor(request.resource.data.hospitalId));
       allow update: if isAuthenticated() && isMemberOf(resource.data.hospitalId) && 
                     (request.resource.data.status in ['draft', 'under_review', 'approved', 'rejected']);
-      allow delete: if isAuthenticated() && isAdmin(resource.data.hospitalId);
+      allow delete: if isAuthenticated() && isHospitalAdmin(request.resource.data.hospitalId);
     }
 
     // AI Memory: tenant-isolated. Custom scopes restrict reading based on allowed roles/users
@@ -52,38 +66,82 @@ service cloud.firestore {
       allow read: if isAuthenticated() && isMemberOf(resource.data.hospitalId) &&
                   (resource.data.allowedRoles.size() == 0 || getUserRole(resource.data.hospitalId) in resource.data.allowedRoles) &&
                   (resource.data.allowedUserIds.size() == 0 || request.auth.uid in resource.data.allowedUserIds);
-      allow write: if isAuthenticated() && isAdmin(request.resource.data.hospitalId);
+      allow write: if isAuthenticated() && isHospitalAdmin(request.resource.data.hospitalId);
     }
 
     // AI Usage Logs & Safety Logs: writeable by system, readable by tenant admins only
     match /ai_usage_logs/{logId} {
-      allow read: if isAuthenticated() && isAdmin(resource.data.hospitalId);
+      allow read: if isAuthenticated() && isHospitalAdmin(resource.data.hospitalId);
       allow create: if isAuthenticated() && isMemberOf(request.resource.data.hospitalId);
-      allow update, delete: if false; // Append-only audit logs
+      allow update, delete: if false; // Immutable append-only audit logs
     }
 
     match /ai_safety_logs/{logId} {
-      allow read: if isAuthenticated() && isAdmin(resource.data.hospitalId);
+      allow read: if isAuthenticated() && isHospitalAdmin(resource.data.hospitalId);
       allow create: if isAuthenticated() && isMemberOf(request.resource.data.hospitalId);
-      allow update, delete: if false; // Append-only audit logs
+      allow update, delete: if false; // Immutable append-only audit logs
     }
     
     // AI Conversations: accessible only by the conversation creator and tenant admins
     match /ai_conversations/{conversationId} {
       allow read, write: if isAuthenticated() && isMemberOf(resource.data.hospitalId) && 
-                         (resource.data.userId == request.auth.uid || isAdmin(resource.data.hospitalId));
+                         (resource.data.userId == request.auth.uid || isHospitalAdmin(resource.data.hospitalId));
     }
 
     // Hospital Collection & Subcollections (patients, tasks, compliance_flows, audit_logs, quality_indicators, etc.)
     // Tenant Isolation: users can only read/write documents belonging to their own hospitalId
     match /hospitals/{hospitalId} {
       allow read: if isAuthenticated() && isMemberOf(hospitalId);
-      allow write: if isAuthenticated() && isMemberOf(hospitalId);
-      
+      allow write: if isAuthenticated() && isHospitalAdmin(hospitalId);
+
+      // System Immutable Audit Trail: append-only, updates and deletes blocked for all roles
+      match /audit_logs/{logId} {
+        allow read: if isAuthenticated() && isHospitalAdmin(hospitalId);
+        allow create: if isAuthenticated() && isMemberOf(hospitalId);
+        allow update, delete: if false; // Immutable - cannot be bypassed or edited by normal app roles
+      }
+
+      // Sensitive Administrative Subcollections (Licenses, Settings, Users, Members)
+      match /users/{userId} {
+        allow read: if isAuthenticated() && isMemberOf(hospitalId);
+        allow write: if isAuthenticated() && isHospitalAdmin(hospitalId);
+      }
+
+      match /licenses/{licenseId} {
+        allow read: if isAuthenticated() && isMemberOf(hospitalId);
+        allow write: if isAuthenticated() && isHospitalAdmin(hospitalId);
+      }
+
+      // Operational Subcollections (Audits, Findings, Observations) - Auditors can log findings but cannot delete
+      match /audits/{auditId} {
+        allow read: if isAuthenticated() && isMemberOf(hospitalId);
+        allow create, update: if isAuthenticated() && (isQualityManager(hospitalId) || isAuditor(hospitalId));
+        allow delete: if isAuthenticated() && isHospitalAdmin(hospitalId);
+      }
+
+      match /capas/{capaId} {
+        allow read: if isAuthenticated() && isMemberOf(hospitalId);
+        allow create, update: if isAuthenticated() && (isQualityManager(hospitalId) || isAuditor(hospitalId));
+        allow delete: if isAuthenticated() && isHospitalAdmin(hospitalId);
+      }
+
+      match /incidents/{incidentId} {
+        allow read: if isAuthenticated() && isMemberOf(hospitalId);
+        allow create, update: if isAuthenticated() && (isQualityManager(hospitalId) || isAuditor(hospitalId));
+        allow delete: if isAuthenticated() && isHospitalAdmin(hospitalId);
+      }
+
+      // Generic Subcollections Catch-All (Default Tenant Scoped)
       match /{allSubcollections=**} {
         allow read: if isAuthenticated() && isMemberOf(hospitalId);
-        allow write: if isAuthenticated() && isMemberOf(hospitalId);
+        allow create, update: if isAuthenticated() && isMemberOf(hospitalId);
+        allow delete: if isAuthenticated() && isHospitalAdmin(hospitalId);
       }
+    }
+
+    // Root Catch-All Default Deny Rule
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

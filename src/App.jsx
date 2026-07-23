@@ -78,7 +78,7 @@ function AppContent() {
       
       // 2. Configure Razorpay Standard Checkout options
       const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TDmVwbjw7fY0Bv',
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID || '',
         amount: orderData.amount,
         currency: orderData.currency,
         name: 'VaidyaQ AI',

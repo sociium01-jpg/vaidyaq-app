@@ -1,27 +1,57 @@
 /* eslint-env node */
 const Razorpay = require('razorpay');
 
-exports.handler = async (event, context) => {
+// Simple in-memory sliding window rate limiter
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const MAX_REQUESTS_PER_WINDOW = 10;
+
+function isRateLimited(ip) {
+  const now = Date.now();
+  const userLogs = rateLimitMap.get(ip) || [];
+  const recentLogs = userLogs.filter(timestamp => now - timestamp < RATE_LIMIT_WINDOW_MS);
+  
+  if (recentLogs.length >= MAX_REQUESTS_PER_WINDOW) {
+    return true;
+  }
+  
+  recentLogs.push(now);
+  rateLimitMap.set(ip, recentLogs);
+  return false;
+}
+
+exports.handler = async (event) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'POST, OPTIONS'
   };
 
   // Handle preflight OPTIONS requests
   if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers,
-      body: ''
-    };
+    return { statusCode: 200, headers, body: '' };
   }
 
   if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) };
+  }
+
+  // 1. Rate Limiting Check
+  const clientIp = event.headers['x-forwarded-for'] || event.headers['client-ip'] || 'unknown_ip';
+  if (isRateLimited(clientIp)) {
     return {
-      statusCode: 405,
+      statusCode: 429,
+      headers: { ...headers, 'Retry-After': '60' },
+      body: JSON.stringify({ error: 'Too many requests. Rate limit exceeded. Try again in 60s.' })
+    };
+  }
+
+  // 2. Max Payload Size Check (Max 10KB)
+  if (event.body && event.body.length > 10 * 1024) {
+    return {
+      statusCode: 413,
       headers,
-      body: JSON.stringify({ error: 'Method Not Allowed' })
+      body: JSON.stringify({ error: 'Payload Too Large. Max allowed size is 10KB.' })
     };
   }
 
@@ -37,19 +67,30 @@ exports.handler = async (event, context) => {
       };
     }
 
-    const instance = new Razorpay({
-      key_id: keyId,
-      key_secret: keySecret
-    });
+    // 3. Field Allowlisting & Type Checking
+    let rawBody;
+    try {
+      rawBody = JSON.parse(event.body || '{}');
+    } catch (e) {
+      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid JSON body' }) };
+    }
 
-    const body = JSON.parse(event.body || '{}');
-    const amountInINR = Number(body.amount);
-
-    if (!amountInINR || isNaN(amountInINR)) {
+    const allowedKeys = ['amount', 'bedsCount', 'selectedCycle'];
+    const invalidKeys = Object.keys(rawBody).filter(key => !allowedKeys.includes(key));
+    if (invalidKeys.length > 0) {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Valid amount parameter is required' })
+        body: JSON.stringify({ error: `Forbidden extra fields in payload: ${invalidKeys.join(', ')}` })
+      };
+    }
+
+    const amountInINR = Number(rawBody.amount);
+    if (!amountInINR || typeof amountInINR !== 'number' || isNaN(amountInINR) || amountInINR <= 0) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ error: 'Valid positive numeric amount parameter is required' })
       };
     }
 
@@ -64,6 +105,7 @@ exports.handler = async (event, context) => {
       };
     }
 
+    const instance = new Razorpay({ key_id: keyId, key_secret: keySecret });
     const orderOptions = {
       amount: amountInPaise,
       currency: 'INR',
@@ -86,7 +128,7 @@ exports.handler = async (event, context) => {
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: error.message || 'Failed to create order' })
+      body: JSON.stringify({ error: 'Failed to process order creation' })
     };
   }
 };

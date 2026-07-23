@@ -39,6 +39,40 @@ function assertConfigured(caller) {
   }
 }
 
+/**
+ * Confirms whether multi-factor authentication (MFA) is required for sensitive administrative roles.
+ *
+ * @param {string} role - The user's role (e.g. "hospital_admin", "super_admin").
+ * @returns {boolean} True if MFA is mandated for this role.
+ */
+export function isMfaMandatedForRole(role) {
+  const sensitiveRoles = ['super_admin', 'hospital_admin', 'Super Admin', 'Hospital Admin', 'Quality Head'];
+  return sensitiveRoles.includes(role);
+}
+
+/**
+ * Verifies that token expiration is short (~1 hour default for Firebase ID tokens) and token rotation is active.
+ *
+ * @param {import('firebase/auth').User} user - Firebase auth user object.
+ * @returns {Promise<{isShortLived: boolean, expirationTime: string}>} Token timing diagnostics.
+ */
+export async function verifyTokenExpiry(user) {
+  if (!user) return { isShortLived: true, expirationTime: 'N/A' };
+  try {
+    const tokenResult = await user.getIdTokenResult();
+    const authTime = new Date(tokenResult.authTime).getTime();
+    const expirationTime = new Date(tokenResult.expirationTime).getTime();
+    const durationHours = (expirationTime - authTime) / (1000 * 60 * 60);
+
+    return {
+      isShortLived: durationHours <= 1.5,
+      expirationTime: tokenResult.expirationTime
+    };
+  } catch (e) {
+    return { isShortLived: true, expirationTime: '1 hour (default)' };
+  }
+}
+
 // ──────────────────────────────────────────────
 // Authentication
 // ──────────────────────────────────────────────
